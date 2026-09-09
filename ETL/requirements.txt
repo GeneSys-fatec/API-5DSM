@@ -1,0 +1,9 @@
+fiona>=1.9,<2.0
+geopandas>=0.14
+pyproj>=3.6
+shapely>=2.0
+psycopg2-binary>=2.9
+SQLAlchemy>=2.0,<3.0
+GeoAlchemy2>=0.14
+pandas>=2.0
+python-dotenv>=1.0
