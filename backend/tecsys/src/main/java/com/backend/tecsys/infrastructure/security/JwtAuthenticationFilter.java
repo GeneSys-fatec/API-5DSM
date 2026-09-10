@@ -16,11 +16,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Optional;
 
-/**
- * Filtro que intercepta todas as requisições para verificar o JWT
- * no header Authorization. Se o token for válido, configura o
- * SecurityContext com os dados do usuário autenticado.
- */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 

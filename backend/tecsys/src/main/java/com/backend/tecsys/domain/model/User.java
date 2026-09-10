@@ -13,5 +13,5 @@ public class User {
     private Long id;
     private String name;
     private String email;
-    private String password; // hash BCrypt
+    private String password;
 }

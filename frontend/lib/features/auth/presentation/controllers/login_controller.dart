@@ -84,12 +84,10 @@ class LoginController extends ChangeNotifier {
     }
   }
 
-  /// Verifica se já existe uma sessão ativa.
   Future<bool> checkExistingSession() async {
     return _authService.isLoggedIn();
   }
 
-  /// Faz logout limpando a sessão.
   Future<void> logout() async {
     await _authService.clearSession();
     _loginResult = null;

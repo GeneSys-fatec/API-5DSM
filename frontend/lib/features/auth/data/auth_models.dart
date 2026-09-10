@@ -1,7 +1,3 @@
-/// Models para autenticação.
-///
-/// Representam os dados retornados pela API de login.
-
 class UserData {
   final int id;
   final String name;

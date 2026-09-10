@@ -19,10 +19,6 @@ public class AuthController {
         this.authService = authService;
     }
 
-    /**
-     * POST /auth/login
-     * Recebe email e senha, retorna JWT + dados do usuário.
-     */
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
         AuthService.AuthResult result = authService.authenticate(
@@ -38,11 +34,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * GET /auth/me
-     * Retorna os dados do usuário autenticado (extraído do JWT).
-     * Protegida pelo JwtAuthenticationFilter.
-     */
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(Authentication authentication) {
         User user = (User) authentication.getPrincipal();

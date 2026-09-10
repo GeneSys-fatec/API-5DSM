@@ -4,21 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/api_config.dart';
 import 'auth_models.dart';
 
-/// Serviço isolado de autenticação.
-///
-/// Toda comunicação com a API de auth passa por esta classe.
-/// O componente de tela (LoginScreen) e o controller nunca chamam
-/// [http.post] diretamente.
-///
-/// Quando o backend mudar, a única alteração aqui é o [ApiConfig.baseUrl].
 class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'auth_user';
 
-  /// Autentica o usuário com email e senha.
-  ///
-  /// Retorna [LoginResult] em caso de sucesso.
-  /// Lança [AuthException] com mensagem amigável em caso de erro.
   Future<LoginResult> login(String email, String password) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/auth/login');
 
@@ -39,28 +28,23 @@ class AuthService {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final result = LoginResult.fromJson(data);
 
-      // Persiste token e dados do usuário
       await _saveToken(result.token);
       await _saveUser(result.user);
 
       return result;
     }
 
-    // Extrai mensagem de erro do backend
     String errorMessage = 'Erro ao realizar login.';
     try {
       final errorData = jsonDecode(response.body) as Map<String, dynamic>;
       if (errorData.containsKey('error')) {
         errorMessage = errorData['error'] as String;
       }
-    } catch (_) {
-      // Usa mensagem padrão
-    }
+    } catch (_) {}
 
     throw AuthException(errorMessage);
   }
 
-  /// Busca os dados do usuário autenticado.
   Future<UserData> getMe() async {
     final token = await getToken();
     if (token == null) {
@@ -97,13 +81,11 @@ class AuthService {
     throw AuthException('Erro ao buscar dados do usuário.');
   }
 
-  /// Retorna o token salvo, ou null se não houver sessão.
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
   }
 
-  /// Retorna os dados do usuário salvos localmente.
   Future<UserData?> getSavedUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString(_userKey);
@@ -111,20 +93,16 @@ class AuthService {
     return UserData.fromJson(jsonDecode(userJson) as Map<String, dynamic>);
   }
 
-  /// Verifica se há uma sessão ativa (token salvo).
   Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null;
   }
 
-  /// Limpa a sessão (logout).
   Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
   }
-
-  // --- Métodos privados ---
 
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -137,7 +115,6 @@ class AuthService {
   }
 }
 
-/// Exceção de autenticação com mensagem amigável para exibir na UI.
 class AuthException implements Exception {
   final String message;
   const AuthException(this.message);

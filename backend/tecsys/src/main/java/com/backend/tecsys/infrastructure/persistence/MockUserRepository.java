@@ -11,13 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Implementação mock do repositório de usuários com dados em memória.
- *
- * <p>Ativa apenas com o profile "mock". Quando MySQL estiver disponível,
- * crie uma implementação JPA de {@link IUserRepository} com {@code @Profile("prod")}
- * e troque o profile ativo em application.properties.</p>
- */
 @Repository
 @Profile("mock")
 public class MockUserRepository implements IUserRepository {
