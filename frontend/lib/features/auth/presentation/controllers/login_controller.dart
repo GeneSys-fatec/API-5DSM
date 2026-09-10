@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import '../../data/auth_service.dart';
+import '../../data/auth_models.dart';
 
 class LoginController extends ChangeNotifier {
   bool _isLoginMode = true;
   bool _isPasswordVisible = false;
   bool _isLoading = false;
   String? _errorMessage;
+  LoginResult? _loginResult;
+
+  final AuthService _authService = AuthService();
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -14,6 +19,7 @@ class LoginController extends ChangeNotifier {
   bool get isPasswordVisible => _isPasswordVisible;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  LoginResult? get loginResult => _loginResult;
 
   void setLoginMode(bool value) {
     if (_isLoginMode != value) {
@@ -60,11 +66,34 @@ class LoginController extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 1200));
+    try {
+      _loginResult = await _authService.login(email, password);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on AuthException catch (e) {
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Erro inesperado. Tente novamente.';
+      notifyListeners();
+      return false;
+    }
+  }
 
-    _isLoading = false;
+  /// Verifica se já existe uma sessão ativa.
+  Future<bool> checkExistingSession() async {
+    return _authService.isLoggedIn();
+  }
+
+  /// Faz logout limpando a sessão.
+  Future<void> logout() async {
+    await _authService.clearSession();
+    _loginResult = null;
     notifyListeners();
-    return true;
   }
 
   @override
