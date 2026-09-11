@@ -7,7 +7,8 @@ void main() {
 }
 
 class TecsysApp extends StatelessWidget {
-  const TecsysApp({super.key});
+  final bool initialLoginMode;
+  const TecsysApp({super.key, this.initialLoginMode = true});
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +16,9 @@ class TecsysApp extends StatelessWidget {
       title: 'Tecsys - Planejamento Inteligente de RF',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+      home: LoginScreen(initialLoginMode: initialLoginMode),
     );
   }
 }
+
+typedef MyApp = TecsysApp;

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../controllers/login_controller.dart';
+import '../widgets/register_view.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool initialLoginMode;
+  const LoginScreen({super.key, this.initialLoginMode = true});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -16,6 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _controller = LoginController();
+    if (!widget.initialLoginMode) {
+      _controller.setLoginMode(false);
+    }
   }
 
   @override
@@ -34,8 +39,8 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          content: Row(
-            children: const [
+          content: const Row(
+            children: [
               Icon(Icons.check_circle_outline, color: Colors.white),
               SizedBox(width: 10),
               Text(
@@ -136,9 +141,9 @@ class _LoginScreenState extends State<LoginScreen> {
         'assets/images/tecsys_logo.png',
         height: 28,
         errorBuilder: (context, error, stackTrace) {
-          return Row(
+          return const Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Icon(Icons.hub, color: Color(0xFF1E3A8A), size: 24),
               SizedBox(width: 8),
               Text(
@@ -277,69 +282,69 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 _buildTabSwitcher(),
                 const SizedBox(height: 28),
-                Text(
-                  _controller.isLoginMode ? 'Acesse a Plataforma' : 'Criar Nova Conta',
-                  style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                if (_controller.errorMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                if (_controller.isLoginMode) ...[
+                  const Text(
+                    'Acesse a Plataforma',
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _controller.errorMessage!,
-                            style: const TextStyle(
-                              color: Color(0xFFB91C1C),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                  ),
+                  const SizedBox(height: 22),
+                  if (_controller.errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _controller.errorMessage!,
+                              style: const TextStyle(
+                                color: Color(0xFFB91C1C),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildLabelWithAsterisk('E-mail'),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _controller.emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    autofillHints: const [AutofillHints.email, AutofillHints.username],
+                    style: const TextStyle(fontSize: 14, color: AppColors.textDark),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(
+                        Icons.mail_outline_rounded,
+                        color: AppColors.textLight,
+                        size: 20,
+                      ),
+                      hintText: 'nome@distribuidora.com.br',
+                      hintStyle: TextStyle(color: AppColors.textLight, fontSize: 13),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                ],
-                _buildLabelWithAsterisk('E-mail'),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _controller.emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  autofillHints: const [AutofillHints.email, AutofillHints.username],
-                  style: const TextStyle(fontSize: 14, color: AppColors.textDark),
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(
-                      Icons.mail_outline_rounded,
-                      color: AppColors.textLight,
-                      size: 20,
-                    ),
-                    hintText: 'nome@distribuidora.com.br',
-                    hintStyle: TextStyle(color: AppColors.textLight, fontSize: 13),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildLabelWithAsterisk('Senha'),
-                    if (_controller.isLoginMode)
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildLabelWithAsterisk('Senha'),
                       InkWell(
                         onTap: () {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -359,79 +364,84 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _controller.passwordController,
-                  obscureText: !_controller.isPasswordVisible,
-                  textInputAction: TextInputAction.done,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  autofillHints: const [AutofillHints.password],
-                  onFieldSubmitted: (_) => _handleSubmit(),
-                  style: const TextStyle(fontSize: 14, color: AppColors.textDark),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(
-                      Icons.lock_outline_rounded,
-                      color: AppColors.textLight,
-                      size: 20,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _controller.isPasswordVisible
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _controller.passwordController,
+                    obscureText: !_controller.isPasswordVisible,
+                    textInputAction: TextInputAction.done,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    autofillHints: const [AutofillHints.password],
+                    onFieldSubmitted: (_) => _handleSubmit(),
+                    style: const TextStyle(fontSize: 14, color: AppColors.textDark),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(
+                        Icons.lock_outline_rounded,
                         color: AppColors.textLight,
                         size: 20,
                       ),
-                      onPressed: _controller.togglePasswordVisibility,
-                    ),
-                    hintText: 'Digite sua senha',
-                    hintStyle: const TextStyle(color: AppColors.textLight, fontSize: 13),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _controller.isLoading ? null : _handleSubmit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryPurple,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _controller.isPasswordVisible
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: AppColors.textLight,
+                          size: 20,
+                        ),
+                        onPressed: _controller.togglePasswordVisibility,
                       ),
-                      elevation: 3,
-                      shadowColor: AppColors.primaryPurple.withValues(alpha: 0.4),
+                      hintText: 'Digite sua senha',
+                      hintStyle: const TextStyle(color: AppColors.textLight, fontSize: 13),
                     ),
-                    child: _controller.isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _controller.isLoginMode ? 'Acessar' : 'Cadastrar',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.arrow_forward_rounded, size: 18),
-                            ],
-                          ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _controller.isLoading ? null : _handleSubmit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryPurple,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 3,
+                        shadowColor: AppColors.primaryPurple.withValues(alpha: 0.4),
+                      ),
+                      child: _controller.isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Acessar',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(Icons.arrow_forward_rounded, size: 18),
+                              ],
+                            ),
+                    ),
+                  ),
+                ] else ...[
+                  RegisterView(
+                    aoIrParaLogin: () => _controller.setLoginMode(true),
+                  ),
+                ],
               ],
             ),
           ),
