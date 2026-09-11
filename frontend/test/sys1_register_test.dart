@@ -9,7 +9,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const TecsysApp());
+    await tester.pumpWidget(const TecsysApp(initialLoginMode: false));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Planejamento Inteligente'), findsOneWidget);
@@ -31,7 +31,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const TecsysApp());
+    await tester.pumpWidget(const TecsysApp(initialLoginMode: false));
 
     await tester.tap(find.text('Cadastrar'));
     await tester.pumpAndSettle();
@@ -58,14 +58,14 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const TecsysApp());
+    await tester.pumpWidget(const TecsysApp(initialLoginMode: false));
 
     expect(find.text('Crie sua Conta'), findsOneWidget);
 
     await tester.tap(find.text('Entrar no Sistema'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tela de Login em desenvolvimento'), findsOneWidget);
+    expect(find.text('Acesse a Plataforma'), findsOneWidget);
 
     await tester.tap(find.text('Criar Nova Conta'));
     await tester.pumpAndSettle();
@@ -79,7 +79,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const TecsysApp());
+    await tester.pumpWidget(const TecsysApp(initialLoginMode: false));
 
     final iconesOlho = find.byTooltip('Ver senha');
     expect(iconesOlho, findsNWidgets(2));

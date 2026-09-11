@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
-
-import 'auth/auth.dart';
-import 'shared/colors.dart';
+import 'core/theme/app_theme.dart';
+import 'features/auth/presentation/screens/login_screen.dart';
 
 void main() {
   runApp(const TecsysApp());
 }
 
 class TecsysApp extends StatelessWidget {
-  const TecsysApp({super.key});
+  final bool initialLoginMode;
+  const TecsysApp({super.key, this.initialLoginMode = true});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Tecsys',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Cores.roxoPrincipal),
-        useMaterial3: true,
-      ),
-      home: const AuthScreen(),
+      title: 'Tecsys - Planejamento Inteligente de RF',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      home: LoginScreen(initialLoginMode: initialLoginMode),
     );
   }
 }

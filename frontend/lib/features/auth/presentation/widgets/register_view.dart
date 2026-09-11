@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../shared/colors.dart';
+import '../../../../core/constants/app_colors.dart';
 
 class RegisterView extends StatefulWidget {
   final VoidCallback aoIrParaLogin;
@@ -84,7 +84,7 @@ class _RegisterViewState extends State<RegisterView> {
       style: TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.bold,
-        color: Cores.textoTitulo,
+        color: AppColors.textDark,
         letterSpacing: -0.5,
       ),
     );
@@ -164,7 +164,7 @@ class _RegisterViewState extends State<RegisterView> {
                 _ocultarSenha
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
-                color: Cores.textoSecundario,
+                color: AppColors.textMuted,
                 size: 20,
               ),
               onPressed: () {
@@ -211,7 +211,7 @@ class _RegisterViewState extends State<RegisterView> {
                 _ocultarConfirmarSenha
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
-                color: Cores.textoSecundario,
+                color: AppColors.textMuted,
                 size: 20,
               ),
               onPressed: () {
@@ -219,10 +219,8 @@ class _RegisterViewState extends State<RegisterView> {
                   _ocultarConfirmarSenha = !_ocultarConfirmarSenha;
                 });
               },
-              tooltip: _ocultarConfirmarSenha
-                  ? 'Ver senha'
-                  : 'Ocultar senha',
-              ),
+              tooltip: _ocultarConfirmarSenha ? 'Ver senha' : 'Ocultar senha',
+            ),
           ),
           validator: (valor) {
             if (valor == null || valor.isEmpty) {
@@ -244,7 +242,7 @@ class _RegisterViewState extends State<RegisterView> {
       child: ElevatedButton(
         onPressed: _carregando ? null : _enviarFormulario,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Cores.roxoPrincipal,
+          backgroundColor: AppColors.primaryPurple,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -260,9 +258,9 @@ class _RegisterViewState extends State<RegisterView> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Row(
+            : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Text(
                     'Cadastrar',
                     style: TextStyle(
@@ -285,12 +283,12 @@ class _RegisterViewState extends State<RegisterView> {
       children: [
         const Text(
           'Já tem uma conta? ',
-          style: TextStyle(color: Cores.textoSecundario, fontSize: 14),
+          style: TextStyle(color: AppColors.textMuted, fontSize: 14),
         ),
         TextButton(
           onPressed: widget.aoIrParaLogin,
           style: TextButton.styleFrom(
-            foregroundColor: Cores.roxoPrincipal,
+            foregroundColor: AppColors.primaryPurple,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -309,19 +307,19 @@ class _RegisterViewState extends State<RegisterView> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Cores.fundoSucesso,
+        color: AppColors.fundoSucesso,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Cores.bordaSucesso),
+        border: Border.all(color: AppColors.bordaSucesso),
       ),
-      child: Row(
-        children: const [
-          Icon(Icons.check_circle, color: Cores.verdeSucesso, size: 18),
+      child: const Row(
+        children: [
+          Icon(Icons.check_circle, color: AppColors.verdeSucesso, size: 18),
           SizedBox(width: 8),
           Expanded(
             child: Text(
               'Cadastro realizado com sucesso!',
               style: TextStyle(
-                color: Cores.textoSucesso,
+                color: AppColors.textoSucesso,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
@@ -340,7 +338,7 @@ class _RegisterViewState extends State<RegisterView> {
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Cores.textoRotulo,
+            color: AppColors.textGray,
           ),
         ),
         const SizedBox(width: 4),
@@ -349,7 +347,7 @@ class _RegisterViewState extends State<RegisterView> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: Cores.roxoPrincipal,
+            color: AppColors.primaryPurple,
           ),
         ),
       ],
@@ -363,27 +361,27 @@ class _RegisterViewState extends State<RegisterView> {
   }) {
     return InputDecoration(
       hintText: dica,
-      hintStyle: const TextStyle(color: Cores.textoPlaceholder, fontSize: 14),
+      hintStyle: const TextStyle(color: AppColors.textLight, fontSize: 14),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      prefixIcon: Icon(icone, color: Cores.textoPlaceholder, size: 19),
+      prefixIcon: Icon(icone, color: AppColors.textLight, size: 19),
       suffixIcon: sufixo,
       filled: true,
-      fillColor: Cores.fundoInput,
+      fillColor: AppColors.inputBackground,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Cores.bordaInput),
+        borderSide: const BorderSide(color: AppColors.inputBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Cores.roxoPrincipal, width: 1.5),
+        borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Cores.vermelhoErro),
+        borderSide: const BorderSide(color: AppColors.vermelhoErro),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Cores.vermelhoErro, width: 1.5),
+        borderSide: const BorderSide(color: AppColors.vermelhoErro, width: 1.5),
       ),
     );
   }
