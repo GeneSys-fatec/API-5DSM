@@ -1,41 +1,32 @@
 import 'package:flutter/material.dart';
+import '../core/constants/app_colors.dart';
 
-abstract class AppColors {
-  // Cores principais
-  static const Color roxoPrincipal = Color(0xFF6224E3);
-  static const Color roxoClaro = Color(0xFF5E22E2);
-  static const Color amarelo = Color(0xFFFFCC00);
+export '../core/constants/app_colors.dart';
 
-  // Banner lateral
-  static const Color fundoBanner = Color(0xFF1D1335);
-  static const Color cardBanner = Color(0xFF281C46);
-  static const Color bordaCardBanner = Color(0xFF3B2A63);
-  static const Color textoBanner = Color(0xFFA69CBF);
-
-  // Fundo e superficies
-  static const Color fundoTela = Color(0xFFF4F6FB);
-  static const Color branco = Colors.white;
-  static const Color fundoInput = Color(0xFFFCFDFF);
-  static const Color fundoAbas = Color(0xFFF1F3F9);
-
-  // Bordas
-  static const Color bordaCard = Color(0xFFEAECF0);
-  static const Color bordaInput = Color(0xFFE2E8F0);
-
-  // Textos
-  static const Color textoTitulo = Color(0xFF111827);
-  static const Color textoRotulo = Color(0xFF374151);
-  static const Color textoSecundario = Color(0xFF6B7280);
-  static const Color textoPlaceholder = Color(0xFF9CA3AF);
-  static const Color cinzaAzulado = Color(0xFF64748B);
-
-  // Feedback (alerta de sucesso e erro)
-  static const Color vermelhoErro = Color(0xFFEF4444);
-  static const Color verdeSucesso = Color(0xFF16A34A);
-  static const Color textoSucesso = Color(0xFF166534);
-  static const Color fundoSucesso = Color(0xFFE8F8EE);
-  static const Color bordaSucesso = Color(0xFFBBE6C5);
+abstract class AppColorsLegacy {
+  static const Color roxoPrincipal = AppColors.primaryPurple;
+  static const Color roxoClaro = AppColors.primaryPurple;
+  static const Color amarelo = AppColors.iconGold;
+  static const Color fundoBanner = AppColors.darkPurple;
+  static const Color cardBanner = AppColors.cardPurple;
+  static const Color bordaCardBanner = AppColors.borderPurple;
+  static const Color textoBanner = AppColors.textLilac;
+  static const Color fundoTela = AppColors.backgroundLight;
+  static const Color branco = AppColors.surfaceWhite;
+  static const Color fundoInput = AppColors.inputBackground;
+  static const Color fundoAbas = AppColors.pillBackground;
+  static const Color bordaCard = AppColors.inputBorder;
+  static const Color bordaInput = AppColors.inputBorder;
+  static const Color textoTitulo = AppColors.textDark;
+  static const Color textoRotulo = AppColors.textDark;
+  static const Color textoSecundario = AppColors.textMuted;
+  static const Color textoPlaceholder = AppColors.textLight;
+  static const Color cinzaAzulado = AppColors.textGray;
+  static const Color vermelhoErro = AppColors.errorRed;
+  static const Color verdeSucesso = AppColors.successGreen;
+  static const Color textoSucesso = AppColors.successText;
+  static const Color fundoSucesso = AppColors.successBackground;
+  static const Color bordaSucesso = AppColors.successBorder;
 }
 
-// Apelido simples em portugues
-typedef Cores = AppColors;
+typedef Cores = AppColorsLegacy;
