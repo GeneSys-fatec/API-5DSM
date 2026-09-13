@@ -33,18 +33,34 @@ TARGET_CRS: str = "EPSG:4326"
 SOURCE_CRS_FALLBACK: str = "EPSG:4674"
 
 # ---------------------------------------------------------------------------
-# Layers da BDGD
+# Layers relevantes da BDGD
 # ---------------------------------------------------------------------------
-# Nomes confirmados pelo DDA ANEEL (Dicionário de Dados do SIG-R / PRODIST
-# módulo 10). As feature classes dentro do .gdb são exatamente esses nomes,
-# sem prefixos ou sufixos de distribuidora.
-LAYERS: list[str] = [
-    "POSTE",   # Suporte físico de rede (poste)
-    "SUB",     # Subestação
-    "UCBT",    # Unidade Consumidora de Baixa Tensão
-    "UCMT",    # Unidade Consumidora de Média Tensão
-    "SSDMT",   # Dispositivo de seccionamento/proteção de Média Tensão
+# O desafio usa apenas consumidores, postes, subestações e segmentos de rede.
+# As demais feature classes do .gdb baixado da zona raw devem ser descartadas.
+CONSUMER_LAYERS: list[str] = [
+    "UCBT",  # Unidade Consumidora de Baixa Tensão
+    "UCMT",  # Unidade Consumidora de Média Tensão
 ]
+
+INFRASTRUCTURE_LAYERS: list[str] = [
+    "POSTE",  # Suporte físico de rede (poste)
+    "SUB",    # Subestação
+]
+
+NETWORK_SEGMENT_LAYERS: list[str] = [
+    "SSDBT",  # Segmento de Rede de Baixa Tensão
+    "SSDMT",  # Segmento de Rede de Média Tensão
+    "SSDAT",  # Segmento de Rede de Alta Tensão
+]
+
+RELEVANT_LAYERS: list[str] = [
+    *CONSUMER_LAYERS,
+    *INFRASTRUCTURE_LAYERS,
+    *NETWORK_SEGMENT_LAYERS,
+]
+
+# Mantém compatibilidade com o restante do ETL.
+LAYERS: list[str] = RELEVANT_LAYERS
 
 # ---------------------------------------------------------------------------
 # Campo chave por layer
@@ -59,11 +75,13 @@ LAYERS: list[str] = [
 # aviso e tenta o fallback "FID" (objeto interno do GDB). Se nenhum dos dois
 # existir, a layer inteira é marcada como ERRO e as demais continuam.
 KEY_COLUMN_BY_LAYER: dict[str, str] = {
-    "POSTE": "COD_ID",
-    "SUB":   "COD_ID",
     "UCBT":  "COD_ID",
     "UCMT":  "COD_ID",
+    "POSTE": "COD_ID",
+    "SUB":   "COD_ID",
+    "SSDBT": "COD_ID",
     "SSDMT": "COD_ID",
+    "SSDAT": "COD_ID",
 }
 
 # Fallback se KEY_COLUMN_BY_LAYER[layer] não existir no GeoDataFrame

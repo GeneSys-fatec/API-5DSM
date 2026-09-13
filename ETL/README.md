@@ -63,7 +63,7 @@ BDGD_DB_URL=postgresql://postgres:postgres@localhost:5432/bdgd
 | `SCHEMA` | `"bdgd"` | Schema PostgreSQL onde as tabelas serão criadas |
 | `TARGET_CRS` | `"EPSG:4326"` | CRS de destino (WGS 84) |
 | `SOURCE_CRS_FALLBACK` | `"EPSG:4674"` | SIRGAS 2000 — padrão ANEEL se o CRS não vier no GDB |
-| `LAYERS` | `["POSTE", "SUB", "UCBT", "UCMT", "SSDMT"]` | Layers a importar |
+| `LAYERS` | `["UCBT", "UCMT", "POSTE", "SUB", "SSDBT", "SSDMT", "SSDAT"]` | Layers relevantes a importar |
 | `KEY_COLUMN_BY_LAYER` | `{layer: "COD_ID"}` | Campo chave por layer (DDA ANEEL) |
 
 ---
@@ -80,8 +80,8 @@ python main.py <CAMINHO.GDB> <NOME_DISTRIBUIDORA>
 # Importação completa
 python main.py /dados/CEMIG_2023.gdb CEMIG
 
-# Apenas algumas layers
-python main.py /dados/CEMIG_2023.gdb CEMIG --layers POSTE SUB
+# Apenas algumas layers relevantes
+python main.py /dados/CEMIG_2023.gdb CEMIG --layers POSTE SUB SSDBT
 
 # Connection string diferente do .env
 python main.py /dados/CEMIG_2023.gdb CEMIG --db-url postgresql://admin:pass@db:5432/energia
@@ -95,13 +95,15 @@ python main.py /dados/CEMIG_2023.gdb CEMIG --log-level DEBUG
 ```
 LAYER      LINHAS   TEMPO(s)  STATUS
 --------------------------------------------------------------------------
-POSTE       15420       8.34  OK
-SUB            48       0.21  OK
 UCBT       230100      42.18  OK
 UCMT          893       1.05  OK
+POSTE       15420       8.34  OK
+SUB            48       0.21  OK
+SSDBT       18012       3.28  OK
 SSDMT        1204       1.73  OK
+SSDAT          31       0.09  OK
 --------------------------------------------------------------------------
-TOTAL      247665      53.51  CONCLUÍDO
+TOTAL      265708      56.88  CONCLUÍDO
 ```
 
 ---
@@ -117,6 +119,10 @@ print(fiona.listlayers("seu_arquivo.gdb"))
 
 O pipeline loga automaticamente as layers encontradas e as compara com
 `config.LAYERS` a cada execução.
+
+Somente as layers configuradas como relevantes são processadas:
+`UCBT`, `UCMT`, `POSTE`, `SUB`, `SSDBT`, `SSDMT` e `SSDAT`. Todas as demais
+layers encontradas no `.gdb` são registradas em log e descartadas.
 
 ### 2. Confirmar campo chave por layer
 
@@ -182,7 +188,9 @@ O pipeline deve reportar `ERRO` apenas na layer afetada e continuar as demais.
 | `sub` | `bdgd` | SUB |
 | `ucbt` | `bdgd` | UCBT |
 | `ucmt` | `bdgd` | UCMT |
+| `ssdbt` | `bdgd` | SSDBT |
 | `ssdmt` | `bdgd` | SSDMT |
+| `ssdat` | `bdgd` | SSDAT |
 
 Cada tabela inclui:
 - Todas as colunas originais do GDB
