@@ -154,7 +154,7 @@ def upsert_layer(
     col_names = list(sample_row.keys())
     col_list = ", ".join(col_names)
     col_list_cast = ", ".join(
-        f":{c}::geometry" if c == "geometry" else f":{c}"
+        f"CAST(:{c} AS geometry)" if c == "geometry" else f":{c}"
         for c in col_names
     )
     update_set = ", ".join(
