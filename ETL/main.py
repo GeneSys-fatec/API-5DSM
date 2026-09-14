@@ -3,12 +3,12 @@ main.py — Orquestrador do pipeline ETL da BDGD.
 
 Uso
 ---
-    python main.py <caminho.gdb> <NOME_DISTRIBUIDORA>
+    python main.py <caminho.gdb> <NOME_DISTRIBUIDORA> <REGIAO>
 
 Exemplos
 --------
-    python main.py /dados/CEMIG_2023.gdb CEMIG
-    python main.py C:/bdgd/ENEL_SP_2022.gdb ENEL_SP
+    python main.py /dados/CEMIG_2023.gdb CEMIG SUDESTE
+    python main.py C:/bdgd/ENEL_SP_2022.gdb ENEL_SP SUDESTE
 
 Critério de aceite (passos do SYS-14)
 --------------------------------------
@@ -36,6 +36,7 @@ import config
 import extract
 import transform
 import load
+import schema
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -110,6 +111,7 @@ def process_layer(
     layer_name: str,
     engine,
     dist_name: str,
+    regiao: str,
 ) -> LayerResult:
     """Executa Extract → Transform → Load para uma layer.
 
@@ -138,18 +140,19 @@ def process_layer(
             source_crs_fallback=config.SOURCE_CRS_FALLBACK,
         )
 
-        # Acrescenta nome da distribuidora como coluna de rastreabilidade
+        # Acrescenta colunas normalizadas de rastreabilidade
+        gdf["tipo_ativo"] = layer_name
         gdf["distribuidora"] = dist_name
+        gdf["regiao"] = regiao
 
         # ---- Load -----------------------------------------------------------
-        table_name = layer_name.lower()
-        logger.info("[%s] Carregando em '%s.%s' …", layer_name, config.SCHEMA, table_name)
+        logger.info("[%s] Carregando em '%s' …", layer_name, config.SCHEMA)
         rows = load.upsert_layer(
             gdf,
-            table_name=table_name,
+            layer_name=layer_name,
             key_col=key_col,
             engine=engine,
-            schema=config.SCHEMA,
+            pg_schema=config.SCHEMA,
         )
 
         result.rows = rows
@@ -232,6 +235,11 @@ def parse_args() -> argparse.Namespace:
         help="Sigla da distribuidora (ex: CEMIG, ENEL_SP). Usada como coluna de rastreabilidade.",
     )
     parser.add_argument(
+        "regiao",
+        metavar="REGIAO",
+        help="Região associada aos ativos (ex: SUDESTE, SUL). Usada como coluna de rastreabilidade.",
+    )
+    parser.add_argument(
         "--layers",
         nargs="+",
         default=None,
@@ -297,6 +305,7 @@ def main() -> int:
     try:
         engine = load.get_engine(db_url)
         load.ensure_schema(engine, config.SCHEMA)
+        schema.ensure_all_asset_tables(engine, config.SCHEMA, layers=layers_to_run)
     except Exception as exc:
         logger.error("Falha ao conectar ao banco de dados: %s", exc)
         return 1
@@ -309,6 +318,7 @@ def main() -> int:
             layer_name=layer_name,
             engine=engine,
             dist_name=args.distribuidora,
+            regiao=args.regiao,
         )
         results.append(result)
 

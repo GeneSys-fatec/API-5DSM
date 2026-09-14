@@ -5,29 +5,30 @@ Funções públicas
 ----------------
 get_engine(db_url)                                           → sqlalchemy.Engine
 ensure_schema(engine, schema)                               → None
-upsert_layer(gdf, table_name, key_col, engine, schema)      → int
+upsert_layer(gdf, layer_name, key_col, engine, pg_schema)   → int
 
 Notas de implementação
 ----------------------
 upsert_layer
     Estratégia de upsert:
-    1. Cria a tabela no PostGIS via GeoDataFrame.to_postgis() com
-       if_exists="append" + tabela já criada.
-       Porém, o to_postgis do geopandas não suporta ON CONFLICT nativamente,
-       então o upsert é implementado via uma tabela temporária + MERGE/INSERT
-       SELECT com ON CONFLICT DO UPDATE usando SQLAlchemy Core.
+    1. A estrutura da tabela destino (colunas, tipos, índices) é definida e
+       garantida por `schema.py` (Schema_Manager), não inferida a partir do
+       GeoDataFrame de origem.
+    2. Como o to_postgis do geopandas não suporta ON CONFLICT nativamente,
+       o upsert é implementado via INSERT ... ON CONFLICT DO UPDATE usando
+       SQLAlchemy Core.
 
     Fluxo detalhado:
-    a. Cria tabela destino (se não existir) usando to_postgis(..., if_exists="fail")
-       dentro de um try/except — se já existir, ignora.
-    b. Garante índice UNIQUE em asset_key e índice GiST em geometry.
-    c. Para cada batch do GeoDataFrame, insere em tabela temporária e executa:
-         INSERT INTO destino SELECT ... FROM tmp
+    a. Obtém o `AssetTableSpec` da layer via `schema.get_spec` e garante a
+       estrutura da tabela destino via `schema.ensure_asset_table`.
+    b. Projeta o GeoDataFrame recebido para exatamente `schema.FIXED_COLUMNS`,
+       descartando quaisquer colunas extras vindas de `transform.py`.
+    c. Para cada batch do GeoDataFrame, executa:
+         INSERT INTO destino (...) VALUES (...)
          ON CONFLICT (asset_key) DO UPDATE SET <todas as colunas não-chave>
     d. Retorna o número de linhas processadas.
 
 Alternativa mais simples (usada aqui para evitar dependência de psycopg2 extras):
-    - Cria tabela destino se não existir (estrutura vinda do primeiro to_postgis)
     - Usa INSERT ... ON CONFLICT (asset_key) DO UPDATE via text() do SQLAlchemy
     - Isso é compatível com PostgreSQL >= 9.5
 """
@@ -39,6 +40,8 @@ import re
 import geopandas as gpd
 import sqlalchemy as sa
 from sqlalchemy import text
+
+import schema
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +66,26 @@ def get_engine(db_url: str) -> sa.Engine:
     -------
     sqlalchemy.Engine
     """
-    engine = sa.create_engine(db_url, pool_pre_ping=True)
-    # Valida a conexão imediatamente
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    logger.info("Conexão ao banco estabelecida: %s", _mask_password(db_url))
-    return engine
+    try:
+        engine = sa.create_engine(
+            db_url,
+            pool_pre_ping=True,
+            connect_args={"client_encoding": "utf8"},
+        )
+        # Valida a conexão imediatamente
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Conexão ao banco estabelecida: %s", _mask_password(db_url))
+        return engine
+    except Exception as exc:
+        # Trata erros de codificação quando o Postgres no Windows responde mensagens de erro em CP1252 (ex: "autenticação falhou")
+        if isinstance(exc, UnicodeDecodeError) or "codec can't decode" in str(exc):
+            raw_bytes = getattr(exc, "object", None)
+            if isinstance(raw_bytes, bytes):
+                decoded_msg = raw_bytes.decode("latin1", errors="replace").strip()
+                raise RuntimeError(f"Erro de conexão com PostgreSQL: {decoded_msg}") from exc
+        raise
+
 
 
 def _mask_password(url: str) -> str:
@@ -88,79 +105,15 @@ def ensure_schema(engine: sa.Engine, schema: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Criação de tabela e índices
-# ---------------------------------------------------------------------------
-
-def _ensure_table(
-    gdf: gpd.GeoDataFrame,
-    table_name: str,
-    schema: str,
-    engine: sa.Engine,
-    srid: int = 4326,
-) -> None:
-    """Cria a tabela no PostGIS se não existir, usando o GDF como modelo."""
-    inspector = sa.inspect(engine)
-    if inspector.has_table(table_name, schema=schema):
-        logger.debug("Tabela '%s.%s' já existe.", schema, table_name)
-        return
-
-    logger.info("Criando tabela '%s.%s' …", schema, table_name)
-    # to_postgis cria a tabela com o schema correto; usamos if_exists="fail"
-    # para garantir que não sobrescrevemos dados acidentalmente.
-    # Passamos apenas as primeiras linhas para não carregar tudo duas vezes.
-    sample = gdf.head(1).copy()
-    sample.to_postgis(
-        table_name,
-        engine,
-        schema=schema,
-        if_exists="fail",
-        index=False,
-    )
-    # Apaga as linhas de amostra — serão inseridas pelo upsert
-    with engine.begin() as conn:
-        conn.execute(text(f"DELETE FROM {schema}.{table_name}"))
-
-    _ensure_indexes(engine, schema, table_name, srid)
-
-
-def _ensure_indexes(
-    engine: sa.Engine,
-    schema: str,
-    table_name: str,
-    srid: int,
-) -> None:
-    """Garante índice UNIQUE em asset_key e índice GiST em geometry."""
-    with engine.begin() as conn:
-        # UNIQUE em asset_key — usamos CREATE UNIQUE INDEX (suportado pelo
-        # PostgreSQL >= 8.x) em vez de ALTER TABLE ADD CONSTRAINT IF NOT EXISTS
-        # (que não existe para constraints no Postgres).
-        conn.execute(text(f"""
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_{table_name}_asset_key
-            ON {schema}.{table_name} (asset_key)
-        """))
-
-        # Índice GiST para queries espaciais
-        conn.execute(text(f"""
-            CREATE INDEX IF NOT EXISTS idx_{table_name}_geometry
-            ON {schema}.{table_name}
-            USING GIST (geometry)
-        """))
-    logger.info(
-        "Índices UNIQUE(asset_key) e GiST(geometry) garantidos em '%s.%s'.",
-        schema, table_name,
-    )
-
-
-# ---------------------------------------------------------------------------
 # Upsert
 # ---------------------------------------------------------------------------
 
 def upsert_layer(
     gdf: gpd.GeoDataFrame,
-    table_name: str,
+    layer_name: str,
     key_col: str,
     engine: sa.Engine,
-    schema: str,
+    pg_schema: str,
 ) -> int:
     """Faz upsert idempotente do GeoDataFrame na tabela PostGIS.
 
@@ -171,14 +124,16 @@ def upsert_layer(
     Parameters
     ----------
     gdf:
-        GeoDataFrame transformado (já com coluna asset_key).
-    table_name:
-        Nome da tabela destino (sem schema).
+        GeoDataFrame transformado (já com as colunas normalizadas, incluindo
+        asset_key). Colunas fora de `schema.FIXED_COLUMNS` são descartadas.
+    layer_name:
+        Nome da Layer (ex. "POSTE") — usado para obter o `AssetTableSpec` via
+        `schema.get_spec` e derivar o nome real da tabela destino.
     key_col:
         Coluna chave original (ex. "COD_ID") — usada apenas para logging.
     engine:
         Engine SQLAlchemy conectada ao banco.
-    schema:
+    pg_schema:
         Nome do schema no banco (ex. "bdgd").
 
     Returns
@@ -187,14 +142,19 @@ def upsert_layer(
         Número de feições processadas (inseridas + atualizadas).
     """
     if gdf.empty:
-        logger.warning("GeoDataFrame vazio para '%s' — nada a carregar.", table_name)
+        logger.warning("GeoDataFrame vazio para '%s' — nada a carregar.", layer_name)
         return 0
 
-    # 1. Garante que a tabela existe com a estrutura correta
-    _ensure_table(gdf, table_name, schema, engine)
+    # 1. Obtém a spec da layer e garante que a tabela existe com a estrutura correta
+    spec = schema.get_spec(layer_name)
+    schema.ensure_asset_table(engine, layer_name, pg_schema)
+    table_name = spec.table_name
 
-    # 2. Converte geometria para WKT + SRID para compatibilidade com psycopg2
-    gdf = gdf.copy()
+    # 2. Projeta o GeoDataFrame para exatamente as colunas normalizadas fixas,
+    #    descartando quaisquer colunas extras vindas de transform.py
+    gdf = gdf[list(schema.FIXED_COLUMNS)].copy()
+
+    # 3. Converte geometria para WKT + SRID para compatibilidade com psycopg2
     srid = 4326  # TARGET_CRS já foi aplicado pelo transform.py
     gdf["geometry"] = gdf["geometry"].apply(
         lambda geom: f"SRID={srid};{geom.wkt}" if geom is not None else None
@@ -217,7 +177,7 @@ def upsert_layer(
         if c != "asset_key"
     )
     sql = text(f"""
-        INSERT INTO {schema}.{table_name} ({col_list})
+        INSERT INTO {pg_schema}.{table_name} ({col_list})
         VALUES ({col_list_cast})
         ON CONFLICT (asset_key)
         DO UPDATE SET {update_set}
@@ -238,6 +198,6 @@ def upsert_layer(
 
     logger.info(
         "upsert_layer: %d feições processadas em '%s.%s'.",
-        total_processed, schema, table_name,
+        total_processed, pg_schema, table_name,
     )
     return total_processed

@@ -12,8 +12,10 @@ ETL/
 ├── config.py        # Configurações centralizadas (DB, CRS, layers, campos chave)
 ├── extract.py       # Leitura do .gdb com fiona/geopandas
 ├── transform.py     # Reprojeção, correção de geometria, deduplicação, chave estável
+├── schema.py        # Define e cria as tabelas (DDL) de cada tipo de ativo no PostGIS
 ├── load.py          # Upsert PostGIS com ON CONFLICT + índice GiST
 ├── main.py          # Orquestrador: loop por layer com resiliência a falhas
+├── tests/           # Testes automatizados (pytest)
 └── requirements.txt # Dependências Python
 ```
 
@@ -71,23 +73,23 @@ BDGD_DB_URL=postgresql://postgres:postgres@localhost:5432/bdgd
 ## Uso
 
 ```bash
-python main.py <CAMINHO.GDB> <NOME_DISTRIBUIDORA>
+python main.py <CAMINHO.GDB> <NOME_DISTRIBUIDORA> <REGIAO>
 ```
 
 ### Exemplos
 
 ```bash
 # Importação completa
-python main.py /dados/CEMIG_2023.gdb CEMIG
+python main.py /dados/CEMIG_2023.gdb CEMIG SUDESTE
 
-# Apenas algumas layers relevantes
-python main.py /dados/CEMIG_2023.gdb CEMIG --layers POSTE SUB SSDBT
+# Apenas algumas layers
+python main.py /dados/CEMIG_2023.gdb CEMIG SUDESTE --layers POSTE SUB
 
 # Connection string diferente do .env
-python main.py /dados/CEMIG_2023.gdb CEMIG --db-url postgresql://admin:pass@db:5432/energia
+python main.py /dados/CEMIG_2023.gdb CEMIG SUDESTE --db-url postgresql://admin:pass@db:5432/energia
 
 # Log mais detalhado
-python main.py /dados/CEMIG_2023.gdb CEMIG --log-level DEBUG
+python main.py /dados/CEMIG_2023.gdb CEMIG SUDESTE --log-level DEBUG
 ```
 
 ### Saída esperada
@@ -145,7 +147,9 @@ aviso explícito no log. Para usar outro CRS de origem, altere
 
 ### 4. Tabelas criadas com índice GiST
 
-Após a primeira execução, verifique no psql:
+A estrutura de cada tabela (colunas, índices, constraints) é definida em
+`schema.py` e aplicada automaticamente antes da carga — não é inferida a
+partir do arquivo `.gdb`. Após a primeira execução, verifique no psql:
 
 ```sql
 \d bdgd.poste
@@ -155,8 +159,8 @@ Após a primeira execução, verifique no psql:
 ### 5. Idempotência (segunda rodada não duplica)
 
 ```bash
-python main.py seu.gdb DIST   # 1ª execução
-python main.py seu.gdb DIST   # 2ª execução — mesma contagem de linhas
+python main.py seu.gdb DIST REGIAO   # 1ª execução
+python main.py seu.gdb DIST REGIAO   # 2ª execução — mesma contagem de linhas
 
 # Verificar no banco:
 # SELECT count(*) FROM bdgd.poste;  -- deve ser igual nas duas rodadas
@@ -192,11 +196,34 @@ O pipeline deve reportar `ERRO` apenas na layer afetada e continuar as demais.
 | `ssdmt` | `bdgd` | SSDMT |
 | `ssdat` | `bdgd` | SSDAT |
 
-Cada tabela inclui:
-- Todas as colunas originais do GDB
-- `geometry` (GEOMETRY, SRID=4326)
-- `asset_key` (TEXT, UNIQUE) — chave estável `"<LAYER>::<COD_ID>"`
+Cada tabela tem sempre as mesmas colunas fixas, independentemente das
+colunas originais do `.gdb` (que são descartadas antes da carga):
+- `id` (BIGSERIAL, chave primária técnica)
+- `tipo_ativo` (TEXT) — nome da layer, ex. `"POSTE"`
 - `distribuidora` (TEXT) — nome passado na linha de comando
+- `regiao` (TEXT) — região passada na linha de comando
+- `asset_key` (TEXT, índice único) — chave estável `"<LAYER>::<COD_ID>"`, usada no upsert
+- `geometry` (GEOMETRY, SRID=4326, índice GiST) — `Point` para a maioria das layers;
+  `sub` aceita ponto, polígono ou multipolígono, com um `CHECK` no banco
+
+---
+
+## Testes automatizados
+
+O projeto usa `pytest`. Testes unitários rodam sem banco de dados; testes de
+integração precisam de um Postgres/PostGIS acessível.
+
+```bash
+# Só os testes unitários (sem banco)
+python -m pytest tests/ -v
+
+# Testes completos, incluindo integração, usando um banco descartável no Docker
+docker compose -f docker-compose.test.yml up -d
+$env:BDGD_DB_URL = "postgresql://bdgd_test:bdgd_test@localhost:55432/bdgd_test"  # PowerShell
+# export BDGD_DB_URL="postgresql://bdgd_test:bdgd_test@localhost:55432/bdgd_test"  # bash
+python -m pytest tests/ -v
+docker compose -f docker-compose.test.yml down -v
+```
 
 ---
 
