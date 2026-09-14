@@ -3,11 +3,11 @@ transform.py — Transformações geoespaciais sobre os GeoDataFrames da BDGD.
 
 Funções públicas
 ----------------
-reproject(gdf, target_crs, source_crs_fallback) → GeoDataFrame
-fix_geometry(gdf)                                → GeoDataFrame
-deduplicate(gdf, key_col)                        → GeoDataFrame
-add_stable_key(gdf, layer_name, key_col)         → GeoDataFrame
-prepare_layer(gdf, layer_name, key_col)          → GeoDataFrame   [pipeline completo]
+reproject(gdf, target_crs, source_crs_fallback)     → GeoDataFrame
+fix_geometry(gdf)                                    → GeoDataFrame
+deduplicate(gdf, key_col)                            → GeoDataFrame
+add_stable_key(gdf, layer_name, dist_name, key_col)  → GeoDataFrame
+prepare_layer(gdf, layer_name, dist_name, key_col)   → GeoDataFrame   [pipeline completo]
 
 Notas de implementação
 ----------------------
@@ -29,7 +29,12 @@ deduplicate
       para main.py, que captura por layer).
 
 add_stable_key
-    - Cria a coluna `asset_key` no formato "<LAYER>::<COD_ID>".
+    - Cria a coluna `asset_key` no formato "<LAYER>::<DISTRIBUIDORA>::<COD_ID>".
+    - A distribuidora entra na chave porque o COD_ID só é único DENTRO de
+      cada distribuidora — duas distribuidoras diferentes podem publicar o
+      mesmo COD_ID para ativos físicos completamente distintos. Sem a
+      distribuidora na chave, o upsert (ON CONFLICT) trataria esses dois
+      ativos como o mesmo registro, sobrescrevendo um com o outro.
     - Essa chave é o identificador usado na cláusula ON CONFLICT do upsert.
 """
 from __future__ import annotations
@@ -184,9 +189,17 @@ def deduplicate(gdf: gpd.GeoDataFrame, key_col: str) -> gpd.GeoDataFrame:
 def add_stable_key(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
+    dist_name: str,
     key_col: str,
 ) -> gpd.GeoDataFrame:
-    """Adiciona a coluna `asset_key` com formato "<LAYER>::<COD_ID>".
+    """Adiciona a coluna `asset_key` com formato "<LAYER>::<DISTRIBUIDORA>::<COD_ID>".
+
+    A distribuidora entra na chave porque o COD_ID só é garantidamente único
+    DENTRO de cada distribuidora — duas distribuidoras diferentes podem gerar
+    o mesmo COD_ID para ativos físicos completamente distintos (ex.: um poste
+    da CEMIG e um poste da ENEL_SP, ambos com COD_ID "123"). Sem a
+    distribuidora na chave, o upsert (ON CONFLICT) trataria os dois como o
+    mesmo registro, e o segundo import sobrescreveria o primeiro.
 
     Essa chave é usada na cláusula ON CONFLICT do upsert no PostGIS.
 
@@ -194,6 +207,8 @@ def add_stable_key(
     ----------
     layer_name:
         Nome da layer (ex. "POSTE").
+    dist_name:
+        Nome/sigla da distribuidora de origem (ex. "CEMIG", "ENEL_SP").
     key_col:
         Nome da coluna identificadora no GeoDataFrame (ex. "COD_ID").
 
@@ -208,7 +223,7 @@ def add_stable_key(
         )
 
     gdf = gdf.copy()
-    gdf["asset_key"] = layer_name + "::" + gdf[key_col].astype(str)
+    gdf["asset_key"] = layer_name + "::" + dist_name + "::" + gdf[key_col].astype(str)
     logger.debug("asset_key gerado. Exemplo: %s", gdf["asset_key"].iloc[0] if len(gdf) else "(vazio)")
     return gdf
 
@@ -220,6 +235,7 @@ def add_stable_key(
 def prepare_layer(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
+    dist_name: str,
     key_col: str,
     target_crs: str,
     source_crs_fallback: str,
@@ -234,6 +250,9 @@ def prepare_layer(
         GeoDataFrame cru de extract.read_layer().
     layer_name:
         Nome da layer (ex. "POSTE").
+    dist_name:
+        Nome/sigla da distribuidora de origem (ex. "CEMIG", "ENEL_SP"),
+        usada para compor a asset_key (ver add_stable_key).
     key_col:
         Campo identificador para deduplicação e chave estável.
     target_crs:
@@ -249,5 +268,5 @@ def prepare_layer(
     gdf = reproject(gdf, target_crs, source_crs_fallback)
     gdf = fix_geometry(gdf)
     gdf = deduplicate(gdf, key_col)
-    gdf = add_stable_key(gdf, layer_name, key_col)
+    gdf = add_stable_key(gdf, layer_name, dist_name, key_col)
     return gdf
