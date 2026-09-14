@@ -194,7 +194,10 @@ colunas originais do `.gdb` (que são descartadas antes da carga):
 - `tipo_ativo` (TEXT) — nome da layer, ex. `"POSTE"`
 - `distribuidora` (TEXT) — nome passado na linha de comando
 - `regiao` (TEXT) — região passada na linha de comando
-- `asset_key` (TEXT, índice único) — chave estável `"<LAYER>::<COD_ID>"`, usada no upsert
+- `asset_key` (TEXT, índice único) — chave estável `"<LAYER>::<DISTRIBUIDORA>::<COD_ID>"`,
+  usada no upsert (a distribuidora entra na chave porque o COD_ID só é único
+  dentro de cada distribuidora — sem ela, duas distribuidoras diferentes com
+  o mesmo COD_ID se sobrescreveriam)
 - `geometry` (GEOMETRY, SRID=4326, índice GiST) — `Point` para a maioria das layers;
   `sub` aceita ponto, polígono ou multipolígono, com um `CHECK` no banco
 

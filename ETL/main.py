@@ -129,10 +129,15 @@ def process_layer(
         logger.info("[%s] Campo chave: '%s'", layer_name, key_col)
 
         # ---- Transform -------------------------------------------------------
+        # dist_name é passado aqui (não só adicionado depois) porque
+        # transform.add_stable_key precisa dele para compor a asset_key
+        # ("<LAYER>::<DISTRIBUIDORA>::<COD_ID>") — sem isso, o mesmo COD_ID
+        # publicado por duas distribuidoras diferentes colidiria no upsert.
         logger.info("[%s] Transformando …", layer_name)
         gdf = transform.prepare_layer(
             gdf,
             layer_name=layer_name,
+            dist_name=dist_name,
             key_col=key_col,
             target_crs=config.TARGET_CRS,
             source_crs_fallback=config.SOURCE_CRS_FALLBACK,
