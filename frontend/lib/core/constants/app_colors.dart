@@ -23,4 +23,31 @@ class AppColors {
   static const Color inputBorder = Color(0xFFE2E8F0);
   static const Color inputBackground = Color(0xFFF9FAFC);
   static const Color linkPurple = Color(0xFF6524D4);
+
+  static const Color vermelhoErro = Color(0xFFEF4444);
+  static const Color verdeSucesso = Color(0xFF16A34A);
+  static const Color textoSucesso = Color(0xFF166534);
+  static const Color fundoSucesso = Color(0xFFE8F8EE);
+  static const Color bordaSucesso = Color(0xFFBBE6C5);
+
+  static const Color roxoPrincipal = primaryPurple;
+  static const Color roxoClaro = iconContainerPurple;
+  static const Color amarelo = iconGold;
+  static const Color fundoBanner = darkPurple;
+  static const Color cardBanner = cardPurple;
+  static const Color bordaCardBanner = borderPurple;
+  static const Color textoBanner = textLilac;
+  static const Color fundoTela = backgroundLight;
+  static const Color branco = surfaceWhite;
+  static const Color fundoInput = inputBackground;
+  static const Color fundoAbas = pillBackground;
+  static const Color bordaCard = inputBorder;
+  static const Color bordaInput = inputBorder;
+  static const Color textoTitulo = textDark;
+  static const Color textoRotulo = textGray;
+  static const Color textoSecundario = textMuted;
+  static const Color textoPlaceholder = textLight;
+  static const Color cinzaAzulado = textGray;
 }
+
+typedef Cores = AppColors;
