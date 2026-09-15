@@ -7,6 +7,7 @@ import com.backend.tecsys.presentation.dto.LoginResponse;
 import com.backend.tecsys.presentation.dto.RefreshTokenRequest;
 import com.backend.tecsys.presentation.dto.TokenRefreshResponse;
 import com.backend.tecsys.presentation.dto.UserResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +25,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthService.AuthResult result = authService.authenticate(
                 request.getEmail(),
                 request.getPassword()
@@ -42,7 +43,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<TokenRefreshResponse> refresh(@RequestBody RefreshTokenRequest request) {
+    public ResponseEntity<TokenRefreshResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         AuthService.RefreshResult result = authService.refresh(request.getRefreshToken());
 
         TokenRefreshResponse response = TokenRefreshResponse.builder()

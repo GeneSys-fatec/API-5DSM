@@ -161,4 +161,42 @@ class AuthIntegrationTest {
                         .content(objectMapper.writeValueAsString(new RefreshTokenRequest(refreshToken))))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void shouldRejectLoginWithBlankEmailOrPassword() throws Exception {
+        LoginRequest request = new LoginRequest("", "");
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fields.email").isNotEmpty())
+                .andExpect(jsonPath("$.fields.password").isNotEmpty());
+    }
+
+    @Test
+    void shouldRejectLoginWithInvalidEmailFormat() throws Exception {
+        LoginRequest request = new LoginRequest("not-an-email", "Pass123");
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fields.email").value("Formato de e-mail inválido."));
+    }
+
+    @Test
+    void shouldRejectRefreshWithBlankRefreshToken() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("");
+
+        mockMvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fields.refreshToken").value("O refresh token é obrigatório."));
+    }
 }
+
