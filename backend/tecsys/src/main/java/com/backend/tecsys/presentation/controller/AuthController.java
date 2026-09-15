@@ -4,10 +4,14 @@ import com.backend.tecsys.application.service.AuthService;
 import com.backend.tecsys.domain.model.User;
 import com.backend.tecsys.presentation.dto.LoginRequest;
 import com.backend.tecsys.presentation.dto.LoginResponse;
+import com.backend.tecsys.presentation.dto.RefreshTokenRequest;
+import com.backend.tecsys.presentation.dto.TokenRefreshResponse;
 import com.backend.tecsys.presentation.dto.UserResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -28,10 +32,41 @@ public class AuthController {
 
         LoginResponse response = LoginResponse.builder()
                 .token(result.token())
+                .refreshToken(result.refreshToken())
+                .tokenType("Bearer")
+                .expiresIn(result.expiresIn())
                 .user(UserResponse.fromUser(result.user()))
                 .build();
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenRefreshResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        AuthService.RefreshResult result = authService.refresh(request.getRefreshToken());
+
+        TokenRefreshResponse response = TokenRefreshResponse.builder()
+                .accessToken(result.accessToken())
+                .refreshToken(result.refreshToken())
+                .tokenType("Bearer")
+                .expiresIn(result.expiresIn())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(
+            @RequestBody(required = false) RefreshTokenRequest request,
+            Authentication authentication) {
+        Long userId = null;
+        if (authentication != null && authentication.getPrincipal() instanceof User user) {
+            userId = user.getId();
+        }
+        String refreshToken = request != null ? request.getRefreshToken() : null;
+        authService.logout(refreshToken, userId);
+
+        return ResponseEntity.ok(Map.of("message", "Logout realizado com sucesso"));
     }
 
     @GetMapping("/me")
