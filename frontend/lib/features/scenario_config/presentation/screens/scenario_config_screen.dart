@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
+import '../../../../widgets/common/app_scaffold.dart';
 import '../controllers/scenario_config_controller.dart';
 import '../widgets/action_footer_bar.dart';
 import '../widgets/optimization_criteria_card.dart';
@@ -37,26 +37,22 @@ class _ScenarioConfigScreenState extends State<ScenarioConfigScreen> {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        return Scaffold(
-          backgroundColor: AppColors.backgroundLight,
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1040),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      RfParametersCard(controller: _controller),
-                      const SizedBox(height: 18),
-                      OptimizationCriteriaCard(controller: _controller),
-                      const SizedBox(height: 18),
-                      ActionFooterBar(controller: _controller),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
+        return AppScaffold(
+          title: 'Configuração de Cenário de Radiofrequência',
+          currentRoute: '/scenario',
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1040),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  RfParametersCard(controller: _controller),
+                  const SizedBox(height: 18),
+                  OptimizationCriteriaCard(controller: _controller),
+                  const SizedBox(height: 18),
+                  ActionFooterBar(controller: _controller),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),

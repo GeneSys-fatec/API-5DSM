@@ -1,0 +1,40 @@
+﻿#   docker compose -f docker-compose.test.yml up -d
+#   $env:BDGD_DB_URL = "postgresql://bdgd_test:bdgd_test@localhost:55432/bdgd_test"
+#   python -m pytest tests/ -v -rs
+#
+# Para visualizar o banco com interface web (Adminer), acesse:
+#   http://localhost:8081
+#   Sistema: PostgreSQL | Servidor: postgis_test | Usuário: bdgd_test
+#   Senha: bdgd_test | Base de dados: bdgd_test
+#
+# Para derrubar os containers (e apagar os dados de teste):
+#   docker compose -f docker-compose.test.yml down -v
+
+services:
+  postgis_test:
+    image: postgis/postgis:16-3.4
+    container_name: bdgd_postgis_test
+    restart: "no"
+    environment:
+      POSTGRES_USER: bdgd_test
+      POSTGRES_PASSWORD: bdgd_test
+      POSTGRES_DB: bdgd_test
+    ports:
+      # Porta 55432 no host (não 5432) para não colidir com um Postgres
+      # local já instalado na máquina.
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bdgd_test -d bdgd_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:4
+    container_name: bdgd_adminer_test
+    restart: "no"
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgis_test:
+        condition: service_healthy
