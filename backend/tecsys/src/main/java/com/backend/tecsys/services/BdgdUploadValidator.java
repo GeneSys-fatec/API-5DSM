@@ -1,7 +1,10 @@
 package com.backend.tecsys.services;
 
+import com.backend.tecsys.config.BdgdIngestionProperties;
 import com.backend.tecsys.exception.InvalidBdgdUploadException;
 
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -10,18 +13,16 @@ import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+@Component
+@RequiredArgsConstructor
 public class BdgdUploadValidator {
-    private final long maxBytes;
-
-    public BdgdUploadValidator(long maxBytes) {
-        this.maxBytes = maxBytes;
-    }
+    private final BdgdIngestionProperties properties;
 
     public void validate(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new InvalidBdgdUploadException("O arquivo e obrigatorio");
         }
-        if (file.getSize() > maxBytes) {
+        if (file.getSize() > properties.getMaxUploadBytes()) {
             throw new InvalidBdgdUploadException("O arquivo excede o tamanho maximo permitido");
         }
         String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);

@@ -3,6 +3,7 @@ package com.backend.tecsys.repository;
 import com.backend.tecsys.exception.BdgdImportNotFoundException;
 import com.backend.tecsys.models.BdgdImportRecord;
 import com.backend.tecsys.models.BdgdImportStatus;
+import lombok.RequiredArgsConstructor;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -13,12 +14,9 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Repository
+@RequiredArgsConstructor
 public class BdgdImportRepository {
     private final JdbcTemplate jdbc;
-
-    public BdgdImportRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
 
     public void create(BdgdImportRecord record) {
         jdbc.update("INSERT INTO bdgd_imports (id, distribuidora, regiao, data_referencia, file_name, storage_key, status, error_message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",

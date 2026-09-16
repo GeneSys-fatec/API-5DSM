@@ -6,6 +6,7 @@ import com.backend.tecsys.models.BdgdImportRecord;
 import com.backend.tecsys.models.BdgdImportResponse;
 import com.backend.tecsys.models.BdgdImportStatus;
 import com.backend.tecsys.repository.BdgdImportRepository;
+import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,21 +16,13 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class BdgdIngestionService {
     private final BdgdUploadValidator validator;
     private final BdgdS3StorageService storage;
     private final BdgdImportRepository repository;
     private final BdgdEtlDispatcher dispatcher;
     private final BdgdIngestionProperties properties;
-
-    public BdgdIngestionService(BdgdIngestionProperties properties, BdgdS3StorageService storage,
-                                BdgdImportRepository repository, BdgdEtlDispatcher dispatcher) {
-        this.properties = properties;
-        this.validator = new BdgdUploadValidator(properties.getMaxUploadBytes());
-        this.storage = storage;
-        this.repository = repository;
-        this.dispatcher = dispatcher;
-    }
 
     public BdgdImportResponse ingest(MultipartFile file, String distribuidora, String regiao, LocalDate data) {
         validator.validate(file);

@@ -1,17 +1,15 @@
 package com.backend.tecsys.repository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 
 @Component
+@RequiredArgsConstructor
 public class BdgdImportTableInitializer {
     private final JdbcTemplate jdbc;
-
-    public BdgdImportTableInitializer(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
 
     @PostConstruct
     void createTable() {

@@ -13,7 +13,7 @@ public record BdgdImportResponse(
         Instant createdAt,
         String errorMessage) {
 
-    static BdgdImportResponse from(BdgdImportRecord record) {
+    public static BdgdImportResponse from(BdgdImportRecord record) {
         return new BdgdImportResponse(record.id(), record.distribuidora(), record.regiao(), record.data(),
                 record.status().name().toLowerCase(), record.createdAt(), record.errorMessage());
     }
