@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/utils/responsive.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 import 'app_footer.dart';
 import 'app_header.dart';
 import 'app_navbar.dart';
@@ -44,7 +44,7 @@ class AppScaffold extends StatelessWidget {
       drawer: isDesktopOrTablet
           ? null
           : Drawer(
-              backgroundColor: AppColors.surface,
+              backgroundColor: AppColors.surfaceWhite,
               child: SafeArea(
                 child: AppNavbar(
                   currentRoute: currentRoute,
@@ -58,7 +58,7 @@ class AppScaffold extends StatelessWidget {
             Container(
               width: 260,
               decoration: const BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.surfaceWhite,
                 border: Border(right: BorderSide(color: AppColors.border)),
               ),
               child: SafeArea(

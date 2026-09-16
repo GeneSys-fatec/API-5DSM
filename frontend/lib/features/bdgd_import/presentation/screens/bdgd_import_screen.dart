@@ -1,11 +1,11 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/utils/responsive.dart';
-import '../../widgets/common/app_scaffold.dart';
-import 'models/bdgd_base.dart';
-import 'widgets/bases_section.dart';
-import 'widgets/file_upload_dropzone.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
+import '../../../../core/widgets/app_scaffold.dart';
+import '../../models/bdgd_base.dart';
+import '../widgets/bases_section.dart';
+import '../widgets/file_upload_dropzone.dart';
 
 const List<String> kAllowedExtensions = ['zip', 'gpkg', 'json', 'geojson'];
 

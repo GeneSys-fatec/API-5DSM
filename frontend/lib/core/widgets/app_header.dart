@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/utils/responsive.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -27,7 +27,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         horizontal: Responsive.horizontalPadding(context),
       ),
       decoration: const BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surfaceWhite,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(

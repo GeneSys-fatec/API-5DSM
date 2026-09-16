@@ -1,8 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../widgets/common/dashed_border_box.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
+import '../../../../core/widgets/dashed_border_box.dart';
 
 class FileUploadDropzone extends StatelessWidget {
   final PlatformFile? selectedFile;
@@ -92,12 +92,12 @@ class FileUploadDropzone extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 16),
+                  const Icon(Icons.error_outline_rounded, color: AppColors.vermelhoErro, size: 16),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       errorMessage!,
-                      style: const TextStyle(fontSize: 12, color: AppColors.danger),
+                      style: const TextStyle(fontSize: 12, color: AppColors.vermelhoErro),
                     ),
                   ),
                 ],
@@ -131,7 +131,7 @@ class _UploadedFileTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
+        color: AppColors.backgroundLight,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.border),
       ),

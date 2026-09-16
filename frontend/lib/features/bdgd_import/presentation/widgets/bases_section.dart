@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/utils/responsive.dart';
-import '../models/bdgd_base.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/responsive.dart';
+import '../../models/bdgd_base.dart';
 import 'base_cards_list.dart';
 import 'bases_table.dart';
 

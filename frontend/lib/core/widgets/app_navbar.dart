@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../../core/theme/app_colors.dart';
 
 class NavItem {
   final String label;
@@ -74,13 +74,13 @@ class _SyncStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = connected ? AppColors.success : AppColors.danger;
+    final color = connected ? AppColors.success : AppColors.vermelhoErro;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.surfaceAlt,
+          color: AppColors.backgroundLight,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -93,12 +93,12 @@ class _SyncStatus extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                connected ? 'BDGD Sync: Conectado' : 'BDGD Sync: Offline',
+                connected ? 'BDGD Sincronizado' : 'BDGD Offline',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Text('v4.2.1', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            const Text('v4.2.1', style: TextStyle(fontSize: 11, color: Color(0xFF9A9DB3))),
           ],
         ),
       ),

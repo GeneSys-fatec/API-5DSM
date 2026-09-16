@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/formatters.dart';
-import '../models/bdgd_base.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../models/bdgd_base.dart';
 
 class BaseCardsList extends StatelessWidget {
   final List<BdgdBase> bases;
@@ -15,7 +15,7 @@ class BaseCardsList extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceAlt,
+                  color: AppColors.backgroundLight,
                   borderRadius: BorderRadius.circular(12),
                   border: Border(left: BorderSide(color: b.tagColor, width: 4)),
                 ),
@@ -36,7 +36,7 @@ class BaseCardsList extends StatelessWidget {
                         SizedBox(width: 16),
                         Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
                         SizedBox(width: 16),
-                        Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
+                        Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.vermelhoErro),
                       ],
                     ),
                   ],

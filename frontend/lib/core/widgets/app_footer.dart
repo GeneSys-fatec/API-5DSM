@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/utils/responsive.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 
 class AppFooter extends StatelessWidget {
   const AppFooter({super.key});
@@ -15,13 +15,13 @@ class AppFooter extends StatelessWidget {
         vertical: 16,
       ),
       decoration: const BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surfaceWhite,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Center(
         child: Text(
           '© $year TECSYS · Todos os direitos reservados',
-          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF9A9DB3)),
         ),
       ),
     );

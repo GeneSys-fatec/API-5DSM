@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/formatters.dart';
-import '../models/bdgd_base.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../models/bdgd_base.dart';
 
 class BasesTable extends StatelessWidget {
   final List<BdgdBase> bases;
@@ -19,7 +19,7 @@ class BasesTable extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: AppColors.surfaceAlt,
+          color: AppColors.backgroundLight,
           child: const Row(
             children: [
               Expanded(
@@ -73,7 +73,7 @@ class BasesTable extends StatelessWidget {
                         SizedBox(width: 10),
                         Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
                         SizedBox(width: 10),
-                        Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
+                        Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.vermelhoErro),
                       ],
                     ),
                   ),
