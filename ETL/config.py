@@ -20,6 +20,8 @@ DB_URL: str = os.getenv(
     "postgresql://postgres:postgres@localhost:5432/bdgd",
 )
 
+UPLOADS_DIR: str = os.getenv("BDGD_UPLOADS_DIR", "../uploads")
+
 SCHEMA: str = "bdgd"
 
 # ---------------------------------------------------------------------------

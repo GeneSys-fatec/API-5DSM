@@ -50,12 +50,14 @@ pip install -r requirements.txt
 
 ```bash
 export BDGD_DB_URL="postgresql://usuario:senha@host:5432/nome_banco"
+export BDGD_UPLOADS_DIR="../uploads"
 ```
 
 Ou crie um arquivo `.env` na pasta `ETL/`:
 
 ```ini
 BDGD_DB_URL=postgresql://postgres:postgres@localhost:5432/bdgd
+BDGD_UPLOADS_DIR=../uploads
 ```
 
 ### Ajustes em `config.py`
@@ -67,6 +69,7 @@ BDGD_DB_URL=postgresql://postgres:postgres@localhost:5432/bdgd
 | `SOURCE_CRS_FALLBACK` | `"EPSG:4674"` | SIRGAS 2000 — padrão ANEEL se o CRS não vier no GDB |
 | `LAYERS` | `["UCBT", "UCMT", "POSTE", "SUB", "SSDBT", "SSDMT", "SSDAT"]` | Layers relevantes a importar |
 | `KEY_COLUMN_BY_LAYER` | `{layer: "COD_ID"}` | Campo chave por layer (DDA ANEEL) |
+| `BDGD_UPLOADS_DIR` | `../uploads` | Pasta compartilhada onde o backend salva os arquivos enviados |
 
 ---
 

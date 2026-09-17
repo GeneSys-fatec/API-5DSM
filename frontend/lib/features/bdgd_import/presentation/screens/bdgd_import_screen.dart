@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_scaffold.dart';
+import '../../data/bdgd_import_service.dart';
 import '../../models/bdgd_base.dart';
 import '../widgets/bases_section.dart';
 import '../widgets/file_upload_dropzone.dart';
 
-const List<String> kAllowedExtensions = ['zip', 'gpkg', 'json', 'geojson'];
+const List<String> kAllowedExtensions = ['zip'];
 
 class BdgdImportScreen extends StatefulWidget {
   const BdgdImportScreen({super.key});
@@ -19,7 +20,13 @@ class BdgdImportScreen extends StatefulWidget {
 class _BdgdImportScreenState extends State<BdgdImportScreen> {
   PlatformFile? _selectedFile;
   bool _isPicking = false;
+  bool _isUploading = false;
   String? _errorMessage;
+  String? _successMessage;
+  final _distribuidoraController = TextEditingController();
+  final _regiaoController = TextEditingController();
+  final _dataController = TextEditingController();
+  final _importService = BdgdImportService();
 
   Future<void> _pickFile() async {
     setState(() {
@@ -31,7 +38,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: kAllowedExtensions,
-        withData: false,
+        withData: true,
       );
 
       if (result == null) {
@@ -40,6 +47,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
 
       setState(() {
         _selectedFile = result.files.single;
+        _successMessage = null;
       });
     } catch (e) {
       setState(() {
@@ -56,7 +64,43 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     setState(() {
       _selectedFile = null;
       _errorMessage = null;
+      _successMessage = null;
     });
+  }
+
+  Future<void> _uploadFile() async {
+    final file = _selectedFile;
+    if (file == null) return;
+    if (_distribuidoraController.text.trim().isEmpty ||
+        _regiaoController.text.trim().isEmpty ||
+        _dataController.text.trim().isEmpty) {
+      setState(() => _errorMessage = 'Preencha distribuidora, região e data.');
+      return;
+    }
+
+    setState(() {
+      _isUploading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+    try {
+      await _importService.upload(
+        fileName: file.name,
+        fileBytes: file.bytes ?? const [],
+        filePath: file.path,
+        distribuidora: _distribuidoraController.text.trim(),
+        regiao: _regiaoController.text.trim(),
+        data: _dataController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() => _successMessage = 'Arquivo enviado para a pasta uploads.');
+    } on BdgdUploadException catch (e) {
+      if (mounted) setState(() => _errorMessage = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _errorMessage = 'Falha ao enviar o arquivo.');
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
   }
 
   @override
@@ -69,6 +113,37 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
         children: [
           const _ImportTitleCard(),
           const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: _metadataField(
+                      _distribuidoraController,
+                      'Distribuidora',
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: _metadataField(_regiaoController, 'Região'),
+                  ),
+                  SizedBox(
+                    width: 180,
+                    child: _metadataField(
+                      _dataController,
+                      'Data',
+                      hint: 'AAAA-MM-DD',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           FileUploadDropzone(
             selectedFile: _selectedFile,
             isPicking: _isPicking,
@@ -76,11 +151,48 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
             onPick: _pickFile,
             onClear: _clearFile,
           ),
+          if (_successMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(_successMessage!, style: const TextStyle(color: Colors.green)),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _selectedFile == null || _isUploading
+                ? null
+                : _uploadFile,
+            icon: _isUploading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.upload_file_rounded),
+            label: Text(_isUploading ? 'Enviando...' : 'Enviar arquivo'),
+          ),
           const SizedBox(height: 24),
           BasesSection(bases: kMockBases),
         ],
       ),
     );
+  }
+
+  Widget _metadataField(
+    TextEditingController controller,
+    String label, {
+    String? hint,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(labelText: label, hintText: hint),
+    );
+  }
+
+  @override
+  void dispose() {
+    _distribuidoraController.dispose();
+    _regiaoController.dispose();
+    _dataController.dispose();
+    super.dispose();
   }
 }
 
@@ -98,7 +210,11 @@ class _ImportTitleCard extends StatelessWidget {
       ),
       child: const Text(
         'ANEEL PRODIST Módulo 8',
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primaryDark,
+        ),
       ),
     );
 
@@ -117,7 +233,10 @@ class _ImportTitleCard extends StatelessWidget {
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [Expanded(child: title), badge],
+                children: [
+                  Expanded(child: title),
+                  badge,
+                ],
               ),
       ),
     );

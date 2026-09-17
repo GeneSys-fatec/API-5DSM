@@ -12,3 +12,5 @@ venv/
 
 *.gdb/
 ETL/*.gdb/
+
+.idea

@@ -1,7 +1,7 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.presentation.dto.LoginRequest;
-import com.backend.tecsys.presentation.dto.RefreshTokenRequest;
+import com.backend.tecsys.auth.dto.LoginRequest;
+import com.backend.tecsys.auth.dto.RefreshTokenRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
