@@ -14,5 +14,5 @@ public class BdgdIngestionProperties {
     private String bucket = "bdgd-raw";
     private String keyPrefix = "bdgd";
     private String region = "sa-east-1";
-    private String n8nWebhookUrl = "http://localhost:5678/webhook/get-etl-data";
+    private String n8nWebhookUrl = "http://localhost:5678/webhook-test/get-etl-data";
 }

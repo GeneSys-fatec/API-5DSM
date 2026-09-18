@@ -19,7 +19,7 @@ public class BdgdIngestionController {
 
     private final BdgdIngestionService ingestionService;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(path = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
     public BdgdImportResponse upload(
             @RequestParam("file") MultipartFile file,
