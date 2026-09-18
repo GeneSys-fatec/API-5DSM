@@ -9,11 +9,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class ScenarioSelectedGateway {
     private Long id;
-    private String name;
-    private String email;
-    private String password;
-    private String role;
-    private Long utilityId;
+    private Long scenarioId;
+    private Long candidateId;
+    private RfCoordinate coordinate;
+    private boolean manuallyAdjusted;
+    private int selectionOrder;
 }

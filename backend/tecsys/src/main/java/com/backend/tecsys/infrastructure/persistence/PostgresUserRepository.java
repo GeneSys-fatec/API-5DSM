@@ -22,6 +22,7 @@ public class PostgresUserRepository implements IUserRepository {
             .email(rs.getString("email"))
             .password(rs.getString("senha_hash"))
             .role(rs.getString("papel") != null ? rs.getString("papel").toUpperCase() : "ENGENHEIRO")
+            .utilityId(rs.getLong("distribuidora_id"))
             .build();
 
     public PostgresUserRepository(JdbcTemplate jdbcTemplate) {
@@ -31,7 +32,7 @@ public class PostgresUserRepository implements IUserRepository {
     @Override
     public Optional<User> findByEmail(String email) {
         try {
-            String sql = "SELECT id, nome, email, senha_hash, papel FROM app.usuario WHERE LOWER(email) = LOWER(?)";
+            String sql = "SELECT id, nome, email, senha_hash, papel, distribuidora_id FROM app.usuario WHERE LOWER(email) = LOWER(?)";
             User user = jdbcTemplate.queryForObject(sql, userRowMapper, email);
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {
@@ -42,7 +43,7 @@ public class PostgresUserRepository implements IUserRepository {
     @Override
     public Optional<User> findById(Long id) {
         try {
-            String sql = "SELECT id, nome, email, senha_hash, papel FROM app.usuario WHERE id = ?";
+            String sql = "SELECT id, nome, email, senha_hash, papel, distribuidora_id FROM app.usuario WHERE id = ?";
             User user = jdbcTemplate.queryForObject(sql, userRowMapper, id);
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {

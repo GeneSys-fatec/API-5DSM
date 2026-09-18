@@ -26,6 +26,7 @@ public class MockUserRepository implements IUserRepository {
                 .email("admin@tecsys.com")
                 .password(encoder.encode("Admin@123"))
                 .role("ADMIN")
+                .utilityId(1L)
                 .build());
 
         users.add(User.builder()
@@ -34,6 +35,7 @@ public class MockUserRepository implements IUserRepository {
                 .email("operador@distribuidora.com.br")
                 .password(encoder.encode("Oper@456"))
                 .role("OPERATOR")
+                .utilityId(1L)
                 .build());
     }
 

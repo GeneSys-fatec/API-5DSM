@@ -9,11 +9,10 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
-    private Long id;
-    private String name;
-    private String email;
-    private String password;
-    private String role;
-    private Long utilityId;
+public class ScenarioAssetCoverage {
+    private Long scenarioId;
+    private String assetKey;
+    private boolean covered;
+    private Long selectedGatewayId;
+    private Long selectedCandidateId;
 }
