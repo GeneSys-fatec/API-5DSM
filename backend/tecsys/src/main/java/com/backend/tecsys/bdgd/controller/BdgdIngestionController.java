@@ -1,6 +1,8 @@
 package com.backend.tecsys.bdgd.controller;
 
 import com.backend.tecsys.bdgd.model.BdgdImportResponse;
+import com.backend.tecsys.bdgd.model.BdgdGeoJsonResponse;
+import com.backend.tecsys.bdgd.service.BdgdAssetService;
 import com.backend.tecsys.bdgd.service.BdgdIngestionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +20,17 @@ import java.util.UUID;
 public class BdgdIngestionController {
 
     private final BdgdIngestionService ingestionService;
+    private final BdgdAssetService assetService;
+
+    @GetMapping("/map")
+    public BdgdGeoJsonResponse map(
+            @RequestParam String layer,
+            @RequestParam(required = false) String distribuidora,
+            @RequestParam(required = false) String regiao,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Integer offset) {
+        return assetService.findFeatures(layer, distribuidora, regiao, limit, offset);
+    }
 
     @PostMapping(path = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)

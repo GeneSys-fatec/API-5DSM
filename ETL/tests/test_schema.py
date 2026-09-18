@@ -56,8 +56,8 @@ class TestGetSpec:
 class TestAssetTableSpecs:
     """Testes unitÃ¡rios de `schema.ASSET_TABLE_SPECS`. Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5."""
 
-    def test_contains_exactly_the_five_expected_layers(self):
-        expected_layers = {"POSTE", "SUB", "UCBT", "UCMT", "SSDMT"}
+    def test_contains_all_expected_layers(self):
+        expected_layers = {"POSTE", "SUB", "UCBT", "UCMT", "SSDBT", "SSDMT", "SSDAT"}
 
         assert set(schema.ASSET_TABLE_SPECS.keys()) == expected_layers
 

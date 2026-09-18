@@ -33,9 +33,11 @@ ASSET_TABLE_SPECS: dict[str, AssetTableSpec] = {
     "POSTE": AssetTableSpec("POSTE", "poste", "Point", None),
     "SUB":   AssetTableSpec("SUB",   "sub",   "Geometry",
                              ("ST_Point", "ST_Polygon", "ST_MultiPolygon")),
-    "UCBT":  AssetTableSpec("UCBT",  "ucbt",  "Point", None),
-    "UCMT":  AssetTableSpec("UCMT",  "ucmt",  "Point", None),
-    "SSDMT": AssetTableSpec("SSDMT", "ssdmt", "Point", None),
+    "UCBT":  AssetTableSpec("UCBT",  "ucbt", "Point", None),
+    "UCMT":  AssetTableSpec("UCMT",  "ucmt", "Point", None),
+    "SSDBT": AssetTableSpec("SSDBT", "ssdbt", "Geometry", None),
+    "SSDMT": AssetTableSpec("SSDMT", "ssdmt", "Geometry", None),
+    "SSDAT": AssetTableSpec("SSDAT", "ssdat", "Geometry", None),
 }
 
 # Colunas normalizadas fixas, na ordem em que aparecem no DDL.
@@ -123,6 +125,12 @@ def ensure_asset_table(engine: sa.Engine, layer_name: str, pg_schema: str) -> No
             logger.debug("Executando DDL para '%s.%s':\n%s", pg_schema, spec.table_name, statement)
             conn.execute(text(statement))
             logger.debug("DDL executado com sucesso para '%s.%s'.", pg_schema, spec.table_name)
+
+        if spec.geometry_type == "Geometry":
+            conn.execute(text(
+                f"ALTER TABLE {pg_schema}.{spec.table_name} "
+                "ALTER COLUMN geometry TYPE GEOMETRY USING geometry"
+            ))
 
     logger.info("Tabela '%s.%s' garantida.", pg_schema, spec.table_name)
 

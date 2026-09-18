@@ -38,6 +38,7 @@ import logging
 import re
 
 import geopandas as gpd
+import pandas as pd
 import sqlalchemy as sa
 from sqlalchemy import text
 
@@ -152,7 +153,7 @@ def upsert_layer(
 
     # 2. Projeta o GeoDataFrame para exatamente as colunas normalizadas fixas,
     #    descartando quaisquer colunas extras vindas de transform.py
-    gdf = gdf[list(schema.FIXED_COLUMNS)].copy()
+    gdf = pd.DataFrame(gdf[list(schema.FIXED_COLUMNS)].copy())
 
     # 3. Converte geometria para WKT + SRID para compatibilidade com psycopg2
     srid = 4326  # TARGET_CRS já foi aplicado pelo transform.py
@@ -168,7 +169,7 @@ def upsert_layer(
     col_names = list(sample_row.keys())
     col_list = ", ".join(col_names)
     col_list_cast = ", ".join(
-        f":{c}::geometry" if c == "geometry" else f":{c}"
+        "CAST(:geometry AS geometry)" if c == "geometry" else f":{c}"
         for c in col_names
     )
     update_set = ", ".join(

@@ -1,6 +1,7 @@
 package com.backend.tecsys.auth.exception;
 
 import com.backend.tecsys.auth.service.AuthService;
+import com.backend.tecsys.bdgd.exception.InvalidBdgdUploadException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -41,6 +42,19 @@ public class GlobalExceptionHandler {
                 .body(Map.of(
                         "error", ex.getMessage(),
                         "status", 401,
+                        "timestamp", LocalDateTime.now().toString()
+                ));
+    }
+
+    @ExceptionHandler(InvalidBdgdUploadException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidBdgdUpload(
+            InvalidBdgdUploadException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of(
+                        "error", ex.getMessage(),
+                        "code", "INVALID_UPLOAD",
+                        "status", 400,
                         "timestamp", LocalDateTime.now().toString()
                 ));
     }

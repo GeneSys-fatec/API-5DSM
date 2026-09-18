@@ -38,7 +38,7 @@ public class BdgdUploadValidator {
                 ZipEntry entry;
                 byte[] buffer = new byte[8192];
                 while ((entry = zip.getNextEntry()) != null) {
-                    if (!entry.isDirectory() && entry.getName().toLowerCase(Locale.ROOT).endsWith(".gdb")) {
+                    if (isGdbEntry(entry.getName())) {
                         containsGdb = true;
                     }
                     while (zip.read(buffer) != -1) {
@@ -52,5 +52,10 @@ public class BdgdUploadValidator {
         } catch (IOException exception) {
             throw new InvalidBdgdUploadException("Arquivo corrompido ou ilegivel");
         }
+    }
+
+    private boolean isGdbEntry(String entryName) {
+        String normalizedName = entryName.replace('\\', '/').toLowerCase(Locale.ROOT);
+        return normalizedName.matches(".*(^|/)[^/]+\\.gdb(/|$).*" );
     }
 }
