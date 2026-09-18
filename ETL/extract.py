@@ -47,18 +47,6 @@ def _resolve_available_layer(layer_name: str, available_layers: Iterable[str]) -
 
 
 def list_available_layers(gdb_path: str | Path) -> list[str]:
-    """Retorna todas as layers presentes no .gdb e loga diferenças vs. config.
-
-    Parameters
-    ----------
-    gdb_path:
-        Caminho para a pasta com extensão .gdb.
-
-    Returns
-    -------
-    list[str]
-        Lista de nomes de layers encontrados no arquivo.
-    """
     gdb_path = str(gdb_path)
     try:
         found = fiona.listlayers(gdb_path)

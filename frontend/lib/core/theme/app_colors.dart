@@ -17,26 +17,49 @@ class AppColors {
   static const Color iconContainerPurple = Color(0xFF452779);
   static const Color iconGold = Color(0xFFFBBF24);
 
-  static const Color background = Color(0xFFF5F5FA);
+  static const Color primaryPurpleLight = Color(0xFFF3E8FF);
+  static const Color primaryPurpleUltraLight = Color(0xFFFAF5FF);
+
   static const Color backgroundLight = Color(0xFFF6F8FC);
   static const Color surfaceWhite = Color(0xFFFFFFFF);
   static const Color pillBackground = Color(0xFFF1F4FA);
+  static const Color sidebarBackground = Color(0xFFFFFFFF);
+  static const Color sidebarBorder = Color(0xFFEAECF0);
+
+  static const Color cardBorder = Color(0xFFE2E8F0);
+  static const Color inputBorder = Color(0xFFE2E8F0);
+  static const Color inputBorderFocused = Color(0xFF6323CE);
   static const Color inputBackground = Color(0xFFF9FAFC);
+
+  static const Color background = Color(0xFFF5F5FA);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceAlt = Color(0xFFF8F8FC);
 
   static const Color border = Color(0xFFE5E5EF);
   static const Color borderDashed = Color(0xFFCBD0F0);
-  static const Color inputBorder = Color(0xFFE2E8F0);
 
   static const Color textPrimary = Color(0xFF1F2033);
   static const Color textSecondary = Color(0xFF6B6E85);
   static const Color textDark = Color(0xFF111827);
   static const Color textGray = Color(0xFF4B5563);
-  static const Color textMuted = Color(0xFF6B7280);
+  static const Color textMuted = Color(0xFF9A9DB3);
   static const Color textLight = Color(0xFF9CA3AF);
 
+  static const Color statusGreen = Color(0xFF10B981);
+  static const Color statusGreenLight = Color(0xFFD1FAE5);
+  static const Color badgeYellow = Color(0xFFF59E0B);
+  static const Color badgeYellowLight = Color(0xFFFEF3C7);
+  static const Color badgeRed = Color(0xFFEF4444);
+  static const Color badgeRedLight = Color(0xFFFEE2E2);
+  static const Color badgeSlate = Color(0xFF64748B);
+  static const Color badgeSlateLight = Color(0xFFF1F5F9);
+
   static const Color success = Color(0xFF22C55E);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color successBg = Color(0xFFE9F9EF);
   static const Color warning = Color(0xFFF59E0B);
+  static const Color warningBg = Color(0xFFFFF6E5);
+  static const Color danger = Color(0xFFEF4444);
+  static const Color info = Color(0xFF3B82F6);
 
   static const Color vermelhoErro = Color(0xFFEF4444);
   static const Color verdeSucesso = Color(0xFF16A34A);

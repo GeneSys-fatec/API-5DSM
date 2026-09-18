@@ -38,9 +38,6 @@ import transform
 import load
 import schema
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -48,10 +45,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("bdgd_etl.main")
 
-
-# ---------------------------------------------------------------------------
-# Estrutura de resultado por layer
-# ---------------------------------------------------------------------------
 
 @dataclass
 class LayerResult:
@@ -62,22 +55,7 @@ class LayerResult:
     error: Optional[str] = None
 
 
-# ---------------------------------------------------------------------------
-# Resolução do campo chave com fallback
-# ---------------------------------------------------------------------------
-
 def resolve_key_col(gdf, layer_name: str) -> str:
-    """Retorna o campo chave efetivo para a layer.
-
-    Tenta, em ordem:
-    1. config.KEY_COLUMN_BY_LAYER[layer_name]
-    2. config.KEY_COLUMN_FALLBACK ("FID")
-
-    Raises
-    ------
-    KeyError
-        Se nenhuma das duas opções estiver presente no GeoDataFrame.
-    """
     preferred = config.KEY_COLUMN_BY_LAYER.get(layer_name, "COD_ID")
     if preferred in gdf.columns:
         return preferred
@@ -102,10 +80,6 @@ def resolve_key_col(gdf, layer_name: str) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Processamento de uma layer (isolado para captura de exceção)
-# ---------------------------------------------------------------------------
-
 def process_layer(
     gdb_path: str,
     layer_name: str,
@@ -113,39 +87,30 @@ def process_layer(
     dist_name: str,
     regiao: str,
 ) -> LayerResult:
-    """Executa Extract → Transform → Load para uma layer.
-
-    Qualquer exceção é capturada aqui: a layer recebe status ERRO e o
-    pipeline continua para as demais layers.
-    """
     result = LayerResult(layer=layer_name)
     t0 = time.perf_counter()
 
     try:
-        # ---- Extract -------------------------------------------------------
         logger.info("=== [%s] Extraindo …", layer_name)
         gdf = extract.read_layer(gdb_path, layer_name)
 
-        # ---- Resolve campo chave -------------------------------------------
         key_col = resolve_key_col(gdf, layer_name)
         logger.info("[%s] Campo chave: '%s'", layer_name, key_col)
 
-        # ---- Transform -------------------------------------------------------
         logger.info("[%s] Transformando …", layer_name)
         gdf = transform.prepare_layer(
             gdf,
             layer_name=layer_name,
+            dist_name=dist_name,
             key_col=key_col,
             target_crs=config.TARGET_CRS,
             source_crs_fallback=config.SOURCE_CRS_FALLBACK,
         )
 
-        # Acrescenta colunas normalizadas de rastreabilidade
         gdf["tipo_ativo"] = layer_name
         gdf["distribuidora"] = dist_name
         gdf["regiao"] = regiao
 
-        # ---- Load -----------------------------------------------------------
         logger.info("[%s] Carregando em '%s' …", layer_name, config.SCHEMA)
         rows = load.upsert_layer(
             gdf,
@@ -171,12 +136,7 @@ def process_layer(
     return result
 
 
-# ---------------------------------------------------------------------------
-# Tabela de resumo final
-# ---------------------------------------------------------------------------
-
 def print_summary(results: list[LayerResult]) -> None:
-    """Imprime tabela de resumo com status por layer."""
     col_w = 10
     row_w = 8
     time_w = 10
@@ -214,15 +174,10 @@ def print_summary(results: list[LayerResult]) -> None:
     print()
 
 
-# ---------------------------------------------------------------------------
-# Entrypoint
-# ---------------------------------------------------------------------------
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Pipeline ETL para importar dados da BDGD no PostGIS.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
     )
     parser.add_argument(
         "gdb_path",
@@ -263,7 +218,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    # Ajusta log level via argumento
     logging.getLogger().setLevel(getattr(logging, args.log_level))
 
     gdb_path = Path(args.gdb_path)
@@ -281,7 +235,6 @@ def main() -> int:
     if requested_layers:
         logger.info("  Subconjunto solicitado via CLI: %s", requested_layers)
 
-    # -- Passo 1: listar layers disponíveis no GDB --------------------------
     logger.info("Listando layers disponíveis no GDB …")
     try:
         available_layers = extract.list_available_layers(str(gdb_path))
@@ -310,7 +263,6 @@ def main() -> int:
         logger.error("Falha ao conectar ao banco de dados: %s", exc)
         return 1
 
-    # -- Processa cada layer individualmente ---------------------------------
     results: list[LayerResult] = []
     for layer_name in layers_to_run:
         result = process_layer(
@@ -322,10 +274,8 @@ def main() -> int:
         )
         results.append(result)
 
-    # -- Resumo final --------------------------------------------------------
     print_summary(results)
 
-    # Retorna código de saída 0 se todas OK, 1 se alguma falhou
     return 0 if all(r.status == "OK" for r in results) else 1
 
 

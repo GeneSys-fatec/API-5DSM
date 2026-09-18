@@ -17,7 +17,7 @@ class AppTheme {
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surfaceWhite,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: AppColors.textDark,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
@@ -26,23 +26,23 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: const BorderSide(color: AppColors.cardBorder),
         ),
       ),
       textTheme: const TextTheme(
         titleLarge: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: AppColors.textDark,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
+          color: AppColors.textDark,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
-          color: AppColors.textSecondary,
+          color: AppColors.textGray,
         ),
         labelSmall: TextStyle(
           fontSize: 11,
@@ -67,6 +67,14 @@ class AppTheme {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.vermelhoErro),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.vermelhoErro, width: 1.5),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -85,4 +93,6 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get light => lightTheme;
 }
