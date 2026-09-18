@@ -9,11 +9,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class GatewayCandidate {
     private Long id;
-    private String name;
-    private String email;
-    private String password;
-    private String role;
+    private String source;
+    private String assetKey;
     private Long utilityId;
+    private RfCoordinate coordinate;
+    private Double estimatedCost;
 }
