@@ -1,21 +1,3 @@
-"""
-extract.py — Leitura de layers do arquivo .gdb da BDGD.
-
-Funções públicas
-----------------
-list_available_layers(gdb_path)  → list[str]
-read_layer(gdb_path, layer_name) → geopandas.GeoDataFrame
-
-Notas de implementação
-----------------------
-- Usa fiona.listlayers() para inspecionar o arquivo antes de abrir qualquer
-  layer. Isso permite detectar nomes de layer diferentes do esperado sem
-  falhar com KeyError.
-- read_layer() não altera nada — devolve o GeoDataFrame cru, exatamente
-  como saiu do arquivo. Toda transformação fica em transform.py.
-- O driver OpenFileGDB (GDAL open-source) é suficiente para leitura; nenhuma
-  licença ESRI é necessária.
-"""
 from __future__ import annotations
 
 import logging
@@ -30,18 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 def list_available_layers(gdb_path: str | Path) -> list[str]:
-    """Retorna todas as layers presentes no .gdb e loga diferenças vs. config.
-
-    Parameters
-    ----------
-    gdb_path:
-        Caminho para a pasta com extensão .gdb.
-
-    Returns
-    -------
-    list[str]
-        Lista de nomes de layers encontrados no arquivo.
-    """
     gdb_path = str(gdb_path)
     try:
         found = fiona.listlayers(gdb_path)
@@ -54,7 +24,6 @@ def list_available_layers(gdb_path: str | Path) -> list[str]:
     for name in found:
         logger.info("  • %s", name)
 
-    # --- comparação com as layers esperadas em config.py -----------------
     expected_set = set(LAYERS)
     found_set = set(found)
 
@@ -76,32 +45,10 @@ def list_available_layers(gdb_path: str | Path) -> list[str]:
 
 
 def read_layer(gdb_path: str | Path, layer_name: str) -> gpd.GeoDataFrame:
-    """Lê uma layer do .gdb e devolve um GeoDataFrame cru.
-
-    Parameters
-    ----------
-    gdb_path:
-        Caminho para a pasta com extensão .gdb.
-    layer_name:
-        Nome exato da layer a ser lida (case-sensitive).
-
-    Returns
-    -------
-    geopandas.GeoDataFrame
-        Dados brutos da layer, sem nenhuma transformação.
-
-    Raises
-    ------
-    ValueError
-        Se a layer não existir no arquivo.
-    RuntimeError
-        Se ocorrer qualquer outro erro de leitura.
-    """
     gdb_path = str(gdb_path)
     available = fiona.listlayers(gdb_path)
 
     if layer_name not in available:
-        # Tenta correspondência case-insensitive para ajudar no diagnóstico
         ci_match = [n for n in available if n.lower() == layer_name.lower()]
         hint = f" (nome similar encontrado: {ci_match})" if ci_match else ""
         raise ValueError(

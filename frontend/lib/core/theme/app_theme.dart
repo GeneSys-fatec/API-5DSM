@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
+import '../../core/theme/app_colors.dart';
 
 class AppTheme {
   AppTheme._();
@@ -8,13 +8,13 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: AppColors.backgroundLight,
+      fontFamily: 'Segoe UI',
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primaryPurple,
         primary: AppColors.primaryPurple,
         surface: AppColors.surfaceWhite,
         error: AppColors.vermelhoErro,
       ),
-      fontFamily: 'Segoe UI',
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surfaceWhite,
         foregroundColor: AppColors.textDark,

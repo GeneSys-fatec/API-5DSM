@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../controllers/login_controller.dart';
-import '../widgets/register_view.dart';
+import '../screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool initialLoginMode;
@@ -138,8 +138,8 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       alignment: Alignment.centerLeft,
       child: Image.asset(
-        'assets/images/tecsys_logo.png',
-        height: 28,
+        'assets/images/logo.png',
+        height: 32,
         errorBuilder: (context, error, stackTrace) {
           return const Row(
             mainAxisSize: MainAxisSize.min,
