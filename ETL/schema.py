@@ -1,10 +1,3 @@
-"""
-schema.py — Schema_Manager: definição e aplicação idempotente do DDL das
-Tabelas_de_Ativo da BDGD no PostGIS.
-
-Responsabilidade única: estrutura das tabelas (colunas, tipos, constraints,
-índices). NÃO faz upsert de dados — isso é responsabilidade de load.py.
-"""
 from __future__ import annotations
 
 import logging
@@ -20,15 +13,12 @@ SRID = 4326
 
 @dataclass(frozen=True)
 class AssetTableSpec:
-    layer: str                       # nome da Layer, ex. "SUB"
-    table_name: str                  # nome da tabela, ex. "sub"
-    geometry_type: str               # tipo PostGIS: "Point" | "Geometry"
+    layer: str
+    table_name: str
+    geometry_type: str
     allowed_subtypes: tuple[str, ...] | None
-    # subtipos permitidos via CHECK quando geometry_type == "Geometry";
-    # None quando o tipo já é restrito na própria coluna (ex. "Point")
 
 
-# Fonte única de verdade: uma entrada por Layer em escopo
 ASSET_TABLE_SPECS: dict[str, AssetTableSpec] = {
     "POSTE": AssetTableSpec("POSTE", "poste", "Point", None),
     "SUB":   AssetTableSpec("SUB",   "sub",   "Geometry",
@@ -38,15 +28,12 @@ ASSET_TABLE_SPECS: dict[str, AssetTableSpec] = {
     "SSDMT": AssetTableSpec("SSDMT", "ssdmt", "Point", None),
 }
 
-# Colunas normalizadas fixas, na ordem em que aparecem no DDL.
-# Reexportado para load.py usar na projeção de colunas antes do INSERT.
 FIXED_COLUMNS: tuple[str, ...] = (
     "tipo_ativo", "distribuidora", "regiao", "asset_key", "geometry",
 )
 
 
 def get_spec(layer_name: str) -> AssetTableSpec:
-    """Retorna o AssetTableSpec da layer, ou levanta KeyError se não configurada."""
     try:
         return ASSET_TABLE_SPECS[layer_name]
     except KeyError:
@@ -58,12 +45,6 @@ def get_spec(layer_name: str) -> AssetTableSpec:
 
 
 def ddl_for_layer(layer_name: str, pg_schema: str) -> list[str]:
-    """Monta as instruções DDL (CREATE TABLE + índices) para a layer.
-
-    Retorna uma lista de statements SQL (não concatenados), para que cada um
-    possa ser executado e logado individualmente.
-    Não executa nada — apenas gera o SQL. Função pura, fácil de testar.
-    """
     spec = get_spec(layer_name)
     table = spec.table_name
     qualified_table = f"{pg_schema}.{table}"
@@ -104,13 +85,6 @@ def ddl_for_layer(layer_name: str, pg_schema: str) -> list[str]:
 
 
 def ensure_asset_table(engine: sa.Engine, layer_name: str, pg_schema: str) -> None:
-    """Aplica o DDL da layer no banco. Idempotente:
-    - CREATE TABLE IF NOT EXISTS
-    - CREATE UNIQUE INDEX IF NOT EXISTS (asset_key)
-    - CREATE INDEX IF NOT EXISTS ... USING GIST (geometry)
-    Se a tabela já existir, os comandos são no-op — não recria nem altera
-    estrutura existente (Requisitos 1.3, 6.3, 6.4).
-    """
     spec = get_spec(layer_name)
     statements = ddl_for_layer(layer_name, pg_schema)
 
@@ -132,9 +106,6 @@ def ensure_all_asset_tables(
     pg_schema: str,
     layers: list[str] | None = None,
 ) -> None:
-    """Chama ensure_asset_table para cada layer em `layers` (default:
-    todas em ASSET_TABLE_SPECS). Usado por main.py antes do loop de carga.
-    """
     layers_to_apply = layers if layers is not None else list(ASSET_TABLE_SPECS)
 
     logger.info("Garantindo tabelas de ativo para as layers: %s", ", ".join(layers_to_apply))

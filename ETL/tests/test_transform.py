@@ -1,13 +1,3 @@
-"""
-test_transform.py — Testes unitários de ETL/transform.py.
-
-Testes puros (sem banco de dados): cobrem a geração da `asset_key` em
-`add_stable_key`/`prepare_layer`, com foco no cenário que motivou a
-inclusão da distribuidora na chave: dois ativos de distribuidoras
-diferentes podem compartilhar o mesmo COD_ID original, e a asset_key
-precisa distingui-los para que o upsert (ON CONFLICT) não sobrescreva
-um ativo real com outro.
-"""
 from __future__ import annotations
 
 import sys
@@ -33,7 +23,6 @@ def _make_gdf(cod_id: str, x: float, y: float) -> gpd.GeoDataFrame:
 
 
 class TestAddStableKey:
-    """Testes unitários de `transform.add_stable_key`."""
 
     def test_asset_key_format_includes_layer_distribuidora_and_cod_id(self):
         gdf = _make_gdf(cod_id="123", x=-43.94, y=-19.92)
@@ -43,14 +32,8 @@ class TestAddStableKey:
         assert result["asset_key"].iloc[0] == "POSTE::CEMIG::123"
 
     def test_same_cod_id_different_distribuidora_yields_different_asset_key(self):
-        """Este é o cenário do bug original: dois ativos de distribuidoras
-        diferentes, mesmo COD_ID. Antes da correção, ambos geravam a mesma
-        asset_key ("POSTE::123"), e o upsert (ON CONFLICT) sobrescrevia um
-        ativo real com o outro. Com a distribuidora na chave, as duas
-        asset_keys ficam diferentes, e nenhum ativo real se perde.
-        """
-        gdf_cemig = _make_gdf(cod_id="123", x=-43.94, y=-19.92)   # poste em MG
-        gdf_enel = _make_gdf(cod_id="123", x=-46.63, y=-23.55)    # poste em SP
+        gdf_cemig = _make_gdf(cod_id="123", x=-43.94, y=-19.92)
+        gdf_enel = _make_gdf(cod_id="123", x=-46.63, y=-23.55)
 
         result_cemig = transform.add_stable_key(gdf_cemig, layer_name="POSTE", dist_name="CEMIG", key_col="COD_ID")
         result_enel = transform.add_stable_key(gdf_enel, layer_name="POSTE", dist_name="ENEL_SP", key_col="COD_ID")
@@ -77,8 +60,6 @@ class TestAddStableKey:
 
 
 class TestPrepareLayerAssetKeyIntegration:
-    """Testes unitários confirmando que `prepare_layer` (o pipeline completo)
-    propaga a distribuidora corretamente até a asset_key final."""
 
     def test_prepare_layer_generates_distribuidora_aware_asset_key(self):
         gdf = _make_gdf(cod_id="456", x=-43.9, y=-19.9)
