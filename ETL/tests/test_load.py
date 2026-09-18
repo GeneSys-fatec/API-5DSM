@@ -15,10 +15,6 @@ import schema  # noqa: E402
 
 
 def _project_to_fixed_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Reproduz isoladamente a etapa de projeção de colunas de `load.upsert_layer`
-    (`gdf = gdf[list(schema.FIXED_COLUMNS)].copy()`), como função pura e sem
-    depender de banco de dados, para permitir testá-la em isolamento.
-    """
     return gdf[list(schema.FIXED_COLUMNS)].copy()
 
 

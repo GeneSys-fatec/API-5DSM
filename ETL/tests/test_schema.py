@@ -1,11 +1,4 @@
-"""
-test_schema.py — Testes unitários de ETL/schema.py.
-
-Testes puros (sem banco de dados): cobrem apenas a definição de
-`ASSET_TABLE_SPECS` e a função `get_spec`. Não usam a fixture `engine`/
-`pg_schema` de `conftest.py`.
-"""
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import sys
 from pathlib import Path
@@ -20,13 +13,6 @@ import schema  # noqa: E402
 
 
 def _extract_top_level_column_names(create_table_stmt: str) -> list[str]:
-    """Extrai os nomes das colunas de nível superior de um `CREATE TABLE`.
-
-    Ignora linhas de `CONSTRAINT`/`CHECK` e qualquer conteúdo aninhado dentro
-    dos parênteses de uma constraint (ex. `ST_GeometryType(geometry) IN (...)`),
-    rastreando a profundidade de parênteses para só considerar definições no
-    nível 0 (colunas diretas da tabela).
-    """
     body = create_table_stmt.split("(", 1)[1].rsplit(")", 1)[0]
     columns: list[str] = []
     depth = 0
@@ -43,7 +29,6 @@ def _extract_top_level_column_names(create_table_stmt: str) -> list[str]:
 
 
 class TestGetSpec:
-    """Testes unitários de `schema.get_spec`. Validates: Requirements 1.1, 7.1."""
 
     def test_get_spec_poste_returns_correct_spec(self):
         spec = schema.get_spec("POSTE")
@@ -68,7 +53,6 @@ class TestGetSpec:
 
 
 class TestAssetTableSpecs:
-    """Testes unitários de `schema.ASSET_TABLE_SPECS`. Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5."""
 
     def test_contains_exactly_the_five_expected_layers(self):
         expected_layers = {"POSTE", "SUB", "UCBT", "UCMT", "SSDMT"}
@@ -81,8 +65,6 @@ class TestAssetTableSpecs:
 
 
 class TestDdlForLayerPoste:
-    """Testes unitários de `schema.ddl_for_layer("POSTE", ...)`.
-    Validates: Requirements 2.1, 2.2, 3.1, 3.2, 3.5, 4.1, 5.1."""
 
     def test_contains_create_table_for_bdgd_poste(self):
         statements = schema.ddl_for_layer("POSTE", "bdgd")
@@ -104,8 +86,6 @@ class TestDdlForLayerPoste:
 
 
 class TestDdlForLayerSub:
-    """Testes unitários de `schema.ddl_for_layer("SUB", ...)`.
-    Validates: Requirements 2.1, 2.3, 3.3, 3.4, 3.5, 4.1, 5.1."""
 
     def test_contains_geometry_geometry_column(self):
         statements = schema.ddl_for_layer("SUB", "bdgd")
@@ -125,9 +105,6 @@ class TestDdlForLayerSub:
 
 
 class TestDdlForLayerAllLayers:
-    """Testes unitários de `schema.ddl_for_layer` para as 5 layers de
-    `ASSET_TABLE_SPECS`: colunas exatas e nomes de índices.
-    Validates: Requirements 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 5.1."""
 
     EXPECTED_COLUMNS = ["id", "tipo_ativo", "distribuidora", "regiao", "asset_key", "geometry"]
 
@@ -156,20 +133,7 @@ class TestDdlForLayerAllLayers:
 
 
 class TestEnsureAssetTableIntegration:
-    """Testes de integração de `schema.ensure_asset_table` contra PostGIS real.
 
-    Requerem um Postgres/PostGIS acessível via `BDGD_DB_URL` (fixtures
-    `engine`/`pg_schema` de `conftest.py`). Se o banco não estiver disponível,
-    a fixture `engine` pula (skip) estes testes automaticamente — nenhum
-    banco é iniciado por este módulo.
-
-    Validates: Requirements 1.1, 1.2, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 3.5.
-    """
-
-    # Coluna → (data_type, is_nullable[, udt_name]) esperados em
-    # information_schema.columns. `data_type` de colunas de geometria do
-    # PostGIS é sempre "USER-DEFINED" (tipo definido pela extensão), com o
-    # tipo real exposto em `udt_name`.
     EXPECTED_COLUMNS = {
         "id": {"data_type": "bigint", "is_nullable": "NO"},
         "tipo_ativo": {"data_type": "text", "is_nullable": "NO"},
@@ -181,7 +145,7 @@ class TestEnsureAssetTableIntegration:
 
     @pytest.mark.parametrize("layer_name", list(schema.ASSET_TABLE_SPECS.keys()))
     def test_ensure_asset_table_creates_table_with_expected_columns(self, engine, pg_schema, layer_name):
-        import sqlalchemy as sa  # noqa: PLC0415 (import tardio, só necessário aqui)
+        import sqlalchemy as sa  # noqa: PLC0415
 
         schema.ensure_asset_table(engine, layer_name, pg_schema)
 
@@ -198,7 +162,6 @@ class TestEnsureAssetTableIntegration:
 
         actual_columns = {row.column_name: row for row in rows}
 
-        # Exatamente as colunas esperadas — nem mais, nem menos.
         assert set(actual_columns.keys()) == set(self.EXPECTED_COLUMNS.keys())
 
         for column_name, expected in self.EXPECTED_COLUMNS.items():
@@ -219,15 +182,7 @@ class TestEnsureAssetTableIntegration:
 
 
 def _snapshot_table_structure(engine, pg_schema: str, table_name: str) -> dict:
-    """Captura um snapshot da estrutura de uma tabela: colunas, índices e
-    constraints (incluindo CHECK), para comparação de idempotência.
-
-    Usa `pg_catalog.pg_constraint`/`pg_get_constraintdef` para constraints
-    (PK, UNIQUE, CHECK, ...) e `pg_indexes` para a definição textual completa
-    de cada índice — ambos refletem fielmente qualquer alteração estrutural,
-    não apenas presença/ausência de nomes.
-    """
-    import sqlalchemy as sa  # noqa: PLC0415 (import tardio, só necessário aqui)
+    import sqlalchemy as sa  # noqa: PLC0415
 
     qualified_table = f"{pg_schema}.{table_name}"
 
@@ -269,27 +224,14 @@ def _snapshot_table_structure(engine, pg_schema: str, table_name: str) -> dict:
 
 
 class TestEnsureAssetTableIdempotency:
-    """Teste de integração de idempotência de `schema.ensure_asset_table`.
-
-    Property 1: Idempotent and deterministic DDL structure.
-
-    Para cada uma das 5 layers, chama `ensure_asset_table` duas vezes em
-    sequência e verifica que a segunda chamada não levanta erro e que a
-    estrutura resultante (colunas, índices, constraints) é idêntica à da
-    primeira chamada.
-
-    Validates: Requirements 1.3, 6.3, 6.4.
-    """
 
     @pytest.mark.parametrize("layer_name", list(schema.ASSET_TABLE_SPECS.keys()))
     def test_second_call_is_noop_and_structure_is_identical(self, engine, pg_schema, layer_name):
         table_name = schema.ASSET_TABLE_SPECS[layer_name].table_name
 
-        # Primeira chamada: cria a tabela, índices e constraints.
         schema.ensure_asset_table(engine, layer_name, pg_schema)
         structure_after_first_call = _snapshot_table_structure(engine, pg_schema, table_name)
 
-        # Segunda chamada: não deve levantar erro (idempotência via IF NOT EXISTS).
         schema.ensure_asset_table(engine, layer_name, pg_schema)
         structure_after_second_call = _snapshot_table_structure(engine, pg_schema, table_name)
 
@@ -300,21 +242,9 @@ class TestEnsureAssetTableIdempotency:
 
 
 class TestAssetKeyUniqueIndexSupportsOnConflict:
-    """Teste de integração: o índice único em `asset_key` suporta `ON CONFLICT
-    (asset_key) DO UPDATE`, resultando em 1 linha (update) ao inserir a mesma
-    `asset_key` duas vezes, em vez de 2 linhas.
-
-    Nota: o valor de `asset_key` usado aqui ("POSTE::123") é um exemplo
-    arbitrário inserido diretamente via SQL — este teste valida apenas o
-    comportamento do índice único/ON CONFLICT no banco, não o formato real
-    da chave gerado por `transform.add_stable_key` (que inclui a
-    distribuidora: "<LAYER>::<DISTRIBUIDORA>::<COD_ID>").
-
-    Validates: Requirements 4.1, 4.2, 5.1, 5.2, 5.3.
-    """
 
     def test_on_conflict_asset_key_upserts_single_row(self, engine, pg_schema):
-        import sqlalchemy as sa  # noqa: PLC0415 (import tardio, só necessário aqui)
+        import sqlalchemy as sa  # noqa: PLC0415
 
         schema.ensure_asset_table(engine, "POSTE", pg_schema)
         table_name = schema.ASSET_TABLE_SPECS["POSTE"].table_name
@@ -336,7 +266,6 @@ class TestAssetKeyUniqueIndexSupportsOnConflict:
         )
 
         with engine.begin() as conn:
-            # Primeira inserção da asset_key.
             conn.execute(
                 insert_sql,
                 {
@@ -348,8 +277,6 @@ class TestAssetKeyUniqueIndexSupportsOnConflict:
                     "lat": -23.0,
                 },
             )
-            # Segunda inserção com a MESMA asset_key, valores diferentes —
-            # deve resultar em UPDATE da linha existente, não numa nova linha.
             conn.execute(
                 insert_sql,
                 {
@@ -380,15 +307,10 @@ class TestAssetKeyUniqueIndexSupportsOnConflict:
 
 
 class TestGeometryGistIndexExistsInPgIndexes:
-    """Teste de integração: o índice espacial `idx_<tabela>_geometry` existe
-    em `pg_indexes` e usa o método de acesso GiST, para cada uma das 5 layers.
-
-    Validates: Requirements 4.1, 4.2.
-    """
 
     @pytest.mark.parametrize("layer_name", list(schema.ASSET_TABLE_SPECS.keys()))
     def test_idx_geometry_exists_and_uses_gist(self, engine, pg_schema, layer_name):
-        import sqlalchemy as sa  # noqa: PLC0415 (import tardio, só necessário aqui)
+        import sqlalchemy as sa  # noqa: PLC0415
 
         schema.ensure_asset_table(engine, layer_name, pg_schema)
         table_name = schema.ASSET_TABLE_SPECS[layer_name].table_name
@@ -414,17 +336,9 @@ class TestGeometryGistIndexExistsInPgIndexes:
 
 
 class TestSubGeometryCheckConstraint:
-    """Teste de integração: `CHECK` de subtipo de geometria em `bdgd.sub`.
-
-    Insere um `POINT` e um `POLYGON` (ambos aceitos pelo CHECK) e depois
-    tenta inserir uma `LINESTRING`, que deve ser rejeitada pelo
-    `chk_sub_geometry_subtype`.
-
-    Validates: Requirements 2.3.
-    """
 
     def _insert_sub(self, engine, qualified_table: str, asset_key: str, wkt: str) -> None:
-        import sqlalchemy as sa  # noqa: PLC0415 (import tardio, só necessário aqui)
+        import sqlalchemy as sa  # noqa: PLC0415
 
         insert_sql = sa.text(
             f"""
@@ -448,16 +362,14 @@ class TestSubGeometryCheckConstraint:
             )
 
     def test_point_and_polygon_accepted_linestring_rejected(self, engine, pg_schema):
-        import sqlalchemy as sa  # noqa: PLC0415 (import tardio, só necessário aqui)
+        import sqlalchemy as sa  # noqa: PLC0415
 
         schema.ensure_asset_table(engine, "SUB", pg_schema)
         table_name = schema.ASSET_TABLE_SPECS["SUB"].table_name
         qualified_table = f"{pg_schema}.{table_name}"
 
-        # POINT — aceito pelo CHECK.
         self._insert_sub(engine, qualified_table, "SUB::POINT_1", "POINT(-46.0 -23.0)")
 
-        # POLYGON — aceito pelo CHECK.
         self._insert_sub(
             engine,
             qualified_table,
@@ -471,7 +383,6 @@ class TestSubGeometryCheckConstraint:
             ).scalar_one()
         assert count == 2
 
-        # LINESTRING — rejeitada pelo CHECK chk_sub_geometry_subtype.
         with pytest.raises(sa.exc.IntegrityError):
             self._insert_sub(
                 engine,
@@ -480,9 +391,6 @@ class TestSubGeometryCheckConstraint:
                 "LINESTRING(-46.0 -23.0, -46.1 -23.1)",
             )
 
-        # A transação da inserção rejeitada já foi revertida (engine.begin()
-        # do helper faz rollback automático em caso de exceção); confirma que
-        # a tabela continua com apenas as 2 linhas válidas.
         with engine.connect() as conn:
             count_after_failed_insert = conn.execute(
                 sa.text(f"SELECT COUNT(*) FROM {qualified_table}")
@@ -491,14 +399,9 @@ class TestSubGeometryCheckConstraint:
 
 
 class TestEnsureAllAssetTablesSubset:
-    """Teste de integração: `ensure_all_asset_tables` com um subconjunto de
-    layers cria apenas as tabelas correspondentes, sem tocar nas demais.
-
-    Validates: Requirements 6.2, 7.1.
-    """
 
     def test_only_requested_layer_table_is_created(self, engine, pg_schema):
-        import sqlalchemy as sa  # noqa: PLC0415 (import tardio, só necessário aqui)
+        import sqlalchemy as sa  # noqa: PLC0415
 
         schema.ensure_all_asset_tables(engine, pg_schema, layers=["POSTE"])
 
