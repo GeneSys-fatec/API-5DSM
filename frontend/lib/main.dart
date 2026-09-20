@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/bdgd_import/presentation/screens/bdgd_import_screen.dart';
+import 'features/scenario_history/presentation/screens/scenario_history_screen.dart';
+import 'features/scenario_history/models/scenario_history_models.dart';
 
 void main() {
   runApp(const TecsysApp());
@@ -22,7 +24,7 @@ class TecsysApp extends StatelessWidget {
         '/': (_) => LoginScreen(initialLoginMode: initialLoginMode),
         '/bdgd-import': (_) => const BdgdImportScreen(),
         // '/scenario': (_) => const ScenarioScreen(),
-        // '/results': (_) => const ResultsScreen(),
+        '/results': (_) => ScenarioHistoryScreen(scenario: kMockScenarios.first),
         // '/history': (_) => const HistoryScreen(),
         // '/settings': (_) => const SettingsScreen(),
       },
