@@ -1,6 +1,6 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.infrastructure.security.JwtService;
+import com.backend.tecsys.auth.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
