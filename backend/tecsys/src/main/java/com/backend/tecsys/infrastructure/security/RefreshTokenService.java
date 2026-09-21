@@ -29,13 +29,14 @@ public class RefreshTokenService {
     public void save(String refreshToken, Long userId) {
         if (refreshToken == null || userId == null) return;
 
-        activeTokens.put(refreshToken, userId);
+        String hashed = hashToken(refreshToken);
+        activeTokens.put(hashed, userId);
 
         if (!isMock && jdbcTemplate != null) {
             try {
                 String sql = "INSERT INTO app.refresh_token (usuario_id, token_hash, expira_em, revogado) VALUES (?, ?, ?, false)";
                 Timestamp expiraEm = Timestamp.from(Instant.now().plus(7, ChronoUnit.DAYS));
-                jdbcTemplate.update(sql, userId, refreshToken, expiraEm);
+                jdbcTemplate.update(sql, userId, hashed, expiraEm);
             } catch (Exception ignored) {
             }
         }
@@ -44,10 +45,11 @@ public class RefreshTokenService {
     public boolean isValid(String refreshToken) {
         if (refreshToken == null) return false;
 
+        String hashed = hashToken(refreshToken);
         if (!isMock && jdbcTemplate != null) {
             try {
                 String sql = "SELECT count(1) FROM app.refresh_token WHERE token_hash = ? AND revogado = false AND expira_em > now()";
-                Integer count = jdbcTemplate.queryForObject(sql, Integer.class, refreshToken);
+                Integer count = jdbcTemplate.queryForObject(sql, Integer.class, hashed);
                 if (count != null && count > 0) {
                     return true;
                 }
@@ -55,18 +57,19 @@ public class RefreshTokenService {
             }
         }
 
-        return activeTokens.containsKey(refreshToken);
+        return activeTokens.containsKey(hashed);
     }
 
     public void revoke(String refreshToken) {
         if (refreshToken == null) return;
 
-        activeTokens.remove(refreshToken);
+        String hashed = hashToken(refreshToken);
+        activeTokens.remove(hashed);
 
         if (!isMock && jdbcTemplate != null) {
             try {
                 String sql = "UPDATE app.refresh_token SET revogado = true WHERE token_hash = ?";
-                jdbcTemplate.update(sql, refreshToken);
+                jdbcTemplate.update(sql, hashed);
             } catch (Exception ignored) {}
         }
     }
@@ -81,6 +84,23 @@ public class RefreshTokenService {
                 String sql = "UPDATE app.refresh_token SET revogado = true WHERE usuario_id = ?";
                 jdbcTemplate.update(sql, userId);
             } catch (Exception ignored) {}
+        }
+    }
+
+    private String hashToken(String token) {
+        if (token == null) return null;
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algoritmo SHA-256 não disponível", e);
         }
     }
 }
