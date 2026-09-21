@@ -54,7 +54,40 @@ class SimulationIntegrationTest {
                 .andExpect(jsonPath("$.usedGatewayCount").isNumber())
                 .andExpect(jsonPath("$.totalCoveragePct").isNumber())
                 .andExpect(jsonPath("$.processingTimeMs").isNumber())
-                .andExpect(jsonPath("$.propagationModel").value("OKUMURA_HATA_SUBURBAN"));
+                .andExpect(jsonPath("$.propagationModel").value("OKUMURA_HATA_SUBURBAN"))
+                .andExpect(jsonPath("$.selectedGateways[0].coverageRadiusMeters").isNumber());
+    }
+
+    @Test
+    void shouldAcceptSimulationWithTwoRayGroundModel() throws Exception {
+        SimulationRequest request = validRequest();
+        request.setPropagationModel("TWO_RAY_GROUND");
+
+        mockMvc.perform(post("/simulations")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scenarioId").isNumber())
+                .andExpect(jsonPath("$.status").value("concluido"))
+                .andExpect(jsonPath("$.propagationModel").value("TWO_RAY_GROUND"))
+                .andExpect(jsonPath("$.selectedGateways[0].coverageRadiusMeters").isNumber());
+    }
+
+    @Test
+    void shouldAcceptSimulationWithFreeSpaceModel() throws Exception {
+        SimulationRequest request = validRequest();
+        request.setPropagationModel("FREE_SPACE");
+
+        mockMvc.perform(post("/simulations")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scenarioId").isNumber())
+                .andExpect(jsonPath("$.status").value("concluido"))
+                .andExpect(jsonPath("$.propagationModel").value("FREE_SPACE"))
+                .andExpect(jsonPath("$.selectedGateways[0].coverageRadiusMeters").isNumber());
     }
 
     @Test

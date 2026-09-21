@@ -72,6 +72,7 @@ public class SimulationController {
                     .candidateId(candidate.getId())
                     .latitude(candidate.getCoordinate().latitude())
                     .longitude(candidate.getCoordinate().longitude())
+                    .coverageRadiusMeters(outcome.coverageRadiusMeters())
                     .build());
         }
 

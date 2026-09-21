@@ -100,7 +100,7 @@ class _RegisterViewState extends State<RegisterView> {
           controller: _nomeController,
           textInputAction: TextInputAction.next,
           decoration: _decoracaoInput(
-            dica: 'Insera seu nome completo',
+            dica: 'Insira seu nome completo',
             icone: Icons.person_outline_rounded,
           ),
           validator: (valor) {
@@ -128,7 +128,7 @@ class _RegisterViewState extends State<RegisterView> {
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
           decoration: _decoracaoInput(
-            dica: 'Insera seu e-mail',
+            dica: 'Insira seu e-mail',
             icone: Icons.mail_outline_rounded,
           ),
           validator: (valor) {
