@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/auth_models.dart';
+import '../../data/auth_service.dart';
 
 class RegisterView extends StatefulWidget {
   final VoidCallback aoIrParaLogin;
@@ -12,6 +14,7 @@ class RegisterView extends StatefulWidget {
 
 class _RegisterViewState extends State<RegisterView> {
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService();
 
   final _nomeController = TextEditingController();
   final _emailController = TextEditingController();
@@ -22,6 +25,7 @@ class _RegisterViewState extends State<RegisterView> {
   bool _ocultarConfirmarSenha = true;
   bool _carregando = false;
   bool _mostrarMensagemSucesso = false;
+  String? _mensagemErro;
 
   @override
   void dispose() {
@@ -34,14 +38,48 @@ class _RegisterViewState extends State<RegisterView> {
 
   void _enviarFormulario() async {
     if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _carregando = true);
-      await Future.delayed(const Duration(milliseconds: 700));
-      if (!mounted) return;
-
       setState(() {
-        _carregando = false;
-        _mostrarMensagemSucesso = true;
+        _carregando = true;
+        _mensagemErro = null;
+        _mostrarMensagemSucesso = false;
       });
+
+      try {
+        await _authService.register(RegisterRequest(
+          nome: _nomeController.text.trim(),
+          email: _emailController.text.trim(),
+          senha: _senhaController.text,
+          confirmarSenha: _confirmarSenhaController.text,
+        ));
+
+        if (!mounted) return;
+
+        setState(() {
+          _carregando = false;
+          _mostrarMensagemSucesso = true;
+        });
+
+        _senhaController.clear();
+        _confirmarSenhaController.clear();
+
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && _mostrarMensagemSucesso) {
+            widget.aoIrParaLogin();
+          }
+        });
+      } on AuthException catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _carregando = false;
+          _mensagemErro = e.message;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _carregando = false;
+          _mensagemErro = 'Erro inesperado ao realizar cadastro.';
+        });
+      }
     }
   }
 
@@ -53,6 +91,7 @@ class _RegisterViewState extends State<RegisterView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (_mensagemErro != null) _construirBannerErro(),
           if (_mostrarMensagemSucesso) _construirBannerSucesso(),
           _construirTitulo(),
           const SizedBox(height: 22),
@@ -299,6 +338,34 @@ class _RegisterViewState extends State<RegisterView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _construirBannerErro() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AppColors.vermelhoErro, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _mensagemErro ?? 'Erro ao realizar cadastro.',
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

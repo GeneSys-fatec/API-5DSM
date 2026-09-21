@@ -41,6 +41,26 @@ public class GlobalExceptionHandler {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED);
         }
 
+        @ExceptionHandler(com.backend.tecsys.auth.exception.EmailAlreadyExistsException.class)
+        public ResponseEntity<Map<String, Object>> handleEmailAlreadyExistsException(com.backend.tecsys.auth.exception.EmailAlreadyExistsException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS");
+        }
+
+        @ExceptionHandler(com.backend.tecsys.auth.exception.UserNotFoundException.class)
+        public ResponseEntity<Map<String, Object>> handleUserNotFoundException(com.backend.tecsys.auth.exception.UserNotFoundException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.NOT_FOUND, "USER_NOT_FOUND");
+        }
+
+        @ExceptionHandler(com.backend.tecsys.auth.exception.PasswordMismatchException.class)
+        public ResponseEntity<Map<String, Object>> handlePasswordMismatchException(com.backend.tecsys.auth.exception.PasswordMismatchException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, "PASSWORD_MISMATCH");
+        }
+
+        @ExceptionHandler(com.backend.tecsys.auth.exception.ForbiddenOperationException.class)
+        public ResponseEntity<Map<String, Object>> handleForbiddenOperationException(com.backend.tecsys.auth.exception.ForbiddenOperationException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.FORBIDDEN, "FORBIDDEN");
+        }
+
         @ExceptionHandler(InvalidBdgdUploadException.class)
         public ResponseEntity<Map<String, Object>> handleInvalidBdgdUpload(InvalidBdgdUploadException ex) {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_UPLOAD");
@@ -65,10 +85,18 @@ public class GlobalExceptionHandler {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
+        @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+        public ResponseEntity<Map<String, Object>> handleMethodNotSupported(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+                return buildErrorResponse("Método HTTP " + ex.getMethod() + " não suportado para este endpoint.", HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED");
+        }
+
         @ExceptionHandler(Exception.class)
         public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
                 log.error("Erro interno ao processar requisicao: {}", ex.getMessage(), ex);
-                return buildErrorResponse("Erro interno do servidor.", HttpStatus.INTERNAL_SERVER_ERROR);
+                String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
+                        ? ex.getMessage()
+                        : "Erro interno do servidor.";
+                return buildErrorResponse(message, HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         private ResponseEntity<Map<String, Object>> buildErrorResponse(String message, HttpStatus status) {
