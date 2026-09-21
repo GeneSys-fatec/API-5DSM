@@ -1,8 +1,8 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.application.service.GatewaySelectionService;
-import com.backend.tecsys.domain.model.GatewayCandidate;
-import com.backend.tecsys.domain.model.GatewayCoverage;
+import com.backend.tecsys.scenario.service.GatewaySelectionService;
+import com.backend.tecsys.scenario.model.GatewayCandidate;
+import com.backend.tecsys.scenario.model.GatewayCoverage;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

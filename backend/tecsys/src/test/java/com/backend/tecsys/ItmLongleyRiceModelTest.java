@@ -1,12 +1,12 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.domain.exception.UnavailableTerrainDataException;
-import com.backend.tecsys.domain.model.PropagationModelType;
-import com.backend.tecsys.domain.model.RfCoordinate;
-import com.backend.tecsys.domain.rf.ItmLongleyRiceModel;
-import com.backend.tecsys.domain.rf.PropagationInput;
-import com.backend.tecsys.domain.rf.PropagationModel;
-import com.backend.tecsys.domain.rf.TerrainProfile;
+import com.backend.tecsys.radio.exception.UnavailableTerrainDataException;
+import com.backend.tecsys.scenario.model.PropagationModelType;
+import com.backend.tecsys.radio.model.RfCoordinate;
+import com.backend.tecsys.radio.service.ItmLongleyRiceModel;
+import com.backend.tecsys.radio.model.PropagationInput;
+import com.backend.tecsys.radio.service.PropagationModel;
+import com.backend.tecsys.radio.model.TerrainProfile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

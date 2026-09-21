@@ -4,6 +4,7 @@ import logging
 import re
 
 import geopandas as gpd
+import pandas as pd
 import sqlalchemy as sa
 from sqlalchemy import text
 
@@ -15,11 +16,38 @@ BATCH_SIZE = 5_000
 
 
 def get_engine(db_url: str) -> sa.Engine:
-    engine = sa.create_engine(db_url, pool_pre_ping=True)
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    logger.info("Conexão ao banco estabelecida: %s", _mask_password(db_url))
-    return engine
+    """Cria e retorna uma engine SQLAlchemy para o banco de dados.
+
+    Parameters
+    ----------
+    db_url:
+        Connection string PostgreSQL, ex.:
+        "postgresql://postgres:postgres@localhost:5432/bdgd"
+
+    Returns
+    -------
+    sqlalchemy.Engine
+    """
+    try:
+        engine = sa.create_engine(
+            db_url,
+            pool_pre_ping=True,
+            connect_args={"client_encoding": "utf8"},
+        )
+        # Valida a conexão imediatamente
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Conexão ao banco estabelecida: %s", _mask_password(db_url))
+        return engine
+    except Exception as exc:
+        # Trata erros de codificação quando o Postgres no Windows responde mensagens de erro em CP1252 (ex: "autenticação falhou")
+        if isinstance(exc, UnicodeDecodeError) or "codec can't decode" in str(exc):
+            raw_bytes = getattr(exc, "object", None)
+            if isinstance(raw_bytes, bytes):
+                decoded_msg = raw_bytes.decode("latin1", errors="replace").strip()
+                raise RuntimeError(f"Erro de conexão com PostgreSQL: {decoded_msg}") from exc
+        raise
+
 
 
 def _mask_password(url: str) -> str:
@@ -47,7 +75,9 @@ def upsert_layer(
     schema.ensure_asset_table(engine, layer_name, pg_schema)
     table_name = spec.table_name
 
-    gdf = gdf[list(schema.FIXED_COLUMNS)].copy()
+    # 2. Projeta o GeoDataFrame para exatamente as colunas normalizadas fixas,
+    #    descartando quaisquer colunas extras vindas de transform.py
+    gdf = pd.DataFrame(gdf[list(schema.FIXED_COLUMNS)].copy())
 
     srid = 4326
     gdf["geometry"] = gdf["geometry"].apply(
@@ -60,7 +90,7 @@ def upsert_layer(
     col_names = list(sample_row.keys())
     col_list = ", ".join(col_names)
     col_list_cast = ", ".join(
-        f"CAST(:{c} AS geometry)" if c == "geometry" else f":{c}"
+        "CAST(:geometry AS geometry)" if c == "geometry" else f":{c}"
         for c in col_names
     )
     update_set = ", ".join(

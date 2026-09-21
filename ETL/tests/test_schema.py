@@ -54,8 +54,8 @@ class TestGetSpec:
 
 class TestAssetTableSpecs:
 
-    def test_contains_exactly_the_five_expected_layers(self):
-        expected_layers = {"POSTE", "SUB", "UCBT", "UCMT", "SSDMT"}
+    def test_contains_all_expected_layers(self):
+        expected_layers = {"POSTE", "SUB", "UCBT", "UCMT", "SSDBT", "SSDMT", "SSDAT"}
 
         assert set(schema.ASSET_TABLE_SPECS.keys()) == expected_layers
 

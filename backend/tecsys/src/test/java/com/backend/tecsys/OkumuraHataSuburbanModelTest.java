@@ -1,12 +1,12 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.domain.exception.InvalidSimulationParameterException;
-import com.backend.tecsys.domain.exception.PropagationCalculationException;
-import com.backend.tecsys.domain.model.RfCoordinate;
-import com.backend.tecsys.domain.rf.OkumuraHataSuburbanModel;
-import com.backend.tecsys.domain.rf.PropagationInput;
-import com.backend.tecsys.domain.rf.PropagationModel;
-import com.backend.tecsys.domain.model.PropagationModelType;
+import com.backend.tecsys.scenario.exception.InvalidSimulationParameterException;
+import com.backend.tecsys.radio.exception.PropagationCalculationException;
+import com.backend.tecsys.radio.model.RfCoordinate;
+import com.backend.tecsys.radio.service.OkumuraHataSuburbanModel;
+import com.backend.tecsys.radio.model.PropagationInput;
+import com.backend.tecsys.radio.service.PropagationModel;
+import com.backend.tecsys.scenario.model.PropagationModelType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

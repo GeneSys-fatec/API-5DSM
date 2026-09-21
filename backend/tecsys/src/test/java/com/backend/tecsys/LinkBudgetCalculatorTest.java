@@ -1,7 +1,7 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.domain.model.RfParameter;
-import com.backend.tecsys.domain.rf.LinkBudgetCalculator;
+import com.backend.tecsys.radio.model.RfParameter;
+import com.backend.tecsys.radio.service.LinkBudgetCalculator;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

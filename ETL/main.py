@@ -1,3 +1,27 @@
+"""
+main.py — Orquestrador do pipeline ETL da BDGD.
+
+Uso
+---
+    python main.py <caminho.gdb> <NOME_DISTRIBUIDORA> <REGIAO>
+
+Exemplos
+--------
+    python main.py /dados/CEMIG_2023.gdb CEMIG SUDESTE
+    python main.py C:/bdgd/ENEL_SP_2022.gdb ENEL_SP SUDESTE
+
+Critério de aceite (passos do SYS-14)
+--------------------------------------
+1. Loga as layers encontradas no GDB e compara com config.LAYERS.
+2. Seleciona apenas UCBT, UCMT, POSTE, SUB e segmentos de rede
+   (SSDBT, SSDMT, SSDAT), descartando o restante.
+3. Para cada layer, resolve o campo chave (COD_ID ou fallback FID).
+4. Trata CRS ausente com aviso — não silencia.
+5. Faz upsert no PostGIS com índice GiST.
+6. Segunda execução com o mesmo arquivo não duplica dados.
+7. Falha numa layer (ex: campo chave ausente) não impede as demais.
+8. Ao final, imprime tabela de resumo com status por layer.
+"""
 from __future__ import annotations
 
 import argparse
@@ -202,12 +226,14 @@ def main() -> int:
         return 1
 
     db_url = args.db_url or config.DB_URL
-    layers_to_process = args.layers or config.LAYERS
+    requested_layers = args.layers
 
     logger.info("Iniciando ETL BDGD")
     logger.info("  GDB:           %s", gdb_path)
     logger.info("  Distribuidora: %s", args.distribuidora)
-    logger.info("  Layers:        %s", layers_to_process)
+    logger.info("  Layers relevantes configuradas: %s", config.LAYERS)
+    if requested_layers:
+        logger.info("  Subconjunto solicitado via CLI: %s", requested_layers)
 
     logger.info("Listando layers disponíveis no GDB …")
     try:
@@ -216,19 +242,19 @@ def main() -> int:
         logger.error("Não foi possível abrir o GDB: %s", exc)
         return 1
 
-    layers_to_run = []
-    for layer in layers_to_process:
-        if layer in available_layers:
-            layers_to_run.append(layer)
-        else:
-            logger.warning(
-                "Layer '%s' não encontrada no GDB — será ignorada.", layer
-            )
+    # Seleciona apenas as layers relevantes para o desafio e descarta o resto.
+    layers_to_run = extract.select_relevant_layers(
+        available_layers,
+        requested_layers=requested_layers,
+    )
 
     if not layers_to_run:
-        logger.error("Nenhuma das layers configuradas foi encontrada no GDB. Abortando.")
+        logger.error("Nenhuma layer relevante foi encontrada no GDB. Abortando.")
         return 1
 
+    logger.info("Layers selecionadas para processamento: %s", layers_to_run)
+
+    # -- Conecta ao banco e garante schema ----------------------------------
     try:
         engine = load.get_engine(db_url)
         load.ensure_schema(engine, config.SCHEMA)

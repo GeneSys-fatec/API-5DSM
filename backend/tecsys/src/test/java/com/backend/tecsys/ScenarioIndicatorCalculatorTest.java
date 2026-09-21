@@ -1,8 +1,8 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.application.service.ScenarioIndicatorCalculator;
-import com.backend.tecsys.domain.model.Asset;
-import com.backend.tecsys.domain.model.ScenarioIndicator;
+import com.backend.tecsys.scenario.service.ScenarioIndicatorCalculator;
+import com.backend.tecsys.scenario.model.Asset;
+import com.backend.tecsys.scenario.model.ScenarioIndicator;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

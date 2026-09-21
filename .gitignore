@@ -1,4 +1,4 @@
-﻿.kiro
+.kiro
 .vscode
 
 __pycache__/
@@ -12,3 +12,8 @@ venv/
 
 *.gdb/
 ETL/*.gdb/
+
+.idea
+
+/uploads
+*.zip

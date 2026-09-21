@@ -1,6 +1,6 @@
 package com.backend.tecsys;
 
-import com.backend.tecsys.application.service.MockCostCalculator;
+import com.backend.tecsys.scenario.service.MockCostCalculator;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
