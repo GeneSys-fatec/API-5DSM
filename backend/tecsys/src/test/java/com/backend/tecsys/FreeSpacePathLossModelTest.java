@@ -35,7 +35,6 @@ class FreeSpacePathLossModelTest {
 
         double loss = model.calculatePropagationLossDb(input);
 
-        /* FSPL = 20*log10(1000) + 20*log10(915) - 27.55 = 60 + 59.2284 - 27.55 = 91.6784 dB */
         assertEquals(91.68, loss, 0.05);
         assertEquals(PropagationModelType.FREE_SPACE, model.type());
     }

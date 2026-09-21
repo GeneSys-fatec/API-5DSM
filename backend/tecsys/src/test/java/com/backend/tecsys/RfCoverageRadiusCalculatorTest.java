@@ -45,13 +45,11 @@ class RfCoverageRadiusCalculatorTest {
         assertEquals(141.0, result.maxPathLossDb(), 0.001);
         assertEquals(PropagationModelType.TWO_RAY_GROUND, result.modelType());
 
-        /* With Pt=21, Srx=-120, hgw=6, hdev=5: R ~= 18346 meters */
         assertEquals(18346.0, result.radiusMeters(), 50.0);
     }
 
     @Test
     void shouldCalculateCoverageRadiusForFreeSpaceModel() {
-        /* Set parameters to give a realistic non-clamped free space radius */
         RfParameter rf = RfParameter.builder()
                 .frequencyMhz(915.0)
                 .transmitPowerDbm(10.0)
@@ -63,7 +61,6 @@ class RfCoverageRadiusCalculatorTest {
                 .build();
 
         double radius = radiusCalculator.calculateRadiusMeters(rf, freeSpaceModel);
-        /* PL_max = 90 dB. At 915 MHz, R ~= 824 meters */
         assertEquals(824.0, radius, 5.0);
     }
 
@@ -72,7 +69,6 @@ class RfCoverageRadiusCalculatorTest {
         RfParameter rf = RfParameter.defaults();
         double radius = radiusCalculator.calculateRadiusMeters(rf, okumuraHataModel);
 
-        /* In suburban Okumura-Hata at 915 MHz, nominal 141 dB budget reaches several kilometers */
         assertTrue(radius > 1000.0);
         assertTrue(radius < 20000.0);
     }
@@ -88,13 +84,12 @@ class RfCoverageRadiusCalculatorTest {
 
     @Test
     void shouldIncreaseRadiusWhenGatewayHeightIncreases() {
-        /* US3 Acceptance Criterion: altering gateway antenna height must tangibly change coverage radius */
-        RfParameter base = RfParameter.defaults(); /* hgw = 6m */
+        RfParameter base = RfParameter.defaults();
         RfParameter elevated = RfParameter.builder()
                 .frequencyMhz(base.getFrequencyMhz())
                 .transmitPowerDbm(base.getTransmitPowerDbm())
                 .receiverSensitivityDbm(base.getReceiverSensitivityDbm())
-                .antennaHeightM(12.0) /* doubled to 12m */
+                .antennaHeightM(12.0)
                 .deviceHeightM(base.getDeviceHeightM())
                 .antennaGainDbi(base.getAntennaGainDbi())
                 .systemLossDb(base.getSystemLossDb())
@@ -104,20 +99,18 @@ class RfCoverageRadiusCalculatorTest {
         double radiusElevated = radiusCalculator.calculateRadiusMeters(elevated, twoRayModel);
 
         assertTrue(radiusElevated > radiusBase);
-        /* In two-ray (d^4), doubling height multiplies radius by sqrt(2) ~= 1.414 */
         assertEquals(1.414, radiusElevated / radiusBase, 0.02);
     }
 
     @Test
     void shouldIncreaseRadiusWhenDeviceHeightIncreases() {
-        /* US3 Acceptance Criterion: altering device height must tangibly change coverage radius */
-        RfParameter base = RfParameter.defaults(); /* hdev = 5m */
+        RfParameter base = RfParameter.defaults();
         RfParameter elevatedDev = RfParameter.builder()
                 .frequencyMhz(base.getFrequencyMhz())
                 .transmitPowerDbm(base.getTransmitPowerDbm())
                 .receiverSensitivityDbm(base.getReceiverSensitivityDbm())
                 .antennaHeightM(base.getAntennaHeightM())
-                .deviceHeightM(10.0) /* doubled to 10m */
+                .deviceHeightM(10.0)
                 .antennaGainDbi(base.getAntennaGainDbi())
                 .systemLossDb(base.getSystemLossDb())
                 .build();
@@ -134,7 +127,7 @@ class RfCoverageRadiusCalculatorTest {
         RfParameter base = RfParameter.defaults();
         RfParameter boosted = RfParameter.builder()
                 .frequencyMhz(base.getFrequencyMhz())
-                .transmitPowerDbm(27.0) /* +6 dB */
+                .transmitPowerDbm(27.0)
                 .receiverSensitivityDbm(base.getReceiverSensitivityDbm())
                 .antennaHeightM(base.getAntennaHeightM())
                 .deviceHeightM(base.getDeviceHeightM())
@@ -150,11 +143,11 @@ class RfCoverageRadiusCalculatorTest {
 
     @Test
     void shouldDecreaseRadiusWhenReceiverSensitivityIsWorse() {
-        RfParameter sensitive = RfParameter.defaults(); /* -120 dBm */
+        RfParameter sensitive = RfParameter.defaults();
         RfParameter lessSensitive = RfParameter.builder()
                 .frequencyMhz(sensitive.getFrequencyMhz())
                 .transmitPowerDbm(sensitive.getTransmitPowerDbm())
-                .receiverSensitivityDbm(-100.0) /* 20 dB worse */
+                .receiverSensitivityDbm(-100.0)
                 .antennaHeightM(sensitive.getAntennaHeightM())
                 .deviceHeightM(sensitive.getDeviceHeightM())
                 .antennaGainDbi(sensitive.getAntennaGainDbi())
