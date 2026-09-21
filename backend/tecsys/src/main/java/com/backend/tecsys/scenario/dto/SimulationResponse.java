@@ -68,5 +68,8 @@ public class SimulationResponse {
 
         @Schema(description = "Longitude do gateway.", example = "-47.0")
         private double longitude;
+
+        @Schema(description = "Raio estimado de cobertura em metros.", example = "1850.5")
+        private double coverageRadiusMeters;
     }
 }
