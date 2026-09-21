@@ -201,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 14),
           _buildFeatureBadge(
             icon: Icons.memory_rounded,
-            title: 'Otimização Heurística & IA (NSGA-II)',
+            title: 'Otimização Heurística (NSGA-II)',
             description:
                 'Algoritmos genéticos para maximizar densidade de enlace e reduzir CAPEX de torres.',
             iconColor: AppColors.iconGold,
