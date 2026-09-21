@@ -4,11 +4,14 @@ import '../controllers/scenario_config_controller.dart';
 import '../widgets/action_footer_bar.dart';
 import '../widgets/optimization_criteria_card.dart';
 import '../widgets/rf_parameters_card.dart';
+import '../widgets/scenario_wizard_stepper.dart';
+import '../../domain/models/area_delimitation_model.dart';
 
 class ScenarioConfigScreen extends StatefulWidget {
   final ScenarioConfigController? controller;
+  final AreaDelimitationConfig? areaConfig;
 
-  const ScenarioConfigScreen({super.key, this.controller});
+  const ScenarioConfigScreen({super.key, this.controller, this.areaConfig});
 
   @override
   State<ScenarioConfigScreen> createState() => _ScenarioConfigScreenState();
@@ -46,6 +49,17 @@ class _ScenarioConfigScreenState extends State<ScenarioConfigScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  ScenarioWizardStepper(
+                    currentStep: 2,
+                    onStep1Tap: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Navigator.of(context).pushReplacementNamed('/scenario');
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 18),
                   RfParametersCard(controller: _controller),
                   const SizedBox(height: 18),
                   OptimizationCriteriaCard(controller: _controller),
