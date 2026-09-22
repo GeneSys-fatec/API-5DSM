@@ -17,3 +17,5 @@ ETL/*.gdb/
 
 /uploads
 *.zip
+.postman/
+postman/
