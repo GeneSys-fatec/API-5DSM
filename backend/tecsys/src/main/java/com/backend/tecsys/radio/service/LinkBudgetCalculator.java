@@ -13,7 +13,22 @@ public class LinkBudgetCalculator {
                 - propagationLossDb;
     }
 
+    public double maxPermissiblePathLossDb(RfParameter rfParameter) {
+        return rfParameter.getTransmitPowerDbm()
+                + rfParameter.getAntennaGainDbi()
+                - rfParameter.getSystemLossDb()
+                - rfParameter.getReceiverSensitivityDbm();
+    }
+
+    public double linkMarginDb(double receivedPowerDbm, RfParameter rfParameter) {
+        return receivedPowerDbm - rfParameter.getReceiverSensitivityDbm();
+    }
+
     public boolean isCovered(double receivedPowerDbm, RfParameter rfParameter) {
         return receivedPowerDbm >= rfParameter.getReceiverSensitivityDbm();
+    }
+
+    public boolean isPathLossCovered(double propagationLossDb, RfParameter rfParameter) {
+        return propagationLossDb <= maxPermissiblePathLossDb(rfParameter);
     }
 }

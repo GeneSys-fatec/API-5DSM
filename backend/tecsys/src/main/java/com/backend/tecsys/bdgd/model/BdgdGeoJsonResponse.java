@@ -1,7 +1,5 @@
 package com.backend.tecsys.bdgd.model;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 import java.util.List;
 import java.util.Map;
 
@@ -11,7 +9,7 @@ public record BdgdGeoJsonResponse(
 
     public record BdgdGeoJsonFeature(
             String type,
-            JsonNode geometry,
+            Object geometry,
             Map<String, Object> properties) {
     }
 }

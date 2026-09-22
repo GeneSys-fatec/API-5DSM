@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data
 @Builder
@@ -23,6 +24,7 @@ public class LoginRequest {
     @Schema(description = "Senha de acesso (aceita 'password' ou 'senha')", example = "Senha@123")
     @JsonAlias({"senha", "password"})
     @NotBlank(message = "A senha é obrigatória.")
+    @ToString.Exclude
     private String password;
 }
 
