@@ -51,6 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
+      Navigator.of(context).pushReplacementNamed('/bdgd-import');
     }
   }
 
