@@ -19,8 +19,10 @@ FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4
 # quebrar o container. Instalamos apenas Python 3.11 e ferramentas de build
 # genéricas (necessárias para compilar a extensão C do `fiona` contra o GDAL
 # já existente).
+ENV DEBIAN_FRONTEND=noninteractive TZ=UTC
+
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends software-properties-common \
+    && apt-get install -y --no-install-recommends software-properties-common gnupg dirmngr \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
