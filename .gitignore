@@ -17,3 +17,4 @@ ETL/*.gdb/
 
 /uploads
 *.zip
+*.log
