@@ -5,7 +5,9 @@ import com.backend.tecsys.radio.exception.UnsupportedPropagationModelException;
 public enum PropagationModelType {
     OKUMURA_HATA_SUBURBAN,
     THREE_GPP_RURAL_MACRO,
-    ITM_LONGLEY_RICE;
+    ITM_LONGLEY_RICE,
+    TWO_RAY_GROUND,
+    FREE_SPACE;
 
     public static PropagationModelType fromValue(String value) {
         if (value == null || value.isBlank()) {

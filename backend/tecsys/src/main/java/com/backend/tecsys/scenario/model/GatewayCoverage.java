@@ -16,6 +16,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class GatewayCoverage {
     private GatewayCandidate candidate;
+    private double coverageRadiusMeters;
 
     @Builder.Default
     private Map<String, Double> receivedPowerDbmByAssetKey = new LinkedHashMap<>();

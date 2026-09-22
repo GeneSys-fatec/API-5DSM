@@ -1,13 +1,15 @@
-package com.backend.tecsys.scenario.service;import com.backend.tecsys.radio.service.RadioCoverageCalculator;
+package com.backend.tecsys.scenario.service;
 
-
+import com.backend.tecsys.radio.model.RfParameter;
+import com.backend.tecsys.radio.service.PropagationModel;
+import com.backend.tecsys.radio.service.PropagationModelRegistry;
+import com.backend.tecsys.radio.service.RadioCoverageCalculator;
 import com.backend.tecsys.scenario.exception.InvalidGatewayCandidateException;
 import com.backend.tecsys.scenario.exception.InvalidSimulationParameterException;
 import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
 import com.backend.tecsys.scenario.model.GatewayCoverage;
 import com.backend.tecsys.scenario.model.PropagationModelType;
-import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.scenario.model.Scenario;
 import com.backend.tecsys.scenario.model.ScenarioAssetCoverage;
 import com.backend.tecsys.scenario.model.ScenarioIndicator;
@@ -15,8 +17,6 @@ import com.backend.tecsys.scenario.model.ScenarioSelectedGateway;
 import com.backend.tecsys.scenario.repository.GatewayCandidateProvider;
 import com.backend.tecsys.scenario.repository.IAssetRepository;
 import com.backend.tecsys.scenario.repository.IScenarioRepository;
-import com.backend.tecsys.radio.service.PropagationModel;
-import com.backend.tecsys.radio.service.PropagationModelRegistry;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -137,6 +137,10 @@ public class SimulationService {
             selectedCandidates.add(coverage.getCandidate());
         }
 
+        double coverageRadiusMeters = selection.selectedCoverages().isEmpty()
+                ? radioCoverageCalculator.calculateCoverageRadius(command.rfParameter(), propagationModel)
+                : selection.selectedCoverages().get(0).getCoverageRadiusMeters();
+
         return new SimulationOutcome(
                 scenario.getId(),
                 scenario.getStatus(),
@@ -145,7 +149,8 @@ public class SimulationService {
                 selectedCandidates,
                 coveredAssetKeysResult,
                 uncoveredAssetKeysResult,
-                indicator);
+                indicator,
+                coverageRadiusMeters);
     }
 
     private void validate(SimulationCommand command) {
@@ -189,6 +194,7 @@ public class SimulationService {
             selectedGateways.add(ScenarioSelectedGateway.builder()
                     .candidateId(coverage.getCandidate().getId())
                     .coordinate(coverage.getCandidate().getCoordinate())
+                    .coverageRadiusMeters(coverage.getCoverageRadiusMeters())
                     .manuallyAdjusted(false)
                     .selectionOrder(++order)
                     .build());
@@ -246,6 +252,20 @@ public class SimulationService {
             List<GatewayCandidate> selectedGateways,
             List<String> coveredAssetKeys,
             List<String> uncoveredAssetKeys,
-            ScenarioIndicator indicator) {
+            ScenarioIndicator indicator,
+            double coverageRadiusMeters) {
+
+        public SimulationOutcome(
+                Long scenarioId,
+                String status,
+                PropagationModelType propagationModel,
+                RfParameter rfParameter,
+                List<GatewayCandidate> selectedGateways,
+                List<String> coveredAssetKeys,
+                List<String> uncoveredAssetKeys,
+                ScenarioIndicator indicator) {
+            this(scenarioId, status, propagationModel, rfParameter, selectedGateways,
+                    coveredAssetKeys, uncoveredAssetKeys, indicator, 0.0);
+        }
     }
 }

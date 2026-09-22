@@ -1,16 +1,12 @@
 package com.backend.tecsys.radio.service;
+
+import com.backend.tecsys.radio.model.PropagationInput;
+import com.backend.tecsys.radio.model.RfParameter;
+import com.backend.tecsys.radio.model.TerrainProfile;
 import com.backend.tecsys.radio.repository.TerrainProfileProvider;
-
-
 import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
 import com.backend.tecsys.scenario.model.GatewayCoverage;
-import com.backend.tecsys.radio.model.RfParameter;
-import com.backend.tecsys.radio.service.GeoDistanceCalculator;
-import com.backend.tecsys.radio.service.LinkBudgetCalculator;
-import com.backend.tecsys.radio.model.PropagationInput;
-import com.backend.tecsys.radio.service.PropagationModel;
-import com.backend.tecsys.radio.model.TerrainProfile;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -26,12 +22,15 @@ public class RadioCoverageCalculator {
 
     private final LinkBudgetCalculator linkBudgetCalculator;
     private final TerrainProfileProvider terrainProfileProvider;
+    private final RfCoverageRadiusCalculator rfCoverageRadiusCalculator;
 
     public RadioCoverageCalculator(
             LinkBudgetCalculator linkBudgetCalculator,
-            TerrainProfileProvider terrainProfileProvider) {
+            TerrainProfileProvider terrainProfileProvider,
+            RfCoverageRadiusCalculator rfCoverageRadiusCalculator) {
         this.linkBudgetCalculator = linkBudgetCalculator;
         this.terrainProfileProvider = terrainProfileProvider;
+        this.rfCoverageRadiusCalculator = rfCoverageRadiusCalculator;
     }
 
     public GatewayCoverage calculateCoverage(
@@ -69,10 +68,17 @@ public class RadioCoverageCalculator {
             }
         }
 
+        double coverageRadiusMeters = rfCoverageRadiusCalculator.calculateRadiusMeters(rfParameter, propagationModel);
+
         return GatewayCoverage.builder()
                 .candidate(candidate)
+                .coverageRadiusMeters(coverageRadiusMeters)
                 .receivedPowerDbmByAssetKey(receivedPowerByAssetKey)
                 .coveredAssetKeys(coveredAssetKeys)
                 .build();
+    }
+
+    public double calculateCoverageRadius(RfParameter rfParameter, PropagationModel propagationModel) {
+        return rfCoverageRadiusCalculator.calculateRadiusMeters(rfParameter, propagationModel);
     }
 }
