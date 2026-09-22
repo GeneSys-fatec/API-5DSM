@@ -1,0 +1,9 @@
+tests/
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+.git
+docker-compose.test.yml
+README.md

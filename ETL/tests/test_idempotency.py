@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import geopandas as gpd
+import pytest
 import sqlalchemy as sa
 from shapely.geometry import Point
 
@@ -50,20 +51,32 @@ class TestUpsertLayerIdempotency:
             f"obtive {count} — indica duplicação."
         )
 
-    def test_reimporting_with_updated_data_updates_existing_row_not_insert(self, engine, pg_schema):
+    def test_reimporting_with_different_regiao_raises_cross_partition_conflict_error(self, engine, pg_schema):
+        # Com a checagem de conflito cross-partição de asset_key implementada
+        # (task 7.4, Requisito 2.3), reimportar o mesmo asset_key trocando
+        # 'regiao' (que muda a Chave_de_Particionamento) não é mais tratado
+        # como update in-place: é rejeitado com ValueError, e o registro
+        # original permanece inalterado na partição original.
         gdf_v1 = _build_gdf(cod_id="456", dist_name="CEMIG", layer_name="POSTE", regiao="SUDESTE", x=-43.9, y=-19.9)
         load.upsert_layer(gdf_v1, layer_name="POSTE", key_col="COD_ID", engine=engine, pg_schema=pg_schema)
 
         gdf_v2 = _build_gdf(cod_id="456", dist_name="CEMIG", layer_name="POSTE", regiao="SUL", x=-44.5, y=-20.5)
-        load.upsert_layer(gdf_v2, layer_name="POSTE", key_col="COD_ID", engine=engine, pg_schema=pg_schema)
+
+        with pytest.raises(ValueError) as exc_info:
+            load.upsert_layer(gdf_v2, layer_name="POSTE", key_col="COD_ID", engine=engine, pg_schema=pg_schema)
+
+        message = str(exc_info.value)
+        assert "POSTE::CEMIG::456" in message
+        assert "CEMIG::SUDESTE" in message
+        assert "CEMIG::SUL" in message
 
         with engine.connect() as conn:
             rows = conn.execute(
                 sa.text(f"SELECT regiao, ST_AsText(geometry) AS geom FROM {pg_schema}.poste")
             ).fetchall()
 
-        assert len(rows) == 1, "Esperava 1 linha (update), não uma linha nova."
-        assert rows[0].regiao == "SUL", "A linha deveria refletir os dados da reimportação (v2), não da v1."
+        assert len(rows) == 1, "Esperava 1 linha (registro original inalterado), não uma linha nova."
+        assert rows[0].regiao == "SUDESTE", "O registro original (v1) não deveria ter sido alterado."
 
 
 class TestUpsertLayerDistinguishesDistribuidoras:
