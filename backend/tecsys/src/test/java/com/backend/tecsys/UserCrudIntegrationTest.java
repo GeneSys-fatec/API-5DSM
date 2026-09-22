@@ -138,6 +138,22 @@ class UserCrudIntegrationTest {
     }
 
     @Test
+    void shouldRejectListUsersWhenOperatorTriesToListAllUsers() throws Exception {
+        LoginRequest operatorLogin = new LoginRequest("operador@distribuidora.com.br", "Oper@456");
+        MvcResult result = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(operatorLogin)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String operatorToken = objectMapper.readTree(result.getResponse().getContentAsString()).get("token").asText();
+
+        mockMvc.perform(get("/users")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void shouldGetUserByIdSuccessfully() throws Exception {
         mockMvc.perform(get("/users/1")
                         .header("Authorization", "Bearer " + adminToken))

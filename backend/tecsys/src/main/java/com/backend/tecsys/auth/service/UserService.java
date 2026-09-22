@@ -69,7 +69,8 @@ public class UserService {
         return UserResponse.fromUser(user);
     }
 
-    public List<UserResponse> getAllUsers() {
+    public List<UserResponse> getAllUsers(User currentUser) {
+        validateAdmin(currentUser);
         return userRepository.findAll().stream()
                 .map(UserResponse::fromUser)
                 .toList();
@@ -131,6 +132,15 @@ public class UserService {
 
         if (!isAdmin && !isSelf) {
             throw new ForbiddenOperationException("Você não tem permissão para " + action + " os dados de outro usuário.");
+        }
+    }
+
+    private void validateAdmin(User currentUser) {
+        if (currentUser == null) {
+            throw new ForbiddenOperationException("Usuário não autenticado.");
+        }
+        if (!"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
+            throw new ForbiddenOperationException("Você não tem permissão para listar todos os usuários.");
         }
     }
 }

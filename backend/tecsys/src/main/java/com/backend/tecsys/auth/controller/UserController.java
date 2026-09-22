@@ -64,7 +64,7 @@ public class UserController {
     @GetMapping
     @Operation(
             summary = "Listar usuários",
-            description = "Retorna a listagem de todos os usuários cadastrados. Exige autenticação Bearer JWT.",
+            description = "Retorna a listagem de todos os usuários cadastrados. Exige autenticação Bearer JWT e perfil de ADMIN.",
             security = @SecurityRequirement(name = "Bearer Authentication")
     )
     @ApiResponses({
@@ -76,10 +76,14 @@ public class UserController {
             @ApiResponse(
                     responseCode = "401",
                     description = "Não autenticado ou token inválido/expirado"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Sem permissão para listar usuários (requer perfil ADMIN)"
             )
     })
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
-        List<UserResponse> users = userService.getAllUsers();
+    public ResponseEntity<List<UserResponse>> getAllUsers(@Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
+        List<UserResponse> users = userService.getAllUsers(currentUser);
         return ResponseEntity.ok(users);
     }
 
