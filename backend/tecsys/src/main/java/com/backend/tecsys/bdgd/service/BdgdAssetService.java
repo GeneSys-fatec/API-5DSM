@@ -2,7 +2,6 @@ package com.backend.tecsys.bdgd.service;
 
 import com.backend.tecsys.bdgd.model.BdgdGeoJsonResponse;
 import com.backend.tecsys.bdgd.repository.BdgdAssetRepository;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,11 @@ public class BdgdAssetService {
             String distribuidora,
             String regiao,
             Integer limit,
-            Integer offset) {
+            Integer offset,
+            Double minLon,
+            Double minLat,
+            Double maxLon,
+            Double maxLat) {
         String normalizedLayer = layer == null ? "" : layer.trim().toUpperCase();
         String tableName = TABLES.get(normalizedLayer);
         if (tableName == null) {
@@ -42,8 +45,16 @@ public class BdgdAssetService {
 
         int safeLimit = limit == null ? DEFAULT_LIMIT : Math.min(Math.max(limit, 1), MAX_LIMIT);
         int safeOffset = offset == null ? 0 : Math.max(offset, 0);
+        if ((minLon != null || minLat != null || maxLon != null || maxLat != null)
+            && (minLon == null || minLat == null || maxLon == null || maxLat == null)) {
+            throw new IllegalArgumentException("Informe os quatro valores da bbox: minLon, minLat, maxLon e maxLat.");
+        }
+        if (minLon != null && (minLon >= maxLon || minLat >= maxLat)) {
+            throw new IllegalArgumentException("bbox invalida: os valores minimos devem ser menores que os maximos.");
+        }
         List<BdgdGeoJsonResponse.BdgdGeoJsonFeature> features = repository
-                .findFeatures(tableName, blankToNull(distribuidora), blankToNull(regiao), safeLimit, safeOffset)
+            .findFeatures(tableName, blankToNull(distribuidora), blankToNull(regiao),
+                minLon, minLat, maxLon, maxLat, safeLimit, safeOffset)
                 .stream()
                 .map(this::toFeature)
                 .toList();
@@ -52,9 +63,10 @@ public class BdgdAssetService {
     }
 
     private BdgdGeoJsonResponse.BdgdGeoJsonFeature toFeature(Map<String, Object> row) {
-        JsonNode geometry;
+        Object geometry;
         try {
-            geometry = objectMapper.readTree((String) row.remove("geometry"));
+            String geometryJson = (String) row.remove("geometry");
+            geometry = objectMapper.readValue(geometryJson, Object.class);
         } catch (Exception exception) {
             throw new IllegalStateException("Geometria GeoJSON invalida", exception);
         }
