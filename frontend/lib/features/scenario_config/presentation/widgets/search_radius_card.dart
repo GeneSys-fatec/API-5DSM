@@ -117,7 +117,14 @@ class SearchRadiusCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('0.5 km', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('0.5 km', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                    Text('(Mín)', style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
+                  ],
+                ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -131,7 +138,7 @@ class SearchRadiusCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     const Text(
-                      'Teto: 8.0 km',
+                      'Teto Máx API: 8.0 km',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
