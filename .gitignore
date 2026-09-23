@@ -20,3 +20,5 @@ ETL/*.gdb/
 *.log
 
 704245443-Manual-BDGD.txt
+.postman/
+postman/

@@ -9,8 +9,13 @@ import 'map_layer_type.dart';
 
 class ScenarioMap extends StatefulWidget {
   final SimulationScenario scenario;
+  final bool isFullScreen;
 
-  const ScenarioMap({super.key, required this.scenario});
+  const ScenarioMap({
+    super.key,
+    required this.scenario,
+    this.isFullScreen = false,
+  });
 
   @override
   State<ScenarioMap> createState() => _ScenarioMapState();
@@ -32,6 +37,37 @@ class _ScenarioMapState extends State<ScenarioMap> {
         _activeLayers.add(layer);
       }
     });
+  }
+
+  void _openFullScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            titleSpacing: 0,
+            leadingWidth: 40,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: const Text('Mapa de Cobertura', style: TextStyle(fontSize: 20)),
+          ),
+          body: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: ScenarioMap(
+              scenario: widget.scenario,
+              isFullScreen: true,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -127,11 +163,43 @@ class _ScenarioMapState extends State<ScenarioMap> {
                       onClose: () => setState(() => _selectedGateway = null),
                     ),
                   ),
+                if (!widget.isFullScreen)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: _FullScreenButton(
+                      icon: Icons.fullscreen,
+                      onTap: _openFullScreen,
+                    ),
+                  ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FullScreenButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _FullScreenButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black54,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
     );
   }
 }
