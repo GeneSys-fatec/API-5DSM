@@ -8,7 +8,6 @@ import '../widgets/candidate_assets_card.dart';
 import '../widgets/scenario_wizard_stepper.dart';
 import '../widgets/search_radius_card.dart';
 import '../widgets/simulation_center_card.dart';
-import 'scenario_config_screen.dart';
 
 class AreaDelimitationScreen extends StatefulWidget {
   final AreaDelimitationController? controller;
@@ -44,13 +43,7 @@ class _AreaDelimitationScreenState extends State<AreaDelimitationScreen> {
   }
 
   void _navigateToStep2() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ScenarioConfigScreen(
-          areaConfig: _controller.config,
-        ),
-      ),
-    );
+    Navigator.of(context).pushReplacementNamed('/scenario/rf');
   }
 
   void _navigateToBdgd() {
@@ -75,7 +68,9 @@ class _AreaDelimitationScreenState extends State<AreaDelimitationScreen> {
                 children: [
                   ScenarioWizardStepper(
                     currentStep: 1,
-                    onStep2Tap: _controller.canAdvance ? _navigateToStep2 : null,
+                    onStep2Tap: _controller.canAdvance
+                        ? _navigateToStep2
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   LayoutBuilder(
@@ -96,7 +91,9 @@ class _AreaDelimitationScreenState extends State<AreaDelimitationScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: SimulationCenterCard(controller: _controller),
+                            child: SimulationCenterCard(
+                              controller: _controller,
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(

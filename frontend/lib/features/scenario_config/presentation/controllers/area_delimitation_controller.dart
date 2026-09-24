@@ -3,6 +3,16 @@ import '../../data/services/area_delimitation_service.dart';
 import '../../domain/models/area_delimitation_model.dart';
 
 class AreaDelimitationController extends ChangeNotifier {
+  static AreaDelimitationConfig? _sharedConfig;
+  static AreaDelimitationResult? _sharedResult;
+
+  static AreaDelimitationConfig? get sharedConfig => _sharedConfig;
+
+  static void resetSharedState() {
+    _sharedConfig = null;
+    _sharedResult = null;
+  }
+
   final AreaDelimitationService _service;
 
   AreaDelimitationConfig _config;
@@ -14,8 +24,10 @@ class AreaDelimitationController extends ChangeNotifier {
   AreaDelimitationController({
     AreaDelimitationService? service,
     AreaDelimitationConfig? initialConfig,
-  })  : _service = service ?? AreaDelimitationService(),
-        _config = initialConfig ?? const AreaDelimitationConfig();
+  }) : _service = service ?? AreaDelimitationService(),
+       _config =
+           initialConfig ?? _sharedConfig ?? const AreaDelimitationConfig(),
+       _result = _sharedResult;
 
   AreaDelimitationConfig get config => _config;
   AreaDelimitationResult? get result => _result;
@@ -28,7 +40,8 @@ class AreaDelimitationController extends ChangeNotifier {
   bool get defineClickingOnMap => _config.defineClickingOnMap;
   Set<CandidateAssetType> get selectedAssetTypes => _config.selectedAssetTypes;
 
-  bool get isRadiusExceeded => _result?.isRadiusExceeded ?? (_config.radiusKm > 8.0);
+  bool get isRadiusExceeded =>
+      _result?.isRadiusExceeded ?? (_config.radiusKm > 8.0);
   bool get intersectsBoundary => _result?.intersectsBoundary ?? false;
   double get boundaryOverlapPct => _result?.boundaryOverlapPct ?? 0.0;
 
@@ -36,7 +49,9 @@ class AreaDelimitationController extends ChangeNotifier {
 
   List<CandidateAsset> get filteredCandidates {
     final list = _result?.candidates ?? const [];
-    return list.where((c) => _config.selectedAssetTypes.contains(c.type)).toList();
+    return list
+        .where((c) => _config.selectedAssetTypes.contains(c.type))
+        .toList();
   }
 
   int get totalCandidatesCount => 454;
@@ -58,6 +73,8 @@ class AreaDelimitationController extends ChangeNotifier {
 
     try {
       _result = await _service.evaluateArea(_config);
+      _sharedConfig = _config;
+      _sharedResult = _result;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -65,10 +82,8 @@ class AreaDelimitationController extends ChangeNotifier {
   }
 
   void setCenterCoordinates(double lat, double lng) {
-    _config = _config.copyWith(
-      centerLatitude: lat,
-      centerLongitude: lng,
-    );
+    _config = _config.copyWith(centerLatitude: lat, centerLongitude: lng);
+    _sharedConfig = _config;
     _selectedCandidate = null;
     evaluateArea();
   }
@@ -84,11 +99,13 @@ class AreaDelimitationController extends ChangeNotifier {
 
   void setAddressQuery(String query) {
     _config = _config.copyWith(address: query);
+    _sharedConfig = _config;
     notifyListeners();
   }
 
   void clearAddress() {
     _config = _config.copyWith(address: '');
+    _sharedConfig = _config;
     notifyListeners();
   }
 
@@ -100,17 +117,20 @@ class AreaDelimitationController extends ChangeNotifier {
       radiusKm: normalizedRadius,
       isUnitKm: updatedUnit,
     );
+    _sharedConfig = _config;
     evaluateArea();
   }
 
   void toggleUnit(bool toKm) {
     if (_config.isUnitKm == toKm) return;
     _config = _config.copyWith(isUnitKm: toKm);
+    _sharedConfig = _config;
     notifyListeners();
   }
 
   void setDefineClickingOnMap(bool value) {
     _config = _config.copyWith(defineClickingOnMap: value);
+    _sharedConfig = _config;
     notifyListeners();
   }
 
@@ -122,7 +142,9 @@ class AreaDelimitationController extends ChangeNotifier {
       current.add(type);
     }
     _config = _config.copyWith(selectedAssetTypes: current);
-    if (_selectedCandidate != null && !current.contains(_selectedCandidate!.type)) {
+    _sharedConfig = _config;
+    if (_selectedCandidate != null &&
+        !current.contains(_selectedCandidate!.type)) {
       _selectedCandidate = null;
     }
     notifyListeners();

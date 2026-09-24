@@ -25,7 +25,7 @@ class ScenarioConfigController extends ChangeNotifier {
   String? _successMessage;
 
   ScenarioConfigController({ScenarioStorageService? storageService})
-      : _storageService = storageService ?? ScenarioStorageService() {
+    : _storageService = storageService ?? ScenarioStorageService() {
     _applyModelToState(const ScenarioConfigModel());
     _initListeners();
   }
@@ -166,8 +166,10 @@ class ScenarioConfigController extends ChangeNotifier {
       frequencyMhz: double.tryParse(frequencyController.text.trim()) ?? 915.0,
       frequencyPreset: _selectedFrequencyPreset,
       txPowerDbm: double.tryParse(txPowerController.text.trim()) ?? 21.0,
-      rxSensitivityDbm: double.tryParse(rxSensitivityController.text.trim()) ?? -120.0,
-      gatewayHeightM: double.tryParse(gatewayHeightController.text.trim()) ?? 6.0,
+      rxSensitivityDbm:
+          double.tryParse(rxSensitivityController.text.trim()) ?? -120.0,
+      gatewayHeightM:
+          double.tryParse(gatewayHeightController.text.trim()) ?? 6.0,
       deviceHeightM: double.tryParse(deviceHeightController.text.trim()) ?? 5.0,
       propagationModel: _selectedPropagationModel,
       minCoveragePercent: _minCoveragePercent,
@@ -228,9 +230,15 @@ class ScenarioConfigController extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 100));
 
     _isCalculating = false;
-    _successMessage = 'Cenário salvo e cálculo de simulação disparado com sucesso!';
+    _successMessage =
+        'Cenário salvo e cálculo de simulação disparado com sucesso!';
     notifyListeners();
     return true;
+  }
+
+  Future<void> saveCurrentState() async {
+    final model = toModel();
+    await _storageService.saveScenario(model);
   }
 
   Future<void> resetToDefaults() async {

@@ -35,6 +35,11 @@ class _ScenarioConfigScreenState extends State<ScenarioConfigScreen> {
     super.dispose();
   }
 
+  void _navigateToStep1() {
+    _controller.saveCurrentState();
+    Navigator.of(context).pushReplacementNamed('/scenario');
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -51,20 +56,17 @@ class _ScenarioConfigScreenState extends State<ScenarioConfigScreen> {
                 children: [
                   ScenarioWizardStepper(
                     currentStep: 2,
-                    onStep1Tap: () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      } else {
-                        Navigator.of(context).pushReplacementNamed('/scenario');
-                      }
-                    },
+                    onStep1Tap: _navigateToStep1,
                   ),
                   const SizedBox(height: 18),
                   RfParametersCard(controller: _controller),
                   const SizedBox(height: 18),
                   OptimizationCriteriaCard(controller: _controller),
                   const SizedBox(height: 18),
-                  ActionFooterBar(controller: _controller),
+                  ActionFooterBar(
+                    controller: _controller,
+                    onBackToStep1: _navigateToStep1,
+                  ),
                   const SizedBox(height: 24),
                 ],
               ),

@@ -25,10 +25,12 @@ class TecsysApp extends StatelessWidget {
       routes: {
         '/': (_) => LoginScreen(initialLoginMode: initialLoginMode),
         '/login': (_) => LoginScreen(initialLoginMode: initialLoginMode),
+        '/register': (_) => const LoginScreen(initialLoginMode: false),
         '/bdgd-import': (_) => const BdgdImportScreen(),
         '/scenario': (_) => const AreaDelimitationScreen(),
         '/scenario/rf': (_) => const ScenarioConfigScreen(),
-        '/results': (_) => ScenarioHistoryScreen(scenario: kMockScenarios.first),
+        '/results': (_) =>
+            ScenarioHistoryScreen(scenario: kMockScenarios.first),
       },
     );
   }

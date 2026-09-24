@@ -7,43 +7,52 @@ import 'package:frontend/features/scenario_config/presentation/screens/area_deli
 
 void main() {
   group('AreaDelimitation Domain & Service Tests', () {
-    test('Configuracao padrao possui os valores corretos de Campinas e raio de 3.5 km', () {
-      const config = AreaDelimitationConfig();
-      expect(config.centerLatitude, -22.9068);
-      expect(config.centerLongitude, -47.0616);
-      expect(config.radiusKm, 3.5);
-      expect(config.radiusMeters, 3500.0);
-      expect(config.isUnitKm, true);
-      expect(config.defineClickingOnMap, false);
-      expect(config.selectedAssetTypes.length, 4);
-    });
+    test(
+      'Configuracao padrao possui os valores corretos de Campinas e raio de 3.5 km',
+      () {
+        const config = AreaDelimitationConfig();
+        expect(config.centerLatitude, -22.9068);
+        expect(config.centerLongitude, -47.0616);
+        expect(config.radiusKm, 3.5);
+        expect(config.radiusMeters, 3500.0);
+        expect(config.isUnitKm, true);
+        expect(config.defineClickingOnMap, false);
+        expect(config.selectedAssetTypes.length, 4);
+      },
+    );
 
-    test('AreaDelimitationService avalia raio valido e detecta interceptacao de borda em 3.5 km', () async {
-      final service = AreaDelimitationService();
-      const config = AreaDelimitationConfig(radiusKm: 3.5);
+    test(
+      'AreaDelimitationService avalia raio valido e detecta interceptacao de borda em 3.5 km',
+      () async {
+        final service = AreaDelimitationService();
+        const config = AreaDelimitationConfig(radiusKm: 3.5);
 
-      final result = await service.evaluateArea(config);
+        final result = await service.evaluateArea(config);
 
-      expect(result.isValid, true);
-      expect(result.isRadiusExceeded, false);
-      expect(result.intersectsBoundary, true);
-      expect(result.boundaryOverlapPct, 12.0);
-      expect(result.countFor(CandidateAssetType.poste), 342);
-      expect(result.countFor(CandidateAssetType.trafo), 88);
-      expect(result.countFor(CandidateAssetType.religador), 24);
-      expect(result.countFor(CandidateAssetType.subestacao), 2);
-    });
+        expect(result.isValid, true);
+        expect(result.isRadiusExceeded, false);
+        expect(result.intersectsBoundary, true);
+        expect(result.boundaryOverlapPct, 12.0);
+        expect(result.countFor(CandidateAssetType.poste), 342);
+        expect(result.countFor(CandidateAssetType.trafo), 88);
+        expect(result.countFor(CandidateAssetType.religador), 24);
+        expect(result.countFor(CandidateAssetType.subestacao), 2);
+      },
+    );
 
-    test('AreaDelimitationService bloqueia raio quando excede o teto de 8.0 km', () async {
-      final service = AreaDelimitationService();
-      const config = AreaDelimitationConfig(radiusKm: 8.5);
+    test(
+      'AreaDelimitationService bloqueia raio quando excede o teto de 8.0 km',
+      () async {
+        final service = AreaDelimitationService();
+        const config = AreaDelimitationConfig(radiusKm: 8.5);
 
-      final result = await service.evaluateArea(config);
+        final result = await service.evaluateArea(config);
 
-      expect(result.isValid, false);
-      expect(result.isRadiusExceeded, true);
-      expect(result.maxAllowedRadiusKm, 8.0);
-    });
+        expect(result.isValid, false);
+        expect(result.isRadiusExceeded, true);
+        expect(result.maxAllowedRadiusKm, 8.0);
+      },
+    );
   });
 
   group('AreaDelimitationController State Tests', () {
@@ -87,28 +96,54 @@ void main() {
       expect(controller.filteredCandidates.length, initialCount);
     });
 
-    test('Valida canAdvance quando raio esta dentro ou fora do limite', () async {
-      final controller = AreaDelimitationController();
-      await controller.init();
+    test(
+      'Valida canAdvance quando raio esta dentro ou fora do limite',
+      () async {
+        final controller = AreaDelimitationController();
+        await controller.init();
 
-      expect(controller.canAdvance, true);
+        expect(controller.canAdvance, true);
 
-      controller.setRadius(9.5, isUnitKm: true);
-      await controller.evaluateArea();
+        controller.setRadius(9.5, isUnitKm: true);
+        await controller.evaluateArea();
 
-      expect(controller.isRadiusExceeded, true);
-      expect(controller.canAdvance, false);
+        expect(controller.isRadiusExceeded, true);
+        expect(controller.canAdvance, false);
 
-      controller.setRadius(4.0, isUnitKm: true);
-      await controller.evaluateArea();
+        controller.setRadius(4.0, isUnitKm: true);
+        await controller.evaluateArea();
 
-      expect(controller.isRadiusExceeded, false);
-      expect(controller.canAdvance, true);
-    });
+        expect(controller.isRadiusExceeded, false);
+        expect(controller.canAdvance, true);
+      },
+    );
+
+    test(
+      'Preserva configuracao compartilhada entre instancias do controlador',
+      () async {
+        AreaDelimitationController.resetSharedState();
+        final controller1 = AreaDelimitationController();
+        await controller1.init();
+
+        controller1.setRadius(5.5, isUnitKm: true);
+        controller1.setCenterCoordinates(-22.8000, -47.2000);
+        controller1.setAddressQuery('Rua Teste, 123');
+        await controller1.evaluateArea();
+
+        final controller2 = AreaDelimitationController();
+        expect(controller2.config.radiusKm, 5.5);
+        expect(controller2.config.centerLatitude, -22.8000);
+        expect(controller2.config.centerLongitude, -47.2000);
+        expect(controller2.config.address, 'Rua Teste, 123');
+        expect(controller2.result, isNotNull);
+      },
+    );
   });
 
   group('AreaDelimitationScreen Widget Tests', () {
-    testWidgets('Renderiza Stepper, os tres cards principais e o mapa', (tester) async {
+    testWidgets('Renderiza Stepper, os tres cards principais e o mapa', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 1024);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -136,44 +171,59 @@ void main() {
       expect(find.text('Definir Clicando no Mapa'), findsOneWidget);
       expect(find.text('454 Locais'), findsOneWidget);
       expect(find.text('Voltar para Importação BDGD'), findsOneWidget);
-      expect(find.text('Avançar para Etapa 2: Parâmetros de RF e Otimização'), findsOneWidget);
+      expect(
+        find.text('Avançar para Etapa 2: Parâmetros de RF e Otimização'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('Exibe mensagem de erro e desabilita avanço quando raio excede 8 km', (tester) async {
-      tester.view.physicalSize = const Size(1280, 1024);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'Exibe mensagem de erro e desabilita avanço quando raio excede 8 km',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 1024);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      final controller = AreaDelimitationController();
-      await controller.init();
+        final controller = AreaDelimitationController();
+        await controller.init();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AreaDelimitationScreen(
-            controller: controller,
-            enableMapTiles: false,
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AreaDelimitationScreen(
+              controller: controller,
+              enableMapTiles: false,
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      final advanceButtonInitial = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Avançar para Etapa 2: Parâmetros de RF e Otimização'),
-      );
-      expect(advanceButtonInitial.onPressed, isNotNull);
+        final advanceButtonInitial = tester.widget<ElevatedButton>(
+          find.widgetWithText(
+            ElevatedButton,
+            'Avançar para Etapa 2: Parâmetros de RF e Otimização',
+          ),
+        );
+        expect(advanceButtonInitial.onPressed, isNotNull);
 
-      controller.setRadius(9.0, isUnitKm: true);
-      await tester.pumpAndSettle();
+        controller.setRadius(9.0, isUnitKm: true);
+        await tester.pumpAndSettle();
 
-      expect(find.textContaining('O raio ultrapassou 8.0 km'), findsOneWidget);
+        expect(
+          find.textContaining('O raio ultrapassou 8.0 km'),
+          findsOneWidget,
+        );
 
-      final advanceButtonDisabled = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Avançar para Etapa 2: Parâmetros de RF e Otimização'),
-      );
-      expect(advanceButtonDisabled.onPressed, isNull);
-    });
+        final advanceButtonDisabled = tester.widget<ElevatedButton>(
+          find.widgetWithText(
+            ElevatedButton,
+            'Avançar para Etapa 2: Parâmetros de RF e Otimização',
+          ),
+        );
+        expect(advanceButtonDisabled.onPressed, isNull);
+      },
+    );
   });
 }
