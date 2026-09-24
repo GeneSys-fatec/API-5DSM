@@ -1,8 +1,9 @@
-package com.backend.tecsys.scenario.dto;
+package com.backend.tecsys.presentation.dto;
 
 import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.radio.model.RfCoordinate;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
+import com.backend.tecsys.scenario.dto.GatewayCandidateRequest;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
