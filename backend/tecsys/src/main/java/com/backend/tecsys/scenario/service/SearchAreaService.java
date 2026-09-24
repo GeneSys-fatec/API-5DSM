@@ -19,7 +19,7 @@ public class SearchAreaService {
     @Value("${search.area.radius.min:100.0}")
     private Double minRadius;
 
-    @Value("${search.area.radius.max:10000.0}")
+    @Value("${search.area.radius.max:8000.0}")
     private Double maxRadius;
 
     private static final double EARTH_RADIUS = 6371e3;
