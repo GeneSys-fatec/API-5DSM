@@ -56,6 +56,22 @@ public class BdgdAssetRepository {
       return jdbc.queryForList(sql, distribuidora, distribuidora, regiao, regiao, limit, offset);
     }
 
+    public int countAssetsByDistribuidora(String distribuidora, List<String> tableNames) {
+        int total = 0;
+        for (String tableName : tableNames) {
+            if (tableExists(tableName)) {
+                Integer count = jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM bdgd." + tableName + " WHERE (? IS NULL OR LOWER(distribuidora) = LOWER(?))",
+                        Integer.class,
+                        distribuidora, distribuidora);
+                if (count != null) {
+                    total += count;
+                }
+            }
+        }
+        return total;
+    }
+
     private boolean tableExists(String tableName) {
       return Boolean.TRUE.equals(jdbc.queryForObject(
           "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
