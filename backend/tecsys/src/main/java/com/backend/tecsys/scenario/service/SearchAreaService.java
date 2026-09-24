@@ -41,8 +41,10 @@ public class SearchAreaService {
         double lonOffset = (request.getRadius() / EARTH_RADIUS) * (180 / Math.PI) / Math.cos(request.getLatitude() * Math.PI / 180);
 
         boolean insideBounds = bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude()) &&
-                bdgdCache.isPointInRegion(request.getLatitude() + latOffset, request.getLongitude() + lonOffset) &&
-                bdgdCache.isPointInRegion(request.getLatitude() - latOffset, request.getLongitude() - lonOffset);
+                bdgdCache.isPointInRegion(request.getLatitude() + latOffset, request.getLongitude()) &&
+                bdgdCache.isPointInRegion(request.getLatitude() - latOffset, request.getLongitude()) &&
+                bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude() + lonOffset) &&
+                bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude() - lonOffset);
 
         if (!insideBounds) {
             validationStatus = "WARNING_OUT_OF_BOUNDS";
