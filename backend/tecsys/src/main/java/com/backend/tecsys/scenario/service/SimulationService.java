@@ -28,7 +28,6 @@ import java.util.Set;
 public class SimulationService {
 
     private final IAssetRepository assetRepository;
-    private final GatewayCandidateProvider gatewayCandidateProvider;
     private final PropagationModelRegistry propagationModelRegistry;
     private final RadioCoverageCalculator radioCoverageCalculator;
     private final GatewaySelectionService gatewaySelectionService;
@@ -38,7 +37,6 @@ public class SimulationService {
 
     public SimulationService(
             IAssetRepository assetRepository,
-            GatewayCandidateProvider gatewayCandidateProvider,
             PropagationModelRegistry propagationModelRegistry,
             RadioCoverageCalculator radioCoverageCalculator,
             GatewaySelectionService gatewaySelectionService,
@@ -46,7 +44,6 @@ public class SimulationService {
             CostCalculator costCalculator,
             IScenarioRepository scenarioRepository) {
         this.assetRepository = assetRepository;
-        this.gatewayCandidateProvider = gatewayCandidateProvider;
         this.propagationModelRegistry = propagationModelRegistry;
         this.radioCoverageCalculator = radioCoverageCalculator;
         this.gatewaySelectionService = gatewaySelectionService;
@@ -66,7 +63,7 @@ public class SimulationService {
                     "Nenhum ativo encontrado para a distribuidora informada.");
         }
 
-        List<GatewayCandidate> candidates = new ArrayList<>(gatewayCandidateProvider.getCandidates(utilityId));
+        List<GatewayCandidate> candidates = new ArrayList<>(command.gatewayCandidates());
         if (candidates.isEmpty()) {
             throw new InvalidGatewayCandidateException(
                     "Nenhum candidato a gateway foi encontrado para a região informada.");
@@ -241,7 +238,8 @@ public class SimulationService {
             int maxGateways,
             Double gatewayUnitCost,
             PropagationModelType propagationModel,
-            RfParameter rfParameter) {
+                RfParameter rfParameter,
+                List<GatewayCandidate> gatewayCandidates) {
     }
 
     public record SimulationOutcome(
