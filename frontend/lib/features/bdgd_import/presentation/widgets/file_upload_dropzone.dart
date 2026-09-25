@@ -24,18 +24,19 @@ class FileUploadDropzone extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            DashedBorderBox(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  vertical: isMobile ? 28 : 44,
-                  horizontal: 16,
-                ),
+    return Column(
+      children: [
+        DashedBorderBox(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: isMobile ? 260 : 250),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: isMobile ? 28 : 44,
+                horizontal: 16,
+              ),
+              child: Center(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 56,
@@ -84,32 +85,34 @@ class FileUploadDropzone extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                     ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: AppColors.vermelhoErro, size: 16),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              errorMessage!,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.vermelhoErro),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
-            if (errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(Icons.error_outline_rounded, color: AppColors.vermelhoErro, size: 16),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      errorMessage!,
-                      style: const TextStyle(fontSize: 12, color: AppColors.vermelhoErro),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (selectedFile != null) ...[
-              const SizedBox(height: 16),
-              _UploadedFileTile(file: selectedFile!, onRemove: onClear),
-            ],
-          ],
+          ),
         ),
-      ),
+        if (selectedFile != null) ...[
+          const SizedBox(height: 16),
+          _UploadedFileTile(file: selectedFile!, onRemove: onClear),
+        ],
+      ],
     );
   }
 }
@@ -131,9 +134,9 @@ class _UploadedFileTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.backgroundLight,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
         children: [
@@ -144,7 +147,8 @@ class _UploadedFileTile extends StatelessWidget {
               color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.layers_rounded, color: AppColors.primary, size: 18),
+            child: const Icon(Icons.layers_rounded,
+                color: AppColors.primary, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -161,10 +165,14 @@ class _UploadedFileTile extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
-            tooltip: 'Remover arquivo',
-            onPressed: onRemove,
+          InkWell(
+            onTap: onRemove,
+            borderRadius: BorderRadius.circular(20),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.close_rounded,
+                  color: AppColors.textSecondary, size: 20),
+            ),
           ),
         ],
       ),

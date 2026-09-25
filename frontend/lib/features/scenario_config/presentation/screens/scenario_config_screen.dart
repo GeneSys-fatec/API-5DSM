@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/common/app_scaffold.dart';
+import '../../../../core/widgets/app_scaffold.dart';
 import '../controllers/scenario_config_controller.dart';
 import '../widgets/action_footer_bar.dart';
 import '../widgets/optimization_criteria_card.dart';
@@ -57,6 +57,7 @@ class _ScenarioConfigScreenState extends State<ScenarioConfigScreen> {
                   ScenarioWizardStepper(
                     currentStep: 2,
                     onStep1Tap: _navigateToStep1,
+                    showSystemPills: false,
                   ),
                   const SizedBox(height: 18),
                   RfParametersCard(controller: _controller),

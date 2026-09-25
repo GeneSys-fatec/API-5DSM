@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/utils/responsive.dart';
-import '../../../../widgets/common/app_scaffold.dart';
+import '../../../../core/widgets/app_scaffold.dart';
 import '../controllers/area_delimitation_controller.dart';
 import '../widgets/area_delimitation_footer_bar.dart';
 import '../widgets/area_delimitation_map.dart';
