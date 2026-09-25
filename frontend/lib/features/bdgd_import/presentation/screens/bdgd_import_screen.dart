@@ -28,6 +28,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   final _dataController = TextEditingController();
   final _importService = BdgdImportService();
 
+  final GlobalKey _dateFieldKey = GlobalKey();
+  OverlayEntry? _dateOverlayEntry;
+
   Future<void> _pickFile() async {
     setState(() {
       _isPicking = true;
@@ -58,6 +61,117 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
         _isPicking = false;
       });
     }
+  }
+
+  void _toggleDatePicker() {
+    if (_dateOverlayEntry != null) {
+      _removeDateOverlay();
+      return;
+    }
+
+    final renderBox =
+        _dateFieldKey.currentContext!.findRenderObject() as RenderBox;
+    final fieldSize = renderBox.size;
+    final fieldPosition = renderBox.localToGlobal(Offset.zero);
+    final now = DateTime.now();
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+
+    const calendarHeight = 360.0;
+    const margin = 12.0;
+
+    final panelWidth = fieldSize.width < 300 ? 300.0 : fieldSize.width;
+
+    var left = fieldPosition.dx;
+    if (left + panelWidth > screenWidth - margin) {
+      left = screenWidth - panelWidth - margin;
+    }
+    if (left < margin) {
+      left = margin;
+    }
+
+    final spaceBelow = screenHeight - (fieldPosition.dy + fieldSize.height);
+    final spaceAbove = fieldPosition.dy;
+
+    double top;
+    if (spaceBelow >= calendarHeight + margin || spaceBelow >= spaceAbove) {
+      top = fieldPosition.dy + fieldSize.height + 6;
+      final maxTop = screenHeight - margin - calendarHeight;
+      if (top > maxTop) top = maxTop;
+    } else {
+      top = fieldPosition.dy - calendarHeight - 6;
+    }
+    if (top < margin) top = margin;
+
+    _dateOverlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _removeDateOverlay,
+              ),
+            ),
+            Positioned(
+              left: left,
+              top: top,
+              width: panelWidth,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: screenHeight - (2 * margin),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: Theme.of(context).colorScheme.copyWith(
+                                primary: AppColors.primary,
+                                onPrimary: Colors.white,
+                              ),
+                        ),
+                        child: CalendarDatePicker(
+                          initialDate: _parseDate(_dataController.text) ?? now,
+                          firstDate: DateTime(now.year - 15),
+                          lastDate: DateTime(now.year + 1),
+                          onDateChanged: (picked) {
+                            setState(() {
+                              _dataController.text =
+                                  '${picked.year.toString().padLeft(4, '0')}-'
+                                  '${picked.month.toString().padLeft(2, '0')}-'
+                                  '${picked.day.toString().padLeft(2, '0')}';
+                            });
+                            _removeDateOverlay();
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_dateOverlayEntry!);
+  }
+
+  void _removeDateOverlay() {
+    _dateOverlayEntry?.remove();
+    _dateOverlayEntry = null;
+  }
+
+  DateTime? _parseDate(String value) {
+    if (value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   void _clearFile() {
@@ -116,58 +230,124 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: 220,
-                    child: _metadataField(
-                      _distribuidoraController,
-                      'Distribuidora',
+                  Text(
+                    'Dados da importação',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.grey.shade700,
+                      letterSpacing: 0.2,
                     ),
                   ),
-                  SizedBox(
-                    width: 220,
-                    child: _metadataField(_regiaoController, 'Região'),
+                  const SizedBox(height: 12),
+                  Builder(
+                    builder: (context) {
+                      final isMobile = Responsive.isMobile(context);
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 12,
+                        children: [
+                          SizedBox(
+                            width: isMobile
+                                ? MediaQuery.of(context).size.width - 72
+                                : 220,
+                            child: _metadataField(
+                              _distribuidoraController,
+                              'Distribuidora',
+                              icon: Icons.business_rounded,
+                            ),
+                          ),
+                          SizedBox(
+                            width: isMobile
+                                ? MediaQuery.of(context).size.width - 72
+                                : 220,
+                            child: _metadataField(
+                              _regiaoController,
+                              'Região',
+                              icon: Icons.location_on_outlined,
+                            ),
+                          ),
+                          SizedBox(
+                            width: isMobile
+                                ? MediaQuery.of(context).size.width - 72
+                                : 220,
+                            child: _metadataField(
+                              _dataController,
+                              'Data',
+                              hint: 'Selecione a data',
+                              icon: Icons.calendar_today_outlined,
+                              readOnly: true,
+                              onTap: _toggleDatePicker,
+                              fieldKey: _dateFieldKey,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  SizedBox(
-                    width: 180,
-                    child: _metadataField(
-                      _dataController,
-                      'Data',
-                      hint: 'AAAA-MM-DD',
+                  const SizedBox(height: 20),
+                  Text(
+                    'Arquivo',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.grey.shade700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FileUploadDropzone(
+                    selectedFile: _selectedFile,
+                    isPicking: _isPicking,
+                    errorMessage: _errorMessage,
+                    onPick: _pickFile,
+                    onClear: _clearFile,
+                  ),
+                  if (_successMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _successMessage!,
+                      style: const TextStyle(color: Colors.green),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Center(
+                    child: SizedBox(
+                      height: 40,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: _selectedFile == null || _isUploading
+                            ? null
+                            : _uploadFile,
+                        icon: _isUploading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.upload_file_rounded, size: 18),
+                        label: Text(
+                          _isUploading ? 'Enviando...' : 'Enviar arquivo',
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          FileUploadDropzone(
-            selectedFile: _selectedFile,
-            isPicking: _isPicking,
-            errorMessage: _errorMessage,
-            onPick: _pickFile,
-            onClear: _clearFile,
-          ),
-          if (_successMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(_successMessage!, style: const TextStyle(color: Colors.green)),
-          ],
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _selectedFile == null || _isUploading
-                ? null
-                : _uploadFile,
-            icon: _isUploading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.upload_file_rounded),
-            label: Text(_isUploading ? 'Enviando...' : 'Enviar arquivo'),
           ),
           const SizedBox(height: 24),
           BasesSection(bases: kMockBases),
@@ -180,15 +360,68 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     TextEditingController controller,
     String label, {
     String? hint,
+    IconData? icon,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    Key? fieldKey,
   }) {
     return TextField(
+      key: fieldKey,
       controller: controller,
-      decoration: InputDecoration(labelText: label, hintText: hint),
+      readOnly: readOnly,
+      onTap: onTap,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF1F2937),
+      ),
+      cursorColor: AppColors.primary,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        hintStyle: TextStyle(
+          fontSize: 13,
+          color: Colors.grey.shade400,
+        ),
+        prefixIcon: icon == null
+            ? null
+            : Icon(icon, size: 18, color: Colors.grey.shade500),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        labelStyle: TextStyle(
+          fontSize: 13,
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w500,
+        ),
+        floatingLabelStyle: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
     );
   }
 
   @override
   void dispose() {
+    _removeDateOverlay();
     _distribuidoraController.dispose();
     _regiaoController.dispose();
     _dataController.dispose();
@@ -204,18 +437,6 @@ class _ImportTitleCard extends StatelessWidget {
     final isMobile = Responsive.isMobile(context);
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Text(
-        'ANEEL PRODIST Módulo 8',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppColors.primaryDark,
-        ),
-      ),
     );
 
     final title = Text(

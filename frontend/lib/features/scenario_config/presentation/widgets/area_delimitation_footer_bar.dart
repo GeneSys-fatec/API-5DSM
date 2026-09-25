@@ -17,7 +17,6 @@ class AreaDelimitationFooterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canAdvance = controller.canAdvance;
-    final count = controller.filteredCandidates.length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -39,40 +38,6 @@ class AreaDelimitationFooterBar extends StatelessWidget {
                 color: AppColors.textPrimary,
               ),
             ),
-          );
-
-          final statusBadge = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(
-                  color: AppColors.statusGreenLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle_outline_rounded, color: AppColors.statusGreen, size: 16),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: RichText(
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                    children: [
-                      TextSpan(
-                        text: '$count candidatos ',
-                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                      ),
-                      const TextSpan(
-                        text: 'prontos para parametrização RF',
-                        style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
           );
 
           final advanceBtn = ElevatedButton(
@@ -103,21 +68,14 @@ class AreaDelimitationFooterBar extends StatelessWidget {
           );
 
           if (constraints.maxWidth < 1100) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            return Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 10,
               children: [
-                Center(child: statusBadge),
-                const SizedBox(height: 12),
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: [
-                    backBtn,
-                    advanceBtn,
-                  ],
-                ),
+                backBtn,
+                advanceBtn,
               ],
             );
           }
@@ -125,8 +83,6 @@ class AreaDelimitationFooterBar extends StatelessWidget {
           return Row(
             children: [
               backBtn,
-              const Spacer(),
-              Flexible(child: Center(child: statusBadge)),
               const Spacer(),
               advanceBtn,
             ],
