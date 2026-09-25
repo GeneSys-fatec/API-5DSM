@@ -17,3 +17,8 @@ ETL/*.gdb/
 
 /uploads
 *.zip
+*.log
+
+704245443-Manual-BDGD.txt
+.postman/
+postman/

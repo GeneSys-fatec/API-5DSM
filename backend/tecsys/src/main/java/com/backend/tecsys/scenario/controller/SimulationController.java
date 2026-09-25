@@ -48,7 +48,8 @@ public class SimulationController {
                 request.getMaxGateways(),
                 request.getGatewayUnitCost(),
                 propagationModel,
-                request.toRfParameter());
+                request.toRfParameter(),
+                request.toGatewayCandidates(user.getUtilityId()));
 
         SimulationService.SimulationOutcome outcome =
                 simulationService.simulate(command, user.getId(), user.getUtilityId());

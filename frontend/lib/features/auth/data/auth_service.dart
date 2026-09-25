@@ -45,6 +45,45 @@ class AuthService {
     throw AuthException(errorMessage);
   }
 
+  Future<UserData> register(RegisterRequest request) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/users');
+
+    final http.Response response;
+    try {
+      response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(request.toJson()),
+      );
+    } catch (e) {
+      throw AuthException(
+        'Não foi possível conectar ao servidor. Verifique sua conexão.',
+      );
+    }
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return UserData.fromJson(data);
+    }
+
+    String errorMessage = 'Erro ao realizar cadastro.';
+    try {
+      final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (errorData.containsKey('error')) {
+        errorMessage = errorData['error'] as String;
+      } else if (errorData.containsKey('message')) {
+        errorMessage = errorData['message'] as String;
+      } else if (errorData.containsKey('fields')) {
+        final fields = errorData['fields'] as Map<String, dynamic>;
+        if (fields.isNotEmpty) {
+          errorMessage = fields.values.first.toString();
+        }
+      }
+    } catch (_) {}
+
+    throw AuthException(errorMessage);
+  }
+
   Future<UserData> getMe() async {
     final token = await getToken();
     if (token == null) {

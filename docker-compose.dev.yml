@@ -1,35 +1,14 @@
-# docker-compose.dev.yml (raiz do repositório)
-#
-# Ecossistema de desenvolvimento local interativo: banco PostGIS persistente
-# equivalente ao schema `bdgd` da AWS, serviço ETL Python containerizado
-# (invocado pontualmente via profile) e backend Spring Boot containerizado.
-# Distinto de `ETL/docker-compose.test.yml`, que é efêmero e usado apenas
-# pela suíte pytest do ETL (portas 55432/8081, sem persistência) — os dois
-# arquivos coexistem sem conflito e não se alteram entre si.
-#
-# Todas as credenciais/URLs abaixo são lidas de um arquivo ".env" na raiz do
-# repositório (não versionado — já coberto pelo .gitignore). Copie
-# ".env.example" para ".env" e ajuste os valores antes de subir o ambiente.
-#
-# Subir o ambiente padrão (postgis_dev + backend + adminer_dev, sem o etl):
+# Subir o ambiente (postgis_dev + backend + adminer_dev, sem o etl):
 #   docker compose -f docker-compose.dev.yml up -d
 #
-# Rodar o ETL pontualmente (serviço sob profile "etl", não sobe com "up"):
+# Rodar o ETL pontualmente:
 #   docker compose -f docker-compose.dev.yml --profile etl run --rm etl python main.py <gdb> <dist> <regiao>
 #
-# Para visualizar o banco com interface web (Adminer), acesse:
-#   http://localhost:8082
-#   Sistema: PostgreSQL | Servidor: postgis_dev
-#   Usuário/Senha/Base de dados: conforme definidos no ".env" (ver .env.example)
+# Adminer: http://localhost:8082 (Sistema: PostgreSQL, Servidor: postgis_dev)
 #
-# Para apontar o backend/etl para o banco da AWS em vez do postgis_dev local,
-# sobrescreva SPRING_DATASOURCE_URL* / BDGD_DB_URL no ".env" — nenhuma
-# alteração neste arquivo nem no código é necessária.
-#
-# Para derrubar os containers preservando os dados:
+# Derrubar preservando os dados:
 #   docker compose -f docker-compose.dev.yml down
-#
-# Para derrubar os containers e apagar os dados persistentes do postgis_dev:
+# Derrubar e apagar os dados:
 #   docker compose -f docker-compose.dev.yml down -v
 
 services:

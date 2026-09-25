@@ -4,13 +4,16 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 public class JwtService {
@@ -29,9 +32,22 @@ public class JwtService {
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.expiration-ms}") long expirationMs,
             @Value("${jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.key = deriveAesKey(secret);
         this.expirationMs = expirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
+    }
+
+    private static final String DEFAULT_DEV_SECRET = "tecsys-rf-planning-secret-key-change-in-production-2024";
+
+    private SecretKey deriveAesKey(String secret) {
+        String effectiveSecret = (secret != null && !secret.isBlank()) ? secret : DEFAULT_DEV_SECRET;
+        try {
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] keyBytes = sha256.digest(effectiveSecret.getBytes(StandardCharsets.UTF_8));
+            return new SecretKeySpec(keyBytes, "AES");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algoritmo SHA-256 não disponível no ambiente Java.", e);
+        }
     }
 
     public String generateToken(Long userId, String email, String name, String role) {
@@ -39,7 +55,7 @@ public class JwtService {
         Date expiry = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
-                .id(java.util.UUID.randomUUID().toString())
+                .id(UUID.randomUUID().toString())
                 .subject(userId.toString())
                 .claim("email", email)
                 .claim("name", name)
@@ -47,7 +63,7 @@ public class JwtService {
                 .claim("type", "ACCESS")
                 .issuedAt(now)
                 .expiration(expiry)
-                .signWith(key)
+                .encryptWith(key, Jwts.ENC.A256GCM)
                 .compact();
     }
 
@@ -60,13 +76,13 @@ public class JwtService {
         Date expiry = new Date(now.getTime() + refreshExpirationMs);
 
         return Jwts.builder()
-                .id(java.util.UUID.randomUUID().toString())
+                .id(UUID.randomUUID().toString())
                 .subject(userId.toString())
                 .claim("email", email)
                 .claim("type", "REFRESH")
                 .issuedAt(now)
                 .expiration(expiry)
-                .signWith(key)
+                .encryptWith(key, Jwts.ENC.A256GCM)
                 .compact();
     }
 
@@ -115,9 +131,9 @@ public class JwtService {
 
     private Claims parseToken(String token) {
         return Jwts.parser()
-                .verifyWith(key)
+                .decryptWith(key)
                 .build()
-                .parseSignedClaims(token)
+                .parseEncryptedClaims(token)
                 .getPayload();
     }
 }

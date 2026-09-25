@@ -1,12 +1,17 @@
 package com.backend.tecsys.scenario.dto;
 
 import com.backend.tecsys.radio.model.RfParameter;
+import com.backend.tecsys.radio.model.RfCoordinate;
+import com.backend.tecsys.scenario.model.GatewayCandidate;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Negative;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -14,6 +19,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @Builder
@@ -39,6 +46,13 @@ public class SimulationRequest {
     @Min(value = 1, message = "A quantidade máxima de gateways deve ser maior ou igual a 1.")
     @Schema(description = "Quantidade máxima de gateways a selecionar.", example = "5")
     private Integer maxGateways;
+
+        @NotNull(message = "A lista de candidatos a gateway é obrigatória.")
+        @Size(min = 1, message = "A lista de candidatos a gateway não pode ser vazia.")
+        @JsonAlias("candidates")
+        @Schema(description = "Candidatos retornados pela API de delimitação da área de busca.")
+        @Valid
+        private List<GatewayCandidateRequest> gatewayCandidates;
 
     @NotBlank(message = "O modelo de propagação é obrigatório.")
     @Schema(description = "Modelo de propagação RF.",
@@ -89,5 +103,22 @@ public class SimulationRequest {
                 .antennaGainDbi(antennaGainDbi != null ? antennaGainDbi : RfParameter.DEFAULT_ANTENNA_GAIN_DBI)
                 .systemLossDb(systemLossDb != null ? systemLossDb : RfParameter.DEFAULT_SYSTEM_LOSS_DB)
                 .build();
+    }
+
+    public List<GatewayCandidate> toGatewayCandidates(Long utilityId) {
+        return gatewayCandidates.stream()
+                .map(candidate -> GatewayCandidate.builder()
+                        .id(candidate.getId())
+                        .source(candidate.getSource() != null
+                                ? candidate.getSource()
+                                : "API de delimitação da área de busca")
+                        .assetKey(candidate.getAssetKey() != null
+                                ? candidate.getAssetKey()
+                                : "CANDIDATE-" + candidate.getId())
+                        .utilityId(utilityId)
+                        .coordinate(new RfCoordinate(candidate.getLatitude(), candidate.getLongitude()))
+                        .estimatedCost(candidate.getEstimatedCost())
+                        .build())
+                .toList();
     }
 }
