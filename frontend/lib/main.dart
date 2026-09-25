@@ -33,6 +33,18 @@ class TecsysApp extends StatelessWidget {
         '/scenario/rf': (_) => const ScenarioConfigScreen(),
         '/results': (_) =>
             ScenarioHistoryScreen(scenario: kMockScenarios.first),
+        '/history': (_) => const HistoryScreen(),
+        '/settings': (_) => const SettingsScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/results' &&
+            settings.arguments is SimulationScenario) {
+          final scenario = settings.arguments as SimulationScenario;
+          return MaterialPageRoute(
+            builder: (_) => ScenarioHistoryScreen(scenario: scenario),
+          );
+        }
+        return null;
       },
     );
   }

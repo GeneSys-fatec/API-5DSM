@@ -22,25 +22,32 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     final isMobile = Responsive.isMobile(context);
 
     return Container(
-      height: preferredSize.height,
-      padding: EdgeInsets.symmetric(
-        horizontal: Responsive.horizontalPadding(context),
-      ),
       decoration: const BoxDecoration(
         color: AppColors.surfaceWhite,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      child: Row(
-        children: [
-          if (isMobile)
-            IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              onPressed: onMenuTap,
-              tooltip: 'Abrir menu',
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: preferredSize.height,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: Responsive.horizontalPadding(context),
             ),
-          const Spacer(),
-          _UserBadge(userName: userName, compact: isMobile),
-        ],
+            child: Row(
+              children: [
+                if (isMobile)
+                  IconButton(
+                    icon: const Icon(Icons.menu_rounded),
+                    onPressed: onMenuTap,
+                    tooltip: 'Abrir menu',
+                  ),
+                const Spacer(),
+                _UserBadge(userName: userName, compact: isMobile),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
