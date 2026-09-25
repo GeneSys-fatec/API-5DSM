@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
-
+from sqlalchemy import Table, MetaData
+from sqlalchemy.dialects.postgresql import insert
 import geopandas as gpd
 import pandas as pd
 import sqlalchemy as sa
@@ -16,31 +17,17 @@ BATCH_SIZE = 5_000
 
 
 def get_engine(db_url: str) -> sa.Engine:
-    """Cria e retorna uma engine SQLAlchemy para o banco de dados.
-
-    Parameters
-    ----------
-    db_url:
-        Connection string PostgreSQL, ex.:
-        "postgresql://postgres:postgres@localhost:5432/bdgd"
-
-    Returns
-    -------
-    sqlalchemy.Engine
-    """
     try:
         engine = sa.create_engine(
             db_url,
             pool_pre_ping=True,
-            connect_args={"client_encoding": "utf8"},
+            connect_args={"client_encoding": "utf8"}
         )
-        # Valida a conexão imediatamente
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         logger.info("Conexão ao banco estabelecida: %s", _mask_password(db_url))
         return engine
     except Exception as exc:
-        # Trata erros de codificação quando o Postgres no Windows responde mensagens de erro em CP1252 (ex: "autenticação falhou")
         if isinstance(exc, UnicodeDecodeError) or "codec can't decode" in str(exc):
             raw_bytes = getattr(exc, "object", None)
             if isinstance(raw_bytes, bytes):
@@ -59,7 +46,6 @@ def ensure_schema(engine: sa.Engine, schema: str) -> None:
         conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
     logger.info("Schema '%s' garantido.", schema)
 
-
 def upsert_layer(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
@@ -75,8 +61,6 @@ def upsert_layer(
     schema.ensure_asset_table(engine, layer_name, pg_schema)
     table_name = spec.table_name
 
-    # 2. Projeta o GeoDataFrame para exatamente as colunas normalizadas fixas,
-    #    descartando quaisquer colunas extras vindas de transform.py
     gdf = pd.DataFrame(gdf[list(schema.FIXED_COLUMNS)].copy())
 
     srid = 4326
@@ -86,31 +70,32 @@ def upsert_layer(
 
     total_processed = 0
 
-    sample_row = gdf.iloc[0].to_dict()
-    col_names = list(sample_row.keys())
-    col_list = ", ".join(col_names)
-    col_list_cast = ", ".join(
-        "CAST(:geometry AS geometry)" if c == "geometry" else f":{c}"
-        for c in col_names
-    )
-    update_set = ", ".join(
-        f"{c} = EXCLUDED.{c}"
-        for c in col_names
-        if c != "asset_key"
-    )
-    sql = text(f"""
-        INSERT INTO {pg_schema}.{table_name} ({col_list})
-        VALUES ({col_list_cast})
-        ON CONFLICT (asset_key)
-        DO UPDATE SET {update_set}
-    """)
+    # 1. Lê a definição da tabela diretamente da base de dados
+    metadata = MetaData()
+    table = Table(table_name, metadata, schema=pg_schema, autoload_with=engine)
 
     for start in range(0, len(gdf), BATCH_SIZE):
         batch = gdf.iloc[start : start + BATCH_SIZE]
         rows = batch.to_dict(orient="records")
 
+        # 2. Constrói a instrução de INSERT
+        stmt = insert(table).values(rows)
+        
+        # 3. Monta dinamicamente as colunas do DO UPDATE (excluindo a chave de conflito)
+        update_set = {
+            c.name: c for c in stmt.excluded 
+            if c.name != "asset_key"
+        }
+        
+        # 4. Anexa o comportamento ON CONFLICT (Upsert)
+        upsert_stmt = stmt.on_conflict_do_update(
+            index_elements=["asset_key"],
+            set_=update_set
+        )
+
+        # 5. Executa na base de dados (O SQLAlchemy 2.0 empacota as 5000 linhas automaticamente aqui)
         with engine.begin() as conn:
-            conn.execute(sql, rows)
+            conn.execute(upsert_stmt)
 
         total_processed += len(batch)
         logger.info(
