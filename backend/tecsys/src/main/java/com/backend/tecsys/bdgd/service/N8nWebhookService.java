@@ -25,13 +25,16 @@ public class N8nWebhookService {
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    private final HttpClient httpClient = HttpClient.newBuilder()
+   private final HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1) 
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
     public void triggerProcessing(N8nWebhookPayload payload) {
-        String webhookUrl = properties.getN8nWebhookUrl();
-        log.info("Enviando webhook N8N (fire-and-forget) para {} com importId={} e gdbPath={}",
+        // 2. Traduzir localhost para 127.0.0.1 para evitar bloqueios de IPv6 no Windows
+        String webhookUrl = properties.getN8nWebhookUrl().replace("localhost", "127.0.0.1");
+        
+        log.info("Enviando webhook N8N para {} com importId={} e gdbPath={}",
                 webhookUrl, payload.importId(), payload.gdbPath());
 
         try {
@@ -40,27 +43,23 @@ public class N8nWebhookService {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(webhookUrl))
+                    .timeout(Duration.ofSeconds(15))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            // Fire-and-forget: envia de forma assíncrona e não bloqueia aguardando o ETL terminar
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                            log.info("Webhook N8N respondeu status={} para importId={}",
-                                    response.statusCode(), payload.importId());
-                        } else {
-                            log.error("Webhook N8N retornou erro status={} para importId={}, body={}",
-                                    response.statusCode(), payload.importId(), response.body());
-                        }
-                    })
-                    .exceptionally(ex -> {
-                        log.warn("Webhook N8N nao respondeu para importId={}: {}",
-                                payload.importId(), ex.getMessage());
-                        return null;
-                    });
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("Webhook N8N respondeu status={} para importId={}",
+                        response.statusCode(), payload.importId());
+            } else {
+                log.error("Webhook N8N retornou erro status={} para importId={}, body={}",
+                        response.statusCode(), payload.importId(), response.body());
+            }
+
+        } catch (java.net.http.HttpTimeoutException timeoutException) {
+            log.error("Timeout: O N8N não respondeu em 15 segundos. importId={}", payload.importId());
         } catch (Exception exception) {
             log.error("Nao foi possivel disparar webhook N8N em {} para importId={}",
                     webhookUrl, payload.importId(), exception);
