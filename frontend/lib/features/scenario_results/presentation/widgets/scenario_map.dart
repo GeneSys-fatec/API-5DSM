@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../models/scenario_history_models.dart';
+import '../../models/scenario_results_models.dart';
 import 'gateway_info_card.dart';
 import 'map_layer_toggle_bar.dart';
 import 'map_layer_type.dart';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../controllers/scenario_config_controller.dart';
 
 class ActionFooterBar extends StatelessWidget {
@@ -16,6 +17,7 @@ class ActionFooterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isValid = controller.isValid;
     final isCalculating = controller.isCalculating;
+    final isMobile = Responsive.isMobile(context);
 
     final calculateBtn = ElevatedButton(
       onPressed: (isValid && !isCalculating)
@@ -88,6 +90,23 @@ class ActionFooterBar extends StatelessWidget {
       );
     }
 
+    final backButton = TextButton.icon(
+      onPressed: onBackToStep1,
+      icon: const Icon(
+        Icons.arrow_back_rounded,
+        size: 18,
+        color: AppColors.textPrimary,
+      ),
+      label: const Text(
+        'Voltar para Etapa 1: Delimitação de Área',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -95,28 +114,25 @@ class ActionFooterBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          TextButton.icon(
-            onPressed: onBackToStep1,
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 18,
-              color: AppColors.textPrimary,
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: calculateBtn,
+                ),
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerLeft, child: backButton),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                backButton,
+                calculateBtn,
+              ],
             ),
-            label: const Text(
-              'Voltar para Etapa 1: Delimitação de Área',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          calculateBtn,
-        ],
-      ),
     );
   }
 }

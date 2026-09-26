@@ -6,12 +6,14 @@ class ScenarioWizardStepper extends StatelessWidget {
   final int currentStep;
   final VoidCallback? onStep1Tap;
   final VoidCallback? onStep2Tap;
+  final bool showSystemPills;
 
   const ScenarioWizardStepper({
     super.key,
     required this.currentStep,
     this.onStep1Tap,
     this.onStep2Tap,
+    this.showSystemPills = true,
   });
 
   @override
@@ -102,7 +104,7 @@ class ScenarioWizardStepper extends StatelessWidget {
                   onTap: onStep2Tap,
                 ),
               ),
-              if (showPills) ...[
+              if (showPills && showSystemPills) ...[
                 const SizedBox(width: 16),
                 const Spacer(),
                 const _SystemContextPills(),

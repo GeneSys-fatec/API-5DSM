@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_scaffold.dart';
-import '../../models/scenario_history_models.dart';
-import 'scenario_history_screen.dart';
+import 'package:frontend/features/scenario_results/models/scenario_results_models.dart';
+import 'package:frontend/features/scenario_results/presentation/screens/scenario_results_screen.dart';
 
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
@@ -145,7 +145,7 @@ class _ScenarioHistoryCard extends StatelessWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ScenarioHistoryScreen(scenario: scenario),
+                  builder: (_) => ScenarioResultsScreen(scenario: scenario),
                 ),
               );
             },

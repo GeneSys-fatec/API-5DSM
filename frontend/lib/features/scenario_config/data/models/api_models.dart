@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:frontend/features/scenario_history/models/scenario_history_models.dart';
+import 'package:frontend/features/scenario_results/models/scenario_results_models.dart';
 
 class SearchAreaRequest {
   final double latitude;

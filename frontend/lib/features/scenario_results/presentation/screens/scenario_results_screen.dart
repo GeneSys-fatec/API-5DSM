@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_scaffold.dart';
-import '../../models/scenario_history_models.dart';
+import '../../models/scenario_results_models.dart';
 import '../widgets/scenario_kpi_row.dart';
 import '../widgets/scenario_map.dart';
 
-class ScenarioHistoryScreen extends StatelessWidget {
+class ScenarioResultsScreen extends StatelessWidget {
   final SimulationScenario scenario;
 
-  const ScenarioHistoryScreen({super.key, required this.scenario});
+  const ScenarioResultsScreen({super.key, required this.scenario});
 
   @override
   Widget build(BuildContext context) {
@@ -21,11 +21,16 @@ class ScenarioHistoryScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              scenario.parameters.feederName,
-              style: Theme.of(context).textTheme.titleLarge,
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  scenario.parameters.feederName,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             ScenarioKpiRow(scenario: scenario),
             const SizedBox(height: 16),
             SizedBox(

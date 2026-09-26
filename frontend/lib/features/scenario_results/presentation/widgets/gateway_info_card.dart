@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/scenario_history_models.dart';
+import '../../models/scenario_results_models.dart';
 
 class GatewayInfoCard extends StatelessWidget {
   final GatewayPoint gateway;

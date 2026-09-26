@@ -6,7 +6,7 @@ import '../../domain/models/area_delimitation_model.dart';
 import '../controllers/area_delimitation_controller.dart'
     show AreaDelimitationController;
 import '../../data/models/api_models.dart';
-import 'package:frontend/features/scenario_history/models/scenario_history_models.dart';
+import 'package:frontend/features/scenario_results/models/scenario_results_models.dart';
 
 class ScenarioConfigController extends ChangeNotifier {
   final ScenarioStorageService _storageService;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../domain/models/area_delimitation_model.dart';
 import '../controllers/area_delimitation_controller.dart';
 
@@ -153,6 +154,7 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
           Positioned(
             top: 12,
             left: 12,
+            right: Responsive.isMobile(context) ? 56 : null,
             child: _TopMapBar(
               activeLayer: activeLayer,
               onSelectLayer: (layer) => widget.controller.setMapLayer(layer),
@@ -383,7 +385,9 @@ class _TopMapBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isMobile = Responsive.isMobile(context);
+
+    final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
@@ -437,6 +441,22 @@ class _TopMapBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (!isMobile) {
+      return content;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: content,
+          ),
+        );
+      },
     );
   }
 }
