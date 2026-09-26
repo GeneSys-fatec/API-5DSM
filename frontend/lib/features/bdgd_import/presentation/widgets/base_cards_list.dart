@@ -22,22 +22,49 @@ class BaseCardsList extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(b.distribuidora,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    const SizedBox(height: 6),
-                    Text('${b.versaoBase} · ${formatThousands(b.ativosMapeados)} pts',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    Text(b.projecao,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
                     Row(
-                      children: const [
-                        Icon(Icons.map_outlined, size: 18, color: AppColors.textSecondary),
-                        SizedBox(width: 16),
-                        Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
-                        SizedBox(width: 16),
-                        Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.vermelhoErro),
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            b.distribuidora,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: b.tagColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: b.tagColor.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            b.statusLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: b.tagColor,
+                            ),
+                          ),
+                        ),
                       ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (b.fileName != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          b.fileName!,
+                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        ),
+                      ),
+                    Text(
+                      '${b.versaoBase} · ${b.ativosMapeados > 0 ? '${formatThousands(b.ativosMapeados)} pts' : (b.status == 'processando' ? 'Em processamento...' : '0 pts')}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    Text(
+                      b.projecao,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                     ),
                   ],
                 ),

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -34,5 +35,13 @@ public class BdgdImportRepository {
                         rs.getString("regiao"), rs.getObject("data_referencia", LocalDate.class), rs.getString("file_name"),
                         rs.getString("storage_key"), BdgdImportStatus.valueOf(rs.getString("status")), rs.getString("error_message"),
                         rs.getTimestamp("created_at").toInstant()), id.toString()).stream().findFirst().orElseThrow(BdgdImportNotFoundException::new);
+    }
+
+    public List<BdgdImportRecord> findAll() {
+        return jdbc.query("SELECT id, distribuidora, regiao, data_referencia, file_name, storage_key, status, error_message, created_at FROM bdgd_imports ORDER BY created_at DESC",
+                (rs, row) -> new BdgdImportRecord(UUID.fromString(rs.getString("id")), rs.getString("distribuidora"),
+                        rs.getString("regiao"), rs.getObject("data_referencia", LocalDate.class), rs.getString("file_name"),
+                        rs.getString("storage_key"), BdgdImportStatus.valueOf(rs.getString("status")), rs.getString("error_message"),
+                        rs.getTimestamp("created_at").toInstant()));
     }
 }

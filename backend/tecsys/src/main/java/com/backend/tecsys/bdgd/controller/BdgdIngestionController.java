@@ -1,5 +1,6 @@
 package com.backend.tecsys.bdgd.controller;
 
+import com.backend.tecsys.bdgd.model.BdgdBaseSummaryResponse;
 import com.backend.tecsys.bdgd.model.BdgdImportResponse;
 import com.backend.tecsys.bdgd.model.BdgdGeoJsonResponse;
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -21,6 +23,11 @@ public class BdgdIngestionController {
 
     private final BdgdIngestionService ingestionService;
     private final BdgdAssetService assetService;
+
+    @GetMapping({"", "/bases"})
+    public List<BdgdBaseSummaryResponse> listBases() {
+        return ingestionService.listAllBases();
+    }
 
     @GetMapping("/map")
     public BdgdGeoJsonResponse map(

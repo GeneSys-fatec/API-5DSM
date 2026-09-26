@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
@@ -28,6 +29,47 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   final _dataController = TextEditingController();
   final _importService = BdgdImportService();
 
+  List<BdgdBase> _bases = [];
+  bool _isLoadingBases = false;
+  String? _basesError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBases();
+  }
+
+  Future<void> _loadBases() async {
+    setState(() {
+      _isLoadingBases = true;
+      _basesError = null;
+    });
+
+    try {
+      final bases = await _importService.fetchBases();
+      if (!mounted) return;
+      setState(() {
+        _bases = bases;
+      });
+    } on BdgdUploadException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _basesError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _basesError = 'Falha ao carregar lista de bases.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingBases = false;
+        });
+      }
+    }
+  }
+
   Future<void> _pickFile() async {
     setState(() {
       _isPicking = true;
@@ -38,7 +80,8 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: kAllowedExtensions,
-        withData: true,
+        withData: false, // Muito importante: não carregar na memória
+        withReadStream: true, // Importante: ler como fluxo de dados
       );
 
       if (result == null) {
@@ -83,21 +126,31 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       _errorMessage = null;
       _successMessage = null;
     });
+    
     try {
+      print('1. Iniciando chamada do Service na Tela...');
       await _importService.upload(
         fileName: file.name,
-        fileBytes: file.bytes ?? const [],
-        filePath: file.path,
+        fileStream: file.readStream, // Passando o stream
+        fileSize: file.size,         // Passando o tamanho
+        filePath: kIsWeb ? null : file.path, // Corrige o erro de path na Web
         distribuidora: _distribuidoraController.text.trim(),
         regiao: _regiaoController.text.trim(),
         data: _dataController.text.trim(),
       );
+      print('6. Upload concluído com sucesso e retornado à Tela!');
+      
       if (!mounted) return;
       setState(() => _successMessage = 'Arquivo enviado para a pasta uploads.');
+      _clearFile();
+      _loadBases();
     } on BdgdUploadException catch (e) {
+      print('Erro BdgdUploadException: ${e.message}');
       if (mounted) setState(() => _errorMessage = e.message);
-    } catch (_) {
-      if (mounted) setState(() => _errorMessage = 'Falha ao enviar o arquivo.');
+    } catch (e, stackTrace) {
+      print('Erro fatal desconhecido no Dart: $e');
+      print('Stacktrace: $stackTrace');
+      if (mounted) setState(() => _errorMessage = 'Erro local: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -170,7 +223,12 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
             label: Text(_isUploading ? 'Enviando...' : 'Enviar arquivo'),
           ),
           const SizedBox(height: 24),
-          BasesSection(bases: kMockBases),
+          BasesSection(
+            bases: _bases,
+            isLoading: _isLoadingBases,
+            onRefresh: _loadBases,
+            error: _basesError,
+          ),
         ],
       ),
     );
