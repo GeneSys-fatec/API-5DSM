@@ -4,8 +4,13 @@ import 'package:frontend/features/scenario_config/data/services/area_delimitatio
 import 'package:frontend/features/scenario_config/domain/models/area_delimitation_model.dart';
 import 'package:frontend/features/scenario_config/presentation/controllers/area_delimitation_controller.dart';
 import 'package:frontend/features/scenario_config/presentation/screens/area_delimitation_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('AreaDelimitation Domain & Service Tests', () {
     test(
       'Configuracao padrao possui os valores corretos de Campinas e raio de 3.5 km',
@@ -162,7 +167,8 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       expect(find.text('1. Delimitação de Área & Candidatos'), findsWidgets);
       expect(find.text('Ponto Central da Simulação'), findsOneWidget);
@@ -198,7 +204,8 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
 
         final advanceButtonInitial = tester.widget<ElevatedButton>(
           find.widgetWithText(
@@ -209,7 +216,8 @@ void main() {
         expect(advanceButtonInitial.onPressed, isNotNull);
 
         controller.setRadius(9.0, isUnitKm: true);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
 
         expect(
           find.textContaining('O raio ultrapassou 8.0 km'),

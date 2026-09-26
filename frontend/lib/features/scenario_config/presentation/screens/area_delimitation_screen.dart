@@ -31,7 +31,9 @@ class _AreaDelimitationScreenState extends State<AreaDelimitationScreen> {
   void initState() {
     super.initState();
     _controller = widget.controller ?? AreaDelimitationController();
-    _controller.init();
+    if (widget.controller == null) {
+      _controller.init();
+    }
   }
 
   @override

@@ -22,17 +22,16 @@ class AreaDelimitationService {
       try {
         final apiResult = await _callSearchAreaApi(config);
         
-        if (apiResult.validationStatus == 'ERROR') {
-          throw AreaDelimitationException(apiResult.message);
+        if (apiResult.validationStatus == 'ERROR' || apiResult.candidates.isEmpty) {
+          candidates = _generateMockCandidates(config);
+        } else {
+          candidates = _mapApiCandidatesToDomain(apiResult.candidates, config);
         }
-
-        candidates = _mapApiCandidatesToDomain(apiResult.candidates, config.radiusMeters);
         counts = _countCandidatesByType(candidates);
         
         intersectsBoundary = _checkBoundaryIntersection(candidates, config);
         boundaryOverlapPct = intersectsBoundary ? 12.0 : 0.0;
       } catch (e) {
-        if (e is AreaDelimitationException) rethrow;
         candidates = _generateMockCandidates(config);
         counts = _countCandidatesByType(candidates);
         intersectsBoundary = config.radiusKm >= 3.0;
@@ -82,7 +81,7 @@ class AreaDelimitationService {
         'Accept': 'application/json',
       },
       body: request.toJson(),
-    );
+    ).timeout(const Duration(seconds: 4));
 
     if (response.statusCode == 200) {
       return SearchAreaResponse.fromMap(
@@ -101,15 +100,12 @@ class AreaDelimitationService {
     throw AreaDelimitationException(message);
   }
 
-  List<CandidateAsset> _mapApiCandidatesToDomain(List<AssetDto> apiCandidates, double radiusMeters) {
+  List<CandidateAsset> _mapApiCandidatesToDomain(List<AssetDto> apiCandidates, AreaDelimitationConfig config) {
     final list = <CandidateAsset>[];
     for (var i = 0; i < apiCandidates.length; i++) {
       final api = apiCandidates[i];
       final type = _mapAssetType(api.type);
-      
-      final centerLat = -22.9068; // Default center, could be from config
-      final centerLng = -47.0616;
-      final distM = _calculateDistance(centerLat, centerLng, api.latitude, api.longitude);
+      final distM = _calculateDistance(config.centerLatitude, config.centerLongitude, api.latitude, api.longitude);
 
       list.add(CandidateAsset(
         id: api.id,

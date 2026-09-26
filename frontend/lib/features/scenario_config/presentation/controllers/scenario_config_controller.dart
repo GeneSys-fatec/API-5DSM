@@ -285,8 +285,7 @@ class ScenarioConfigController extends ChangeNotifier {
   }
 
   SimulationRequest _buildSimulationRequest(ScenarioConfigModel model, List<CandidateAsset> candidates) {
-    // Limit candidates to avoid OOM on backend (O(candidates × assets) complexity)
-    const maxCandidates = 200;
+    const maxCandidates = 30;
     final limitedCandidates = candidates.length > maxCandidates
         ? _sampleCandidates(candidates, maxCandidates)
         : candidates;
@@ -351,24 +350,23 @@ class ScenarioConfigController extends ChangeNotifier {
   List<CandidateAsset> _sampleCandidates(List<CandidateAsset> candidates, int max) {
     if (candidates.length <= max) return candidates;
 
-    final byType = <CandidateAssetType, List<CandidateAsset>>{};
-    for (final c in candidates) {
-      byType.putIfAbsent(c.type, () => []).add(c);
-    }
+    final priorityOrder = [
+      CandidateAssetType.subestacao,
+      CandidateAssetType.religador,
+      CandidateAssetType.trafo,
+      CandidateAssetType.poste,
+    ];
 
-    final result = <CandidateAsset>[];
-    final perType = (max / byType.length).ceil();
+    final sortedCandidates = List<CandidateAsset>.from(candidates)
+      ..sort((a, b) {
+        final aPriority = priorityOrder.indexOf(a.type);
+        final bPriority = priorityOrder.indexOf(b.type);
+        final comp = (aPriority == -1 ? 99 : aPriority).compareTo(bPriority == -1 ? 99 : bPriority);
+        if (comp != 0) return comp;
+        return a.distanceMeters.compareTo(b.distanceMeters);
+      });
 
-    for (final list in byType.values) {
-      list.shuffle();
-      result.addAll(list.take(perType));
-    }
-
-    if (result.length > max) {
-      result.shuffle();
-      return result.take(max).toList();
-    }
-    return result;
+    return sortedCandidates.take(max).toList();
   }
 
   void dispose() {

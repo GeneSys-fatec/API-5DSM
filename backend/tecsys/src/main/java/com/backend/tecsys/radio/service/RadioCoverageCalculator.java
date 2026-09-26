@@ -39,6 +39,7 @@ public class RadioCoverageCalculator {
             RfParameter rfParameter,
             PropagationModel propagationModel) {
 
+        double coverageRadiusMeters = rfCoverageRadiusCalculator.calculateRadiusMeters(rfParameter, propagationModel);
         Map<String, Double> receivedPowerByAssetKey = new LinkedHashMap<>();
         Set<String> coveredAssetKeys = new LinkedHashSet<>();
 
@@ -46,6 +47,10 @@ public class RadioCoverageCalculator {
             double distanceM = Math.max(
                     GeoDistanceCalculator.distanceMeters(candidate.getCoordinate(), asset.getCoordinate()),
                     MINIMUM_DISTANCE_M);
+
+            if (distanceM > coverageRadiusMeters) {
+                continue;
+            }
 
             TerrainProfile terrainProfile = terrainProfileProvider.getProfile(
                     candidate.getCoordinate(), asset.getCoordinate());
@@ -62,13 +67,11 @@ public class RadioCoverageCalculator {
             double propagationLossDb = propagationModel.calculatePropagationLossDb(input);
             double receivedPowerDbm = linkBudgetCalculator.receivedPowerDbm(rfParameter, propagationLossDb);
 
-            receivedPowerByAssetKey.put(asset.getAssetKey(), receivedPowerDbm);
             if (linkBudgetCalculator.isCovered(receivedPowerDbm, rfParameter)) {
+                receivedPowerByAssetKey.put(asset.getAssetKey(), receivedPowerDbm);
                 coveredAssetKeys.add(asset.getAssetKey());
             }
         }
-
-        double coverageRadiusMeters = rfCoverageRadiusCalculator.calculateRadiusMeters(rfParameter, propagationModel);
 
         return GatewayCoverage.builder()
                 .candidate(candidate)
