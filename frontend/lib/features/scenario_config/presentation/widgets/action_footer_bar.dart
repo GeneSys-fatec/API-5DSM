@@ -29,14 +29,14 @@ class ActionFooterBar extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    content: const Row(
+                    content: Row(
                       children: [
-                        Icon(Icons.check_circle, color: Colors.white, size: 20),
-                        SizedBox(width: 10),
+                        const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Cenário salvo! Simulação de cobertura iniciada.',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                            controller.successMessage ?? 'Simulação concluída com sucesso!',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],

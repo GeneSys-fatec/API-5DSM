@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../data/services/scenario_storage_service.dart';
+import '../../data/services/simulation_service.dart';
 import '../../domain/models/scenario_config_model.dart';
+import '../../domain/models/area_delimitation_model.dart';
+import '../controllers/area_delimitation_controller.dart'
+    show AreaDelimitationController;
+import '../../data/models/api_models.dart';
+import 'package:frontend/features/scenario_history/models/scenario_history_models.dart';
 
 class ScenarioConfigController extends ChangeNotifier {
   final ScenarioStorageService _storageService;
+  final SimulationService _simulationService;
 
   final TextEditingController txPowerController = TextEditingController();
   final TextEditingController rxSensitivityController = TextEditingController();
@@ -23,9 +30,16 @@ class ScenarioConfigController extends ChangeNotifier {
   bool _isLoading = false;
   bool _isCalculating = false;
   String? _successMessage;
+  String? _errorMessage;
+  SimulationResponse? _lastSimulationResult;
+  final Function(SimulationScenario)? _onSimulationComplete;
 
-  ScenarioConfigController({ScenarioStorageService? storageService})
-    : _storageService = storageService ?? ScenarioStorageService() {
+  ScenarioConfigController({
+    ScenarioStorageService? storageService,
+    SimulationService? simulationService,
+    this._onSimulationComplete,
+  }) : _storageService = storageService ?? ScenarioStorageService(),
+       _simulationService = simulationService ?? SimulationService() {
     _applyModelToState(const ScenarioConfigModel());
     _initListeners();
   }
@@ -49,6 +63,8 @@ class ScenarioConfigController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isCalculating => _isCalculating;
   String? get successMessage => _successMessage;
+  String? get errorMessage => _errorMessage;
+  SimulationResponse? get lastSimulationResult => _lastSimulationResult;
 
   String? get coverageError {
     if (_minCoveragePercent < 1.0 || _minCoveragePercent > 100.0) {
@@ -222,18 +238,96 @@ class ScenarioConfigController extends ChangeNotifier {
 
     _isCalculating = true;
     _successMessage = null;
+    _errorMessage = null;
+    _lastSimulationResult = null;
     notifyListeners();
 
-    final model = toModel();
-    await _storageService.saveScenario(model);
+    try {
+      final model = toModel();
+      await _storageService.saveScenario(model);
 
-    await Future.delayed(const Duration(milliseconds: 100));
+      final candidates = AreaDelimitationController.sharedResult?.candidates ?? [];
+      if (candidates.isEmpty) {
+        throw SimulationException('Nenhum candidato a gateway disponível. Configure a área na Etapa 1.');
+      }
 
-    _isCalculating = false;
-    _successMessage =
-        'Cenário salvo e cálculo de simulação disparado com sucesso!';
-    notifyListeners();
-    return true;
+      final request = _buildSimulationRequest(model, candidates);
+      final response = await _simulationService.runSimulationWithAuth(request);
+
+      _lastSimulationResult = response;
+      
+      // Convert to SimulationScenario for results screen
+      final config = AreaDelimitationController.sharedConfig;
+      final scenario = response.toSimulationScenario(
+        centerLat: config?.centerLatitude.toString() ?? '-23.298',
+        centerLng: config?.centerLongitude.toString() ?? '-45.952',
+        regionName: config?.address ?? 'Região EDP_SP',
+      );
+      
+      // Navigate to results screen with real data
+      _onSimulationComplete?.call(scenario);
+
+      _isCalculating = false;
+      _successMessage = 'Simulação concluída com sucesso!';
+      notifyListeners();
+      return true;
+    } on SimulationException catch (e) {
+      _isCalculating = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isCalculating = false;
+      _errorMessage = 'Erro inesperado: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  SimulationRequest _buildSimulationRequest(ScenarioConfigModel model, List<CandidateAsset> candidates) {
+    // Limit candidates to avoid OOM on backend (O(candidates × assets) complexity)
+    const maxCandidates = 200;
+    final limitedCandidates = candidates.length > maxCandidates
+        ? _sampleCandidates(candidates, maxCandidates)
+        : candidates;
+
+    final gatewayCandidates = limitedCandidates.asMap().entries.map((entry) {
+      final index = entry.key;
+      final candidate = entry.value;
+      return GatewayCandidateRequest(
+        id: index + 1,
+        source: candidate.bdgdId,
+        assetKey: candidate.assetKey,
+        latitude: candidate.latitude,
+        longitude: candidate.longitude,
+        estimatedCost: 1500.0,
+      );
+    }).toList();
+
+    final propagationModelMap = {
+      'Okumura-Hata Suburbano': 'OKUMURA_HATA_SUBURBAN',
+      '3GPP Rural Macro': 'THREE_GPP_RURAL_MACRO',
+      'ITM Longley-Rice': 'ITM_LONGLEY_RICE',
+    };
+
+    return SimulationRequest(
+      name: 'Cenário ${DateTime.now().toString().substring(0, 16)}',
+      regionName: AreaDelimitationController.sharedConfig?.address ?? 'Região não definida',
+      coverageTargetPct: model.minCoveragePercent,
+      maxGateways: model.maxGateways,
+      gatewayCandidates: gatewayCandidates,
+      propagationModel: propagationModelMap[model.propagationModel] ?? 'OKUMURA_HATA_SUBURBAN',
+      gatewayUnitCost: 1500.0,
+      rfParameter: RfParameterRequest(
+        frequencyMhz: model.frequencyMhz,
+        transmitPowerDbm: model.txPowerDbm,
+        receiverSensitivityDbm: model.rxSensitivityDbm,
+        antennaHeightM: model.gatewayHeightM,
+        deviceHeightM: model.deviceHeightM,
+        antennaGainDbi: 0.0,
+        systemLossDb: model.fadeMarginDb,
+      ),
+    );
   }
 
   Future<void> saveCurrentState() async {
@@ -248,7 +342,35 @@ class ScenarioConfigController extends ChangeNotifier {
     notifyListeners();
   }
 
-  @override
+  void clearMessages() {
+    _successMessage = null;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  List<CandidateAsset> _sampleCandidates(List<CandidateAsset> candidates, int max) {
+    if (candidates.length <= max) return candidates;
+
+    final byType = <CandidateAssetType, List<CandidateAsset>>{};
+    for (final c in candidates) {
+      byType.putIfAbsent(c.type, () => []).add(c);
+    }
+
+    final result = <CandidateAsset>[];
+    final perType = (max / byType.length).ceil();
+
+    for (final list in byType.values) {
+      list.shuffle();
+      result.addAll(list.take(perType));
+    }
+
+    if (result.length > max) {
+      result.shuffle();
+      return result.take(max).toList();
+    }
+    return result;
+  }
+
   void dispose() {
     txPowerController.dispose();
     rxSensitivityController.dispose();

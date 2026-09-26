@@ -1,9 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/scenario_config/data/services/scenario_storage_service.dart';
+import 'package:frontend/features/scenario_config/data/services/simulation_service.dart';
+import 'package:frontend/features/scenario_config/data/services/area_delimitation_service.dart';
 import 'package:frontend/features/scenario_config/domain/models/scenario_config_model.dart';
 import 'package:frontend/features/scenario_config/presentation/controllers/scenario_config_controller.dart';
+import 'package:frontend/features/scenario_config/presentation/controllers/area_delimitation_controller.dart';
 import 'package:frontend/features/scenario_config/presentation/screens/scenario_config_screen.dart';
+import 'package:frontend/features/scenario_config/data/models/api_models.dart';
+import 'package:frontend/features/scenario_config/domain/models/area_delimitation_model.dart';
+
+class MockSimulationService extends SimulationService {
+  @override
+  Future<SimulationResponse> runSimulationWithAuth(SimulationRequest request) async {
+    return SimulationResponse(
+      scenarioId: 1,
+      status: 'concluido',
+      propagationModel: 'OKUMURA_HATA_SUBURBAN',
+      rfParameter: {},
+      selectedGateways: [],
+      totalCoveragePct: 95.0,
+      coveragePctByAssetType: {},
+      coveredAssetKeys: [],
+      uncoveredAssetKeys: [],
+      usedGatewayCount: 3,
+      totalEstimatedCost: 4500.0,
+      processingTimeMs: 100,
+      targetReached: true,
+    );
+  }
+}
+
+class MockAreaDelimitationService extends AreaDelimitationService {
+  @override
+  Future<AreaDelimitationResult> evaluateArea(AreaDelimitationConfig config) async {
+    return AreaDelimitationResult(
+      isValid: true,
+      maxAllowedRadiusKm: 8.0,
+      isRadiusExceeded: false,
+      intersectsBoundary: true,
+      boundaryOverlapPct: 12.0,
+      candidates: [
+        CandidateAsset(
+          id: 'cand-1',
+          assetKey: 'PST-01',
+          type: CandidateAssetType.poste,
+          latitude: -22.9068,
+          longitude: -47.0616,
+        ),
+        CandidateAsset(
+          id: 'cand-2',
+          assetKey: 'TR-01',
+          type: CandidateAssetType.trafo,
+          latitude: -22.9070,
+          longitude: -47.0620,
+        ),
+      ],
+      countsByType: {
+        CandidateAssetType.poste: 1,
+        CandidateAssetType.trafo: 1,
+        CandidateAssetType.religador: 0,
+        CandidateAssetType.subestacao: 0,
+      },
+    );
+  }
+}
 
 void main() {
   group('ScenarioConfigModel & ScenarioStorageService', () {
@@ -205,7 +266,12 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final controller = ScenarioConfigController();
+      // Set up shared state with candidates for the simulation
+      AreaDelimitationController.resetSharedState();
+      final areaController = AreaDelimitationController(service: MockAreaDelimitationService());
+      await areaController.init();
+
+      final controller = ScenarioConfigController(simulationService: MockSimulationService());
       await tester.pumpWidget(
         MaterialApp(home: ScenarioConfigScreen(controller: controller)),
       );
@@ -221,13 +287,11 @@ void main() {
 
       final btnWidget = tester.widget<ElevatedButton>(calcularBtn);
       btnWidget.onPressed!();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
       expect(controller.successMessage, isNotNull);
       expect(
-        find.textContaining('Cenário salvo! Simulação de cobertura iniciada.'),
+        find.textContaining('Simulação concluída com sucesso!'),
         findsOneWidget,
       );
     });

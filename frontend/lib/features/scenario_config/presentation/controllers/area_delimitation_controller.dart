@@ -7,6 +7,7 @@ class AreaDelimitationController extends ChangeNotifier {
   static AreaDelimitationResult? _sharedResult;
 
   static AreaDelimitationConfig? get sharedConfig => _sharedConfig;
+  static AreaDelimitationResult? get sharedResult => _sharedResult;
 
   static void resetSharedState() {
     _sharedConfig = null;
