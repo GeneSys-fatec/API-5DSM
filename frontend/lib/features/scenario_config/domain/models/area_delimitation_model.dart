@@ -93,6 +93,7 @@ class AreaDelimitationConfig {
   final bool isUnitKm;
   final bool defineClickingOnMap;
   final Set<CandidateAssetType> selectedAssetTypes;
+  final String baseName;
 
   const AreaDelimitationConfig({
     this.centerLatitude = -22.9068,
@@ -107,6 +108,7 @@ class AreaDelimitationConfig {
       CandidateAssetType.religador,
       CandidateAssetType.subestacao,
     },
+    this.baseName = 'ENERGISA (SUL / SE)',
   });
 
   double get radiusMeters => radiusKm * 1000.0;
@@ -119,6 +121,7 @@ class AreaDelimitationConfig {
     bool? isUnitKm,
     bool? defineClickingOnMap,
     Set<CandidateAssetType>? selectedAssetTypes,
+    String? baseName,
   }) {
     return AreaDelimitationConfig(
       centerLatitude: centerLatitude ?? this.centerLatitude,
@@ -128,6 +131,7 @@ class AreaDelimitationConfig {
       isUnitKm: isUnitKm ?? this.isUnitKm,
       defineClickingOnMap: defineClickingOnMap ?? this.defineClickingOnMap,
       selectedAssetTypes: selectedAssetTypes ?? this.selectedAssetTypes,
+      baseName: baseName ?? this.baseName,
     );
   }
 }

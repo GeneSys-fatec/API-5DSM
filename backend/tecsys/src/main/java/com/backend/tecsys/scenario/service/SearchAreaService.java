@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public class SearchAreaService {
 
     private final BdgdInMemoryCache bdgdCache;
+    private final com.backend.tecsys.scenario.repository.IAssetRepository assetRepository;
 
     @Value("${search.area.radius.min:100.0}")
     private Double minRadius;
@@ -24,8 +25,11 @@ public class SearchAreaService {
 
     private static final double EARTH_RADIUS = 6371e3;
 
-    public SearchAreaService(BdgdInMemoryCache bdgdCache) {
+    public SearchAreaService(
+            BdgdInMemoryCache bdgdCache,
+            com.backend.tecsys.scenario.repository.IAssetRepository assetRepository) {
         this.bdgdCache = bdgdCache;
+        this.assetRepository = assetRepository;
     }
 
     public SearchAreaResponse processSearchArea(SearchAreaRequest request) {
@@ -34,29 +38,45 @@ public class SearchAreaService {
                     "m) deve estar entre " + minRadius + "m e " + maxRadius + "m.");
         }
 
+        List<AssetDto> candidates = new java.util.ArrayList<>();
+        try {
+            List<Asset> dbAssets = assetRepository.findWithinRadius(
+                    request.getLatitude(), request.getLongitude(), request.getRadius());
+            if (dbAssets != null && !dbAssets.isEmpty()) {
+                candidates = dbAssets.stream().map(this::mapToDto).collect(Collectors.toList());
+            }
+        } catch (Exception ignored) {
+        }
+
+        if (candidates.isEmpty()) {
+            List<Asset> allAssets = bdgdCache.getAllAssets();
+            candidates = allAssets.stream()
+                    .filter(asset -> calculateHaversineDistance(request.getLatitude(), request.getLongitude(),
+                            asset.getCoordinate().latitude(), asset.getCoordinate().longitude()) <= request.getRadius())
+                    .map(this::mapToDto)
+                    .collect(Collectors.toList());
+        }
+
         String validationStatus = "OK";
         String message = "Área delimitada com sucesso.";
 
-        double latOffset = (request.getRadius() / EARTH_RADIUS) * (180 / Math.PI);
-        double lonOffset = (request.getRadius() / EARTH_RADIUS) * (180 / Math.PI) / Math.cos(request.getLatitude() * Math.PI / 180);
+        if (candidates.isEmpty()) {
+            double latOffset = (request.getRadius() / EARTH_RADIUS) * (180 / Math.PI);
+            double lonOffset = (request.getRadius() / EARTH_RADIUS) * (180 / Math.PI) / Math.cos(request.getLatitude() * Math.PI / 180);
 
-        boolean insideBounds = bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude()) &&
-                bdgdCache.isPointInRegion(request.getLatitude() + latOffset, request.getLongitude()) &&
-                bdgdCache.isPointInRegion(request.getLatitude() - latOffset, request.getLongitude()) &&
-                bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude() + lonOffset) &&
-                bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude() - lonOffset);
+            boolean insideBounds = bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude()) &&
+                    bdgdCache.isPointInRegion(request.getLatitude() + latOffset, request.getLongitude()) &&
+                    bdgdCache.isPointInRegion(request.getLatitude() - latOffset, request.getLongitude()) &&
+                    bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude() + lonOffset) &&
+                    bdgdCache.isPointInRegion(request.getLatitude(), request.getLongitude() - lonOffset);
 
-        if (!insideBounds) {
-            validationStatus = "WARNING_OUT_OF_BOUNDS";
-            message = "A área definida ultrapassa a região coberta pela BDGD importada.";
+            if (!insideBounds) {
+                validationStatus = "WARNING_OUT_OF_BOUNDS";
+                message = "A área definida ultrapassa a região coberta pela BDGD importada.";
+            }
+        } else {
+            message = "Área delimitada com sucesso (" + candidates.size() + " ativos encontrados na base BDGD).";
         }
-
-        List<Asset> allAssets = bdgdCache.getAllAssets();
-        List<AssetDto> candidates = allAssets.stream()
-                .filter(asset -> calculateHaversineDistance(request.getLatitude(), request.getLongitude(),
-                        asset.getCoordinate().latitude(), asset.getCoordinate().longitude()) <= request.getRadius())
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
 
         return SearchAreaResponse.builder()
                 .candidates(candidates)

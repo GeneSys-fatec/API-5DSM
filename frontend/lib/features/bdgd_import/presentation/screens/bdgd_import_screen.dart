@@ -8,6 +8,8 @@ import '../../data/bdgd_import_service.dart';
 import '../../models/bdgd_base.dart';
 import '../widgets/bases_section.dart';
 import '../widgets/file_upload_dropzone.dart';
+import '../../../scenario_config/domain/models/area_delimitation_model.dart';
+import '../../../scenario_config/presentation/controllers/area_delimitation_controller.dart';
 
 const List<String> kAllowedExtensions = ['zip'];
 
@@ -407,10 +409,23 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
             isLoading: _isLoadingBases,
             onRefresh: _loadBases,
             error: _basesError,
+            onSelectBase: _onSelectBase,
           ),
         ],
       ),
     );
+  }
+
+  void _onSelectBase(BdgdBase base) {
+    final config = AreaDelimitationConfig(
+      centerLatitude: base.defaultLatitude,
+      centerLongitude: base.defaultLongitude,
+      address: base.defaultAddress,
+      radiusKm: 3.5,
+      baseName: base.distribuidora,
+    );
+    AreaDelimitationController.setSharedConfig(config);
+    Navigator.of(context).pushReplacementNamed('/scenario');
   }
 
   Widget _metadataField(

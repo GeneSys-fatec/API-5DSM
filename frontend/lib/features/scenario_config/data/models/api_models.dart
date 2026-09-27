@@ -305,8 +305,8 @@ class SimulationResponse {
       id: scenarioId.toString(),
       code: 'SIM-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
       region: regionName,
-      centerLat: double.tryParse(centerLat) ?? -23.298,
-      centerLng: double.tryParse(centerLng) ?? -45.952,
+      centerLat: double.tryParse(centerLat) ?? (selectedGateways.isNotEmpty ? selectedGateways.first.latitude : -22.9068),
+      centerLng: double.tryParse(centerLng) ?? (selectedGateways.isNotEmpty ? selectedGateways.first.longitude : -47.0616),
       executedAt: DateTime.now(),
       parameters: ScenarioParameters(
         feederName: regionName,

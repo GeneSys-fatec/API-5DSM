@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../controllers/area_delimitation_controller.dart';
+import '../../../bdgd_import/data/bdgd_import_service.dart';
+import '../../../bdgd_import/models/bdgd_base.dart';
 
 class SimulationCenterCard extends StatefulWidget {
   final AreaDelimitationController controller;
@@ -15,6 +17,8 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
   late final TextEditingController _addressCtrl;
   late final TextEditingController _latCtrl;
   late final TextEditingController _lngCtrl;
+  List<BdgdBase> _bases = [];
+  BdgdBase? _selectedBase;
 
   @override
   void initState() {
@@ -24,6 +28,28 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
     _latCtrl = TextEditingController(text: cfg.centerLatitude.toStringAsFixed(4));
     _lngCtrl = TextEditingController(text: cfg.centerLongitude.toStringAsFixed(4));
     widget.controller.addListener(_onControllerChange);
+    _loadBases();
+  }
+
+  Future<void> _loadBases() async {
+    try {
+      final bases = await BdgdImportService().fetchBases();
+      if (!mounted) return;
+      setState(() {
+        _bases = bases;
+        if (_selectedBase == null && _bases.isNotEmpty) {
+          final cfgBase = widget.controller.config.baseName.toLowerCase();
+          try {
+            _selectedBase = _bases.firstWhere(
+              (b) => b.distribuidora.toLowerCase().contains(cfgBase) ||
+                     cfgBase.contains(b.distribuidora.toLowerCase()),
+            );
+          } catch (_) {
+            _selectedBase = _bases.first;
+          }
+        }
+      });
+    } catch (_) {}
   }
 
   void _onControllerChange() {
@@ -107,6 +133,69 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
               ),
             ],
           ),
+          if (_bases.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'BASE DE DADOS BDGD IMPORTADA:',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: AppColors.inputBackground,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.inputBorder),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: _selectedBase != null
+                      ? (_selectedBase!.id ?? _selectedBase!.distribuidora)
+                      : null,
+                  hint: const Text(
+                    'Selecione uma base BDGD importada...',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+                  items: _bases.map<DropdownMenuItem<String>>((BdgdBase b) {
+                    final itemKey = b.id ?? b.distribuidora;
+                    return DropdownMenuItem<String>(
+                      value: itemKey,
+                      child: Text(
+                        '${b.distribuidora} (${b.ativosMapeados} pts)',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val == null) return;
+                    final found = _bases.firstWhere(
+                      (b) => (b.id ?? b.distribuidora) == val,
+                      orElse: () => _bases.first,
+                    );
+                    setState(() {
+                      _selectedBase = found;
+                    });
+                    widget.controller.applyConfig(
+                      widget.controller.config.copyWith(
+                        centerLatitude: found.defaultLatitude,
+                        centerLongitude: found.defaultLongitude,
+                        address: found.defaultAddress,
+                        baseName: found.distribuidora,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           const Text(
             'BUSCAR ENDEREÇO OU SUBESTAÇÃO BDGD:',

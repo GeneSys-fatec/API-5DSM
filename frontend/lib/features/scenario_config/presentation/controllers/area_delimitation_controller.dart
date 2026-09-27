@@ -9,6 +9,11 @@ class AreaDelimitationController extends ChangeNotifier {
   static AreaDelimitationConfig? get sharedConfig => _sharedConfig;
   static AreaDelimitationResult? get sharedResult => _sharedResult;
 
+  static void setSharedConfig(AreaDelimitationConfig config) {
+    _sharedConfig = config;
+    _sharedResult = null;
+  }
+
   static void resetSharedState() {
     _sharedConfig = null;
     _sharedResult = null;
@@ -55,7 +60,12 @@ class AreaDelimitationController extends ChangeNotifier {
         .toList();
   }
 
-  int get totalCandidatesCount => 454;
+  int get totalCandidatesCount {
+    if (_result != null) {
+      return _result!.totalCandidates;
+    }
+    return filteredCandidates.length;
+  }
 
   int countForType(CandidateAssetType type) => _result?.countFor(type) ?? 0;
 
@@ -84,6 +94,13 @@ class AreaDelimitationController extends ChangeNotifier {
 
   void setCenterCoordinates(double lat, double lng) {
     _config = _config.copyWith(centerLatitude: lat, centerLongitude: lng);
+    _sharedConfig = _config;
+    _selectedCandidate = null;
+    evaluateArea();
+  }
+
+  void applyConfig(AreaDelimitationConfig newConfig) {
+    _config = newConfig;
     _sharedConfig = _config;
     _selectedCandidate = null;
     evaluateArea();

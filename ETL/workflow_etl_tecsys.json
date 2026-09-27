@@ -1,0 +1,72 @@
+{
+  "name": "ETL TECSYS",
+  "nodes": [
+    {
+      "parameters": {
+        "command": "=\"D:\\Programacao\\API-5DSM\\.n8n-python\\Scripts\\python.exe\" \"D:\\Programacao\\API-5DSM\\ETL\\main.py\" \"{{$json.body.gdb_path}}\" \"{{$json.body.distribuidora}}\" \"{{$json.body.regiao}}\" --layers SUB UCBT UCMT PONNOT POSTE SSDBT SSDMT SSDAT"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        176,
+        240
+      ],
+      "id": "54caaf3f-a3d8-4863-869f-54bfabfa80a8",
+      "name": "Execute Command"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "get-etl-data",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        240
+      ],
+      "id": "6a766640-1e2f-4887-baa5-29d0a59b723e",
+      "name": "Webhook",
+      "webhookId": "1918fcb2-7575-4757-98f8-b9da776c1bf0"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute Command": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "195e74a5-7879-4f56-b341-4e1a4447e0be",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7475da0c46fec007c27b33b300a284dacbde6aa32c3a42f9a3b05d197ddc2676"
+  },
+  "nodeGroups": [],
+  "id": "8jQGWlJOX9J0gdsO",
+  "tags": []
+}

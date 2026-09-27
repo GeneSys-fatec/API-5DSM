@@ -70,6 +70,7 @@ class _AreaDelimitationScreenState extends State<AreaDelimitationScreen> {
                 children: [
                   ScenarioWizardStepper(
                     currentStep: 1,
+                    baseName: _controller.config.baseName,
                     onStep2Tap: _controller.canAdvance
                         ? _navigateToStep2
                         : null,

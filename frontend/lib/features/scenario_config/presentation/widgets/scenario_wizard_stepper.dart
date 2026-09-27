@@ -7,6 +7,7 @@ class ScenarioWizardStepper extends StatelessWidget {
   final VoidCallback? onStep1Tap;
   final VoidCallback? onStep2Tap;
   final bool showSystemPills;
+  final String? baseName;
 
   const ScenarioWizardStepper({
     super.key,
@@ -14,6 +15,7 @@ class ScenarioWizardStepper extends StatelessWidget {
     this.onStep1Tap,
     this.onStep2Tap,
     this.showSystemPills = true,
+    this.baseName,
   });
 
   @override
@@ -107,7 +109,7 @@ class ScenarioWizardStepper extends StatelessWidget {
               if (showPills && showSystemPills) ...[
                 const SizedBox(width: 16),
                 const Spacer(),
-                const _SystemContextPills(),
+                _SystemContextPills(baseName: baseName ?? 'ENERGISA (SUL / SE)'),
               ],
             ],
           );
@@ -242,7 +244,8 @@ class _StepBadge extends StatelessWidget {
 }
 
 class _SystemContextPills extends StatelessWidget {
-  const _SystemContextPills();
+  final String baseName;
+  const _SystemContextPills({this.baseName = 'ENERGISA (SUL / SE)'});
 
   @override
   Widget build(BuildContext context) {
@@ -255,11 +258,11 @@ class _SystemContextPills extends StatelessWidget {
             const Icon(Icons.layers_rounded, color: AppColors.primaryPurple, size: 16),
             const SizedBox(width: 6),
             RichText(
-              text: const TextSpan(
-                style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
+              text: TextSpan(
+                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
                 children: [
-                  TextSpan(text: 'Base: ', style: TextStyle(color: AppColors.textSecondary)),
-                  TextSpan(text: 'CPFL Paulista 2024 (v2023.Q4)', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const TextSpan(text: 'Base: ', style: TextStyle(color: AppColors.textSecondary)),
+                  TextSpan(text: baseName, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ],
               ),
             ),

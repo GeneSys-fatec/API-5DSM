@@ -5,13 +5,15 @@ import '../../models/bdgd_base.dart';
 
 class BasesTable extends StatelessWidget {
   final List<BdgdBase> bases;
-  const BasesTable({super.key, required this.bases});
+  final ValueChanged<BdgdBase>? onSelectBase;
+  const BasesTable({super.key, required this.bases, this.onSelectBase});
 
   static const _flexDistribuidora = 3;
   static const _flexVersao = 2;
   static const _flexStatus = 2;
   static const _flexAtivos = 2;
   static const _flexProjecao = 2;
+  static const _flexAcao = 2;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +47,11 @@ class BasesTable extends StatelessWidget {
               Expanded(
                 flex: _flexProjecao,
                 child: Text('PROJEÇÃO / DATUM',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+              ),
+              Expanded(
+                flex: _flexAcao,
+                child: Text('AÇÃO',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
               ),
             ],
@@ -131,6 +138,34 @@ class BasesTable extends StatelessWidget {
                     child: Text(
                       b.projecao,
                       style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  ),
+                  Expanded(
+                    flex: _flexAcao,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: ElevatedButton.icon(
+                        onPressed: (b.status == 'concluido' || b.status == 'concluído')
+                            ? () => onSelectBase?.call(b)
+                            : null,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                        label: const Text(
+                          'Simular',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: AppColors.border,
+                          disabledForegroundColor: AppColors.textMuted,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],

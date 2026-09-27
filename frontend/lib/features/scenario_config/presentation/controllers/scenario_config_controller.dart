@@ -256,15 +256,19 @@ class ScenarioConfigController extends ChangeNotifier {
 
       _lastSimulationResult = response;
       
-      // Convert to SimulationScenario for results screen
       final config = AreaDelimitationController.sharedConfig;
+      final defaultLat = response.selectedGateways.isNotEmpty
+          ? response.selectedGateways.first.latitude.toString()
+          : '-22.9068';
+      final defaultLng = response.selectedGateways.isNotEmpty
+          ? response.selectedGateways.first.longitude.toString()
+          : '-47.0616';
       final scenario = response.toSimulationScenario(
-        centerLat: config?.centerLatitude.toString() ?? '-23.298',
-        centerLng: config?.centerLongitude.toString() ?? '-45.952',
-        regionName: config?.address ?? 'Região EDP_SP',
+        centerLat: config?.centerLatitude.toString() ?? defaultLat,
+        centerLng: config?.centerLongitude.toString() ?? defaultLng,
+        regionName: config?.address ?? 'Campinas - SP',
       );
       
-      // Navigate to results screen with real data
       _onSimulationComplete?.call(scenario);
 
       _isCalculating = false;
@@ -369,6 +373,7 @@ class ScenarioConfigController extends ChangeNotifier {
     return sortedCandidates.take(max).toList();
   }
 
+  @override
   void dispose() {
     txPowerController.dispose();
     rxSensitivityController.dispose();

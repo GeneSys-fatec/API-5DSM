@@ -11,6 +11,7 @@ class BasesSection extends StatelessWidget {
   final bool isLoading;
   final VoidCallback? onRefresh;
   final String? error;
+  final ValueChanged<BdgdBase>? onSelectBase;
 
   const BasesSection({
     super.key,
@@ -18,6 +19,7 @@ class BasesSection extends StatelessWidget {
     this.isLoading = false,
     this.onRefresh,
     this.error,
+    this.onSelectBase,
   });
 
   int get totalAtivos => bases.fold(0, (sum, b) => sum + b.ativosMapeados);
@@ -142,7 +144,9 @@ class BasesSection extends StatelessWidget {
                 ),
               )
             else
-              useTable ? BasesTable(bases: bases) : BaseCardsList(bases: bases),
+              useTable
+                  ? BasesTable(bases: bases, onSelectBase: onSelectBase)
+                  : BaseCardsList(bases: bases, onSelectBase: onSelectBase),
           ],
         ),
       ),

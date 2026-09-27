@@ -82,6 +82,7 @@ public class GlobalExceptionHandler {
 
         @ExceptionHandler(ScenarioPersistenceException.class)
         public ResponseEntity<Map<String, Object>> handleScenarioPersistence(ScenarioPersistenceException ex) {
+                log.error("Erro ao persistir cenario: {}", ex.getMessage(), ex);
                 return buildErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
 

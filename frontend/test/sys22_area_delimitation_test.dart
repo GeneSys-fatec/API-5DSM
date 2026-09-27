@@ -175,7 +175,7 @@ void main() {
       expect(find.text('Raio da Área de Busca'), findsOneWidget);
       expect(find.text('Ativos Candidatos Identificados'), findsOneWidget);
       expect(find.text('Definir Clicando no Mapa'), findsOneWidget);
-      expect(find.text('454 Locais'), findsOneWidget);
+      expect(find.textContaining('Locais'), findsOneWidget);
       expect(find.text('Voltar para Importação BDGD'), findsOneWidget);
       expect(
         find.text('Avançar para Etapa 2: Parâmetros de RF e Otimização'),

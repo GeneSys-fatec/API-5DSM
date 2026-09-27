@@ -5,7 +5,8 @@ import '../../models/bdgd_base.dart';
 
 class BaseCardsList extends StatelessWidget {
   final List<BdgdBase> bases;
-  const BaseCardsList({super.key, required this.bases});
+  final ValueChanged<BdgdBase>? onSelectBase;
+  const BaseCardsList({super.key, required this.bases, this.onSelectBase});
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +66,30 @@ class BaseCardsList extends StatelessWidget {
                     Text(
                       b.projecao,
                       style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed: (b.status == 'concluido' || b.status == 'concluído')
+                            ? () => onSelectBase?.call(b)
+                            : null,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                        label: const Text(
+                          'Simular Cenário',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: AppColors.border,
+                          disabledForegroundColor: AppColors.textMuted,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),

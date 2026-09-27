@@ -58,4 +58,22 @@ public class MockAssetRepository implements IAssetRepository {
 
         return assets;
     }
+
+    @Override
+    public List<Asset> findWithinRadius(double latitude, double longitude, double radiusMeters) {
+        List<Asset> all = findByUtilityId(1L);
+        List<Asset> result = new ArrayList<>();
+        for (Asset a : all) {
+            double dLat = Math.toRadians(a.getCoordinate().latitude() - latitude);
+            double dLon = Math.toRadians(a.getCoordinate().longitude() - longitude);
+            double sinLat = Math.sin(dLat / 2);
+            double sinLon = Math.sin(dLon / 2);
+            double h = sinLat * sinLat + Math.cos(Math.toRadians(latitude)) * Math.cos(Math.toRadians(a.getCoordinate().latitude())) * sinLon * sinLon;
+            double dist = 6371000.0 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+            if (dist <= radiusMeters) {
+                result.add(a);
+            }
+        }
+        return result;
+    }
 }

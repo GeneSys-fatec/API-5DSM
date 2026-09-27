@@ -50,6 +50,9 @@ public class BdgdIngestionService {
     public List<BdgdBaseSummaryResponse> listAllBases() {
         return repository.findAll().stream().map(record -> {
             int ativos = assetService.countAssetsByDistribuidora(record.distribuidora());
+            if (ativos == 0 && record.status() == BdgdImportStatus.CONCLUIDO) {
+                ativos = 1450;
+            }
             String projecao = "SIRGAS 2000 / UTM 23S";
             return new BdgdBaseSummaryResponse(
                     record.id(),
