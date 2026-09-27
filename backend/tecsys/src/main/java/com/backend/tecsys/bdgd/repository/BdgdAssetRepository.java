@@ -42,8 +42,8 @@ public class BdgdAssetRepository {
                 SELECT id, tipo_ativo, distribuidora, regiao, asset_key,
                        ST_AsGeoJSON(geometry) AS geometry
                 FROM bdgd.%s
-                WHERE (? IS NULL OR distribuidora = ?)
-                  AND (? IS NULL OR regiao = ?)
+                WHERE (CAST(? AS text) IS NULL OR distribuidora = CAST(? AS text))
+                  AND (CAST(? AS text) IS NULL OR regiao = CAST(? AS text))
           %s
                 ORDER BY id
                 LIMIT ? OFFSET ?
@@ -86,7 +86,7 @@ public class BdgdAssetRepository {
         int total = 0;
         try {
             Integer ativoCount = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM bdgd.ativo WHERE (? IS NULL OR ativo_key ILIKE ?)",
+                    "SELECT COUNT(*) FROM bdgd.ativo WHERE (CAST(? AS text) IS NULL OR ativo_key ILIKE CAST(? AS text))",
                     Integer.class,
                     distribuidora, "%" + distribuidora + "%");
             if (ativoCount != null && ativoCount > 0) {
@@ -101,7 +101,7 @@ public class BdgdAssetRepository {
                 if (existing.contains(tableName.toLowerCase())) {
                     try {
                         Integer count = jdbc.queryForObject(
-                                "SELECT COUNT(*) FROM bdgd." + tableName + " WHERE (? IS NULL OR distribuidora = ?)",
+                                "SELECT COUNT(*) FROM bdgd." + tableName + " WHERE (CAST(? AS text) IS NULL OR distribuidora = CAST(? AS text))",
                                 Integer.class,
                                 distribuidora, distribuidora);
                         if (count != null) {
