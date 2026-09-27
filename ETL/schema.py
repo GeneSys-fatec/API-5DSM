@@ -53,21 +53,13 @@ def get_spec(layer_name: str) -> AssetTableSpec:
 
 
 def _slugify(value: str) -> str:
-    """Normaliza `value` para minúsculas/snake_case restrito a `[a-z0-9_]`."""
     lowered = value.strip().lower()
     return _NON_SLUG_CHARS_RE.sub("_", lowered).strip("_")
 
 
 def partition_suffix(distribuidora: str, regiao: str) -> str:
-    """Deriva um sufixo de nome de partição estável e determinístico a partir
-    de (distribuidora, regiao), normalizado para minúsculas/snake_case e com
-    hash curto (sha1[:8]) para evitar colisão/limite de 63 caracteres de
-    identificador do Postgres quando distribuidora/regiao contêm caracteres
-    não triviais (espaços, acentos, símbolos). Determinístico: a mesma dupla
-    de entrada sempre produz o mesmo sufixo — necessário para o Requisito 1.3
-    (reconhecer partição já existente em vez de recriar).
-    Exemplo: partition_suffix("ENEL_SP", "SUDESTE") -> "enel_sp_sudeste_a1b2c3d4"
-    """
+    # Determinístico (mesma entrada -> mesmo sufixo) e com hash sha1 curto
+    # para evitar colisão/limite de 63 bytes de identificador do Postgres.
     slug_distribuidora = _slugify(distribuidora)
     slug_regiao = _slugify(regiao)
 
@@ -77,9 +69,6 @@ def partition_suffix(distribuidora: str, regiao: str) -> str:
     slug_part = "_".join(part for part in (slug_distribuidora, slug_regiao) if part)
     suffix = f"{slug_part}_{short_hash}" if slug_part else short_hash
 
-    # Trunca a parte do slug (nunca o hash) para respeitar o limite de 63
-    # bytes de identificador do Postgres, considerando que o sufixo é
-    # concatenado a "<tabela>_" pelo chamador (ensure_partition).
     max_suffix_bytes = _POSTGRES_IDENTIFIER_MAX_BYTES
     encoded_suffix = suffix.encode("utf-8")
     if len(encoded_suffix) > max_suffix_bytes:
@@ -93,12 +82,6 @@ def partition_suffix(distribuidora: str, regiao: str) -> str:
 
 
 def is_partitioned(engine: sa.Engine, pg_schema: str, table_name: str) -> bool:
-    """Consulta pg_catalog.pg_partitioned_table (via pg_class) para saber se
-    <pg_schema>.<table_name> já é uma tabela particionada. Usada por
-    ensure_asset_table para decidir entre no-op, criação nova ou migração.
-    Retorna False se a tabela não existir (distinção entre "não existe" e
-    "existe mas não particionada" é responsabilidade de ensure_asset_table).
-    """
     query = text(
         "SELECT 1 "
         "FROM pg_catalog.pg_class c "
@@ -113,35 +96,10 @@ def is_partitioned(engine: sa.Engine, pg_schema: str, table_name: str) -> bool:
 
 
 def ddl_for_layer(layer_name: str, pg_schema: str) -> list[str]:
-    """Monta o DDL da Tabela_de_Ativo já como tabela-mãe particionada:
-    - CREATE TABLE ... (colunas fixas, incluindo a coluna física comum
-      partition_key TEXT NOT NULL, + CHECK quando aplicável)
-      PARTITION BY LIST (partition_key)
-      -- particionamento por coluna física simples (não expressão, não
-      -- coluna GERADA/computada pelo Postgres): é a única forma de a tabela
-      -- particionada aceitar também um índice único/PK cobrindo toda a
-      -- tabela (ver decisão (a2) do design.md — histórico completo de três
-      -- tentativas anteriores que falharam contra um Postgres real:
-      -- LIST multi-coluna, coluna GENERATED e particionamento por
-      -- expressão pura). partition_key não é calculada pelo Postgres: é
-      -- preenchida pelo Carregador_em_Lote (load.py::upsert_layer) com o
-      -- valor f"{distribuidora}::{regiao}" antes de cada INSERT.
-    - CREATE UNIQUE INDEX IF NOT EXISTS ... ON <tabela>
-      (partition_key, asset_key)
-      -- índice na tabela-mãe: o Postgres propaga automaticamente para cada
-      -- partição criada depois (índice "particionado", visível em \\d+ como
-      -- índice na tabela-mãe com uma partição correspondente por filha).
-      -- Válido porque partition_key é coluna física, não expressão (o
-      -- Postgres rejeita UNIQUE/PK quando a chave de particionamento inclui
-      -- expressões — ver decisão (a2)).
-    - CREATE INDEX IF NOT EXISTS ... ON <tabela> USING GIST (geometry)
-      -- mesmo mecanismo: índice GiST na tabela-mãe, propagado a cada partição
-    Não cria nenhuma partição filha — isso é responsabilidade de ensure_partition.
-    Não preenche partition_key — essa coluna é calculada e preenchida pelo
-    Carregador_em_Lote (load.py::upsert_layer) antes de cada INSERT, nunca
-    pelo Postgres (não é coluna GERADA/computada).
-    Assinatura inalterada (compatibilidade com consumidor externo n8n).
-    """
+    # partition_key e coluna fisica normal (nao expressao, nao GENERATED):
+    # e a unica forma do Postgres aceitar tambem um indice unico/PK cobrindo
+    # a tabela particionada (ver decisao a2 do design.md). E preenchida pelo
+    # Carregador_em_Lote (load.py::upsert_layer), nunca pelo Postgres.
     spec = get_spec(layer_name)
     table = spec.table_name
     qualified_table = f"{pg_schema}.{table}"
@@ -189,28 +147,6 @@ def ensure_partition(
     distribuidora: str,
     regiao: str,
 ) -> None:
-    """Garante que a Partição_de_Ativo para (distribuidora, regiao) existe na
-    Tabela_de_Ativo da layer. Idempotente: CREATE TABLE IF NOT EXISTS
-    <tabela>_<suffix> PARTITION OF <tabela> FOR VALUES IN (:partition_key),
-    onde :partition_key é a string única f"{distribuidora}::{regiao}",
-    calculada em Python e passada como parâmetro bind único — o mesmo valor
-    que o Carregador_em_Lote (load.py::upsert_layer) preenche na coluna
-    física comum partition_key de cada linha antes do INSERT, o que garante
-    que o Postgres roteie a linha para esta partição (comparação direta com
-    a coluna física, sem nenhuma expressão calculada do lado do banco; ver
-    decisão (a2) do design.md).
-
-    Levanta ValueError se distribuidora ou regiao forem None/vazias/só espaços
-    (Requisito 5.2 é responsabilidade de load.py chamar isto só com valores
-    válidos; esta função também valida defensivamente e nunca cria uma
-    partição com Chave_de_Particionamento indefinida).
-
-    Em caso de falha na criação (ex. erro de permissão, conflito de nome),
-    propaga um erro identificando pg_schema, spec.table_name, distribuidora
-    e regiao (Requisito 5.1) — a transação da própria criação (statement
-    único de CREATE TABLE) garante que não sobra partição parcialmente
-    criada.
-    """
     if distribuidora is None or not distribuidora.strip():
         raise ValueError(
             f"distribuidora inválida ({distribuidora!r}): não pode ser None, vazia ou "
@@ -254,9 +190,6 @@ def ensure_partition(
 
 
 def _table_exists(engine: sa.Engine, pg_schema: str, table_name: str) -> bool:
-    """Verifica, via information_schema.tables, se <pg_schema>.<table_name>
-    existe (independentemente de ser particionada ou não).
-    """
     query = text(
         "SELECT 1 FROM information_schema.tables "
         "WHERE table_schema = :pg_schema AND table_name = :table_name"
@@ -268,13 +201,6 @@ def _table_exists(engine: sa.Engine, pg_schema: str, table_name: str) -> bool:
 
 
 def _create_partitioned_table(conn: sa.Connection, layer_name: str, pg_schema: str) -> None:
-    """Executa, na conexão/transação `conn` fornecida, o DDL de `ddl_for_layer`
-    (CREATE TABLE particionada + índice único + índice GiST) e, para layers
-    com `geometry_type == "Geometry"`, o ALTER COLUMN que amplia a coluna
-    `geometry` para o tipo genérico GEOMETRY (mesmo bloco usado tanto pela
-    criação nova em `ensure_asset_table` quanto pela recriação da tabela-mãe
-    dentro de `migrate_to_partitioned`, evitando duplicação).
-    """
     spec = get_spec(layer_name)
     statements = ddl_for_layer(layer_name, pg_schema)
 
@@ -297,13 +223,8 @@ def _ensure_partition_inline(
     distribuidora: str,
     regiao: str,
 ) -> None:
-    """Mesma lógica de `ensure_partition`, mas executada na conexão/transação
-    `conn` já aberta pelo chamador, em vez de abrir sua própria transação via
-    `engine.begin()`. Usada por `migrate_to_partitioned`, que já está dentro
-    de uma única transação abrangente — reutilizar `ensure_partition`
-    diretamente abriria uma segunda transação/conexão independente, quebrando
-    a atomicidade exigida pelo Requisito 3.2.
-    """
+    # Mesma lógica de ensure_partition, mas na conexão/transação já aberta
+    # pelo chamador (migrate_to_partitioned), preservando a atomicidade.
     spec = get_spec(layer_name)
     table = spec.table_name
     qualified_table = f"{pg_schema}.{table}"
@@ -320,16 +241,6 @@ def _ensure_partition_inline(
 
 
 def migrate_to_partitioned(engine: sa.Engine, layer_name: str, pg_schema: str) -> None:
-    """Migra uma Tabela_de_Ativo existente e não particionada (formato legado
-    da spec bdgd-schema-tabelas: id, tipo_ativo, distribuidora, regiao,
-    asset_key, geometry — sem partition_key) para a estrutura particionada,
-    sem perda de dados, dentro de uma única transação com rollback automático
-    em caso de falha (Requisito 3.1, 3.2, 3.3).
-
-    Antes de abrir qualquer transação de escrita, valida que nenhum Ativo da
-    tabela original tem distribuidora/regiao nula, vazia ou só espaços — caso
-    contrário aborta sem tocar em nada (Requisito 3.5).
-    """
     spec = get_spec(layer_name)
     table = spec.table_name
     qualified_identifier = f"{pg_schema}.{table}"
@@ -393,12 +304,6 @@ def migrate_to_partitioned(engine: sa.Engine, layer_name: str, pg_schema: str) -
 
 
 def ensure_asset_table(engine: sa.Engine, layer_name: str, pg_schema: str) -> None:
-    """Idempotente, com três ramos:
-    1. Tabela não existe               -> aplica ddl_for_layer (já particionada, sem dados)
-    2. Tabela existe, já particionada  -> no-op (Requisito 3.4)
-    3. Tabela existe, não particionada -> migrate_to_partitioned (Requisito 3.1)
-    Assinatura inalterada (compatibilidade com consumidor externo n8n).
-    """
     spec = get_spec(layer_name)
     table = spec.table_name
 

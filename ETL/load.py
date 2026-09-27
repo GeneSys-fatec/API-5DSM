@@ -7,6 +7,7 @@ import geopandas as gpd
 import pandas as pd
 import sqlalchemy as sa
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
 import schema
 
@@ -15,39 +16,35 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 5_000
 
 
+def _with_explicit_psycopg2_driver(db_url: str) -> str:
+    # SQLAlchemy >=2.1 pode auto-detectar psycopg (v3) em vez de psycopg2
+    # para "postgresql://" sem driver explicito, mesmo so com psycopg2
+    # instalado (ver requirements.txt), causando ModuleNotFoundError.
+    url = make_url(db_url)
+    if url.drivername in ("postgresql", "postgres"):
+        url = url.set(drivername="postgresql+psycopg2")
+    return url.render_as_string(hide_password=False)
+
+
 def get_engine(db_url: str) -> sa.Engine:
-    """Cria e retorna uma engine SQLAlchemy para o banco de dados.
-
-    Parameters
-    ----------
-    db_url:
-        Connection string PostgreSQL, ex.:
-        "postgresql://postgres:postgres@localhost:5432/bdgd"
-
-    Returns
-    -------
-    sqlalchemy.Engine
-    """
     try:
+        normalized_url = _with_explicit_psycopg2_driver(db_url)
         engine = sa.create_engine(
-            db_url,
+            normalized_url,
             pool_pre_ping=True,
             connect_args={"client_encoding": "utf8"},
         )
-        # Valida a conexão imediatamente
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        logger.info("Conexão ao banco estabelecida: %s", _mask_password(db_url))
+        logger.info("Conexão ao banco estabelecida: %s", _mask_password(normalized_url))
         return engine
     except Exception as exc:
-        # Trata erros de codificação quando o Postgres no Windows responde mensagens de erro em CP1252 (ex: "autenticação falhou")
         if isinstance(exc, UnicodeDecodeError) or "codec can't decode" in str(exc):
             raw_bytes = getattr(exc, "object", None)
             if isinstance(raw_bytes, bytes):
                 decoded_msg = raw_bytes.decode("latin1", errors="replace").strip()
                 raise RuntimeError(f"Erro de conexão com PostgreSQL: {decoded_msg}") from exc
         raise
-
 
 
 def _mask_password(url: str) -> str:
@@ -61,11 +58,6 @@ def ensure_schema(engine: sa.Engine, schema: str) -> None:
 
 
 def _is_valid_partition_key_value(value: object) -> bool:
-    """Define, em um único lugar, o que conta como valor inválido de
-    Chave_de_Particionamento: `None`/`NaN`, string vazia ou composta só de
-    espaços em branco. Reutilizada por `_valid_partition_key_mask` e por
-    `_log_rejected_rows` para não duplicar a definição de "inválido".
-    """
     if value is None or (not isinstance(value, str) and pd.isna(value)):
         return False
     if not isinstance(value, str):
@@ -74,52 +66,12 @@ def _is_valid_partition_key_value(value: object) -> bool:
 
 
 def _valid_partition_key_mask(gdf: pd.DataFrame) -> pd.Series:
-    """Marca como inválida qualquer linha cuja `distribuidora` e/ou `regiao`
-    seja `None`, string vazia, ou composta só de espaços em branco.
-
-    Função pura: não modifica `gdf`. Não faz trim de valores válidos com
-    espaços nas bordas (ex. `" CEMIG "` permanece válido) — decisão de
-    design explícita, pois a normalização de Chave_de_Particionamento não é
-    responsabilidade desta função.
-
-    Parameters
-    ----------
-    gdf:
-        GeoDataFrame ou DataFrame contendo, no mínimo, as colunas
-        `distribuidora` e `regiao`.
-
-    Returns
-    -------
-    pandas.Series (bool)
-        Máscara com o mesmo índice de `gdf`: `True` para linhas válidas
-        (ambas as colunas presentes e não nulas/vazias/em branco), `False`
-        para linhas inválidas.
-    """
     distribuidora_valid = gdf["distribuidora"].apply(_is_valid_partition_key_value)
     regiao_valid = gdf["regiao"].apply(_is_valid_partition_key_value)
     return distribuidora_valid & regiao_valid
 
 
 def _log_rejected_rows(layer_name: str, invalid_rows: pd.DataFrame) -> None:
-    """Loga, via `logger.error`, cada linha rejeitada por ter
-    `distribuidora` e/ou `regiao` nula, vazia ou em branco.
-
-    Reutiliza `_is_valid_partition_key_value` (a mesma lógica usada por
-    `_valid_partition_key_mask`) para identificar exatamente qual(is)
-    coluna(s) está(ão) inválida(s) em cada linha, evitando duplicar a
-    definição de "inválido". Função apenas de logging: não levanta exceção
-    nem modifica `invalid_rows` — o descarte das linhas é responsabilidade
-    de quem chama.
-
-    Parameters
-    ----------
-    layer_name:
-        Nome da Layer sendo carregada, incluído em cada mensagem de log
-        para identificar a origem das linhas rejeitadas.
-    invalid_rows:
-        DataFrame contendo apenas as linhas já identificadas como inválidas
-        (deve conter, no mínimo, as colunas `distribuidora` e `regiao`).
-    """
     for row_index, row in invalid_rows.iterrows():
         invalid_columns = [
             column
@@ -142,28 +94,6 @@ def _check_cross_partition_conflict(
     partition_key: str,
     asset_keys: list[str],
 ) -> None:
-    """Verifica se algum `asset_key` do grupo atual já existe em outra
-    Partição_de_Ativo (Chave_de_Particionamento diferente da do grupo).
-
-    Executa contra a tabela-mãe (o Postgres varre automaticamente todas as
-    partições). Se encontrar qualquer linha conflitante, levanta `ValueError`
-    identificando o(s) `asset_key`(s) em conflito e as duas
-    Chaves_de_Particionamento envolvidas — sem alterar o registro já
-    existente na outra partição, e sem executar o `INSERT` do grupo atual
-    (Requisitos 2.1, 2.3).
-
-    Parameters
-    ----------
-    conn:
-        Conexão/transação já aberta (a checagem participa da mesma
-        transação do INSERT do grupo, para consistência).
-    pg_schema, table_name:
-        Schema e tabela-mãe contra os quais a checagem é executada.
-    partition_key:
-        Chave_de_Particionamento do grupo atual (f"{distribuidora}::{regiao}").
-    asset_keys:
-        Lista de `asset_key` únicos presentes no grupo atual.
-    """
     if not asset_keys:
         return
 
@@ -206,12 +136,8 @@ def upsert_layer(
     schema.ensure_asset_table(engine, layer_name, pg_schema)
     table_name = spec.table_name
 
-    # Projeta o GeoDataFrame para exatamente as colunas normalizadas fixas,
-    # descartando quaisquer colunas extras vindas de transform.py
     gdf = pd.DataFrame(gdf[list(schema.FIXED_COLUMNS)].copy())
 
-    # Valida distribuidora/regiao linha a linha (Requisito 5.2): descarta e
-    # loga as linhas inválidas, sem abortar o restante do lote.
     valid_mask = _valid_partition_key_mask(gdf)
     invalid_rows = gdf[~valid_mask]
     if not invalid_rows.empty:
@@ -226,10 +152,6 @@ def upsert_layer(
         )
         return 0
 
-    # coluna física comum, preenchida aqui pelo código Python — não é
-    # GENERATED ALWAYS/computada pelo Postgres (ver decisão (a2) no design.md).
-    # Calculada só sobre as linhas já válidas (não há sentido em calcular
-    # partition_key de linhas que serão descartadas).
     gdf["partition_key"] = gdf["distribuidora"] + "::" + gdf["regiao"]
 
     srid = 4326
@@ -258,8 +180,6 @@ def upsert_layer(
         DO UPDATE SET {update_set}
     """)
 
-    # Agrupa as linhas válidas por (distribuidora, regiao), ordem
-    # determinística (Requisito 1.2, 4.3).
     for (distribuidora, regiao), group in gdf.groupby(
         ["distribuidora", "regiao"], sort=True
     ):
