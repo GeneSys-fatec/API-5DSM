@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../data/services/area_delimitation_service.dart';
+import '../../data/services/scenario_storage_service.dart';
 import '../../domain/models/area_delimitation_model.dart';
 
 class AreaDelimitationController extends ChangeNotifier {
@@ -19,7 +20,26 @@ class AreaDelimitationController extends ChangeNotifier {
     _sharedResult = null;
   }
 
+  static Future<AreaDelimitationResult?> restoreSharedStateFromStorage({
+    ScenarioStorageService? storageService,
+  }) async {
+    if (_sharedResult != null && _sharedConfig != null) {
+      return _sharedResult;
+    }
+    final storage = storageService ?? ScenarioStorageService();
+    final cachedConfig = await storage.loadAreaConfig();
+    final cachedResult = await storage.loadAreaResult();
+    if (cachedConfig != null) {
+      _sharedConfig = cachedConfig;
+    }
+    if (cachedResult != null) {
+      _sharedResult = cachedResult;
+    }
+    return _sharedResult;
+  }
+
   final AreaDelimitationService _service;
+  final ScenarioStorageService _storageService;
 
   AreaDelimitationConfig _config;
   AreaDelimitationResult? _result;
@@ -29,8 +49,10 @@ class AreaDelimitationController extends ChangeNotifier {
 
   AreaDelimitationController({
     AreaDelimitationService? service,
+    ScenarioStorageService? storageService,
     AreaDelimitationConfig? initialConfig,
   }) : _service = service ?? AreaDelimitationService(),
+       _storageService = storageService ?? ScenarioStorageService(),
        _config =
            initialConfig ?? _sharedConfig ?? const AreaDelimitationConfig(),
        _result = _sharedResult;
@@ -75,6 +97,22 @@ class AreaDelimitationController extends ChangeNotifier {
   }
 
   Future<void> init() async {
+    if (_sharedResult != null) {
+      _result = _sharedResult;
+      _config = _sharedConfig ?? _config;
+      notifyListeners();
+      return;
+    }
+    final cachedConfig = await _storageService.loadAreaConfig();
+    final cachedResult = await _storageService.loadAreaResult();
+    if (cachedConfig != null && cachedResult != null) {
+      _config = cachedConfig;
+      _result = cachedResult;
+      _sharedConfig = cachedConfig;
+      _sharedResult = cachedResult;
+      notifyListeners();
+      return;
+    }
     await evaluateArea();
   }
 
@@ -86,6 +124,10 @@ class AreaDelimitationController extends ChangeNotifier {
       _result = await _service.evaluateArea(_config);
       _sharedConfig = _config;
       _sharedResult = _result;
+      _storageService.saveAreaConfig(_config);
+      if (_result != null) {
+        _storageService.saveAreaResult(_result!);
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

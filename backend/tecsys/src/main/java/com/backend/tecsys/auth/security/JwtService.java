@@ -139,6 +139,8 @@ public class JwtService {
                     .build()
                     .parseEncryptedClaims(token)
                     .getPayload();
+        } catch (ExpiredJwtException e) {
+            throw e;
         } catch (JwtException e) {
             if (fallbackKey != null) {
                 return Jwts.parser()

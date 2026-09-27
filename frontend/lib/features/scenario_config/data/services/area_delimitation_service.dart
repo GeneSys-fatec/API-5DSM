@@ -23,11 +23,11 @@ class AreaDelimitationService {
         final apiResult = await _callSearchAreaApi(config);
         
         if (apiResult.validationStatus == 'ERROR') {
-          candidates = _generateMockCandidates(config);
+          candidates = [];
         } else if (apiResult.candidates.isNotEmpty) {
           candidates = _mapApiCandidatesToDomain(apiResult.candidates, config);
         } else {
-          candidates = _generateMockCandidates(config);
+          candidates = [];
         }
         counts = _countCandidatesByType(candidates);
         

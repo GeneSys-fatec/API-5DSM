@@ -38,7 +38,7 @@ class TecsysApp extends StatelessWidget {
         if (settings.name == '/results') {
           final scenario = settings.arguments is SimulationScenario
               ? settings.arguments as SimulationScenario
-              : kMockScenarios.first;
+              : null;
           return MaterialPageRoute(
             builder: (_) => ScenarioResultsScreen(scenario: scenario),
             settings: settings,

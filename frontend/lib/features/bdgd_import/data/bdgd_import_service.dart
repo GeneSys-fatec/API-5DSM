@@ -128,11 +128,9 @@ class BdgdImportService {
 
       if (response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body) as List<dynamic>;
-        if (list.isNotEmpty) {
-          return list
-              .map((item) => BdgdBase.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
+        return list
+            .map((item) => BdgdBase.fromJson(item as Map<String, dynamic>))
+            .toList();
       }
     } catch (_) {}
 

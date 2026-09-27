@@ -1,5 +1,7 @@
 library scenario_results_models;
 
+import 'dart:convert';
+
 class GatewayPoint {
   final String id;
   final String posteId;
@@ -22,6 +24,34 @@ class GatewayPoint {
     required this.avgFadeMarginDb,
     required this.coverageRadiusMeters,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'posteId': posteId,
+      'lat': lat,
+      'lng': lng,
+      'antennaHeight': antennaHeight,
+      'txPowerDbm': txPowerDbm,
+      'linkedAssets': linkedAssets,
+      'avgFadeMarginDb': avgFadeMarginDb,
+      'coverageRadiusMeters': coverageRadiusMeters,
+    };
+  }
+
+  factory GatewayPoint.fromMap(Map<String, dynamic> map) {
+    return GatewayPoint(
+      id: map['id'] as String? ?? '',
+      posteId: map['posteId'] as String? ?? '',
+      lat: (map['lat'] as num?)?.toDouble() ?? 0.0,
+      lng: (map['lng'] as num?)?.toDouble() ?? 0.0,
+      antennaHeight: (map['antennaHeight'] as num?)?.toDouble() ?? 6.0,
+      txPowerDbm: (map['txPowerDbm'] as num?)?.toDouble() ?? 21.0,
+      linkedAssets: (map['linkedAssets'] as num?)?.toInt() ?? 0,
+      avgFadeMarginDb: (map['avgFadeMarginDb'] as num?)?.toDouble() ?? 14.0,
+      coverageRadiusMeters: (map['coverageRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
 
 class ScenarioParameters {
@@ -36,6 +66,24 @@ class ScenarioParameters {
     required this.txPowerDbm,
     required this.propagationModel,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'feederName': feederName,
+      'gatewayCount': gatewayCount,
+      'txPowerDbm': txPowerDbm,
+      'propagationModel': propagationModel,
+    };
+  }
+
+  factory ScenarioParameters.fromMap(Map<String, dynamic> map) {
+    return ScenarioParameters(
+      feederName: map['feederName'] as String? ?? '',
+      gatewayCount: (map['gatewayCount'] as num?)?.toInt() ?? 0,
+      txPowerDbm: (map['txPowerDbm'] as num?)?.toDouble() ?? 21.0,
+      propagationModel: map['propagationModel'] as String? ?? '',
+    );
+  }
 }
 
 class ScenarioResults {
@@ -56,6 +104,31 @@ class ScenarioResults {
   });
 
   int get assetsInShadow => totalAssets - connectedAssets;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'coveragePercent': coveragePercent,
+      'connectedAssets': connectedAssets,
+      'totalAssets': totalAssets,
+      'implementationCost': implementationCost,
+      'avgRssiDbm': avgRssiDbm,
+      'gateways': gateways.map((g) => g.toMap()).toList(),
+    };
+  }
+
+  factory ScenarioResults.fromMap(Map<String, dynamic> map) {
+    final rawGateways = map['gateways'] as List<dynamic>? ?? [];
+    return ScenarioResults(
+      coveragePercent: (map['coveragePercent'] as num?)?.toDouble() ?? 0.0,
+      connectedAssets: (map['connectedAssets'] as num?)?.toInt() ?? 0,
+      totalAssets: (map['totalAssets'] as num?)?.toInt() ?? 0,
+      implementationCost: (map['implementationCost'] as num?)?.toDouble() ?? 0.0,
+      avgRssiDbm: (map['avgRssiDbm'] as num?)?.toDouble() ?? -120.0,
+      gateways: rawGateways
+          .map((g) => GatewayPoint.fromMap(g as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 }
 
 class SimulationScenario {
@@ -78,6 +151,43 @@ class SimulationScenario {
     required this.parameters,
     required this.results,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'code': code,
+      'region': region,
+      'centerLat': centerLat,
+      'centerLng': centerLng,
+      'executedAt': executedAt.toIso8601String(),
+      'parameters': parameters.toMap(),
+      'results': results.toMap(),
+    };
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory SimulationScenario.fromMap(Map<String, dynamic> map) {
+    return SimulationScenario(
+      id: map['id'] as String? ?? '',
+      code: map['code'] as String? ?? '',
+      region: map['region'] as String? ?? '',
+      centerLat: (map['centerLat'] as num?)?.toDouble() ?? 0.0,
+      centerLng: (map['centerLng'] as num?)?.toDouble() ?? 0.0,
+      executedAt: map['executedAt'] != null
+          ? DateTime.tryParse(map['executedAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      parameters: ScenarioParameters.fromMap(
+        map['parameters'] as Map<String, dynamic>? ?? {},
+      ),
+      results: ScenarioResults.fromMap(
+        map['results'] as Map<String, dynamic>? ?? {},
+      ),
+    );
+  }
+
+  factory SimulationScenario.fromJson(String source) =>
+      SimulationScenario.fromMap(json.decode(source) as Map<String, dynamic>);
 }
 
 final List<SimulationScenario> kMockScenarios = [

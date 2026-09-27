@@ -113,10 +113,6 @@ public class BdgdAssetRepository {
             }
         }
 
-        if (total == 0) {
-            total = 5000;
-        }
-
         countCache.put(cacheKey, total);
         return total;
     }

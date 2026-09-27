@@ -293,7 +293,9 @@ class SimulationResponse {
         lng: gw.longitude,
         antennaHeight: rfParameter['antennaHeightM'] as double? ?? 6.0,
         txPowerDbm: rfParameter['transmitPowerDbm'] as double? ?? 21.0,
-        linkedAssets: (coveredAssetKeys.length / selectedGateways.length).round(),
+        linkedAssets: selectedGateways.isEmpty
+            ? 0
+            : (coveredAssetKeys.length / selectedGateways.length).round(),
         avgFadeMarginDb: rfParameter['systemLossDb'] as double? ?? 14.0,
         coverageRadiusMeters: gw.coverageRadiusMeters,
       );

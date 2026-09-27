@@ -9,6 +9,7 @@ import 'package:frontend/features/scenario_config/presentation/controllers/area_
 import 'package:frontend/features/scenario_config/presentation/screens/scenario_config_screen.dart';
 import 'package:frontend/features/scenario_config/data/models/api_models.dart';
 import 'package:frontend/features/scenario_config/domain/models/area_delimitation_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockSimulationService extends SimulationService {
   @override
@@ -67,6 +68,10 @@ class MockAreaDelimitationService extends AreaDelimitationService {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('ScenarioConfigModel & ScenarioStorageService', () {
     test('Valores padrao do modelo de cenario estao corretos', () {
       const model = ScenarioConfigModel();
@@ -266,7 +271,6 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      // Set up shared state with candidates for the simulation
       AreaDelimitationController.resetSharedState();
       final areaController = AreaDelimitationController(service: MockAreaDelimitationService());
       await areaController.init();

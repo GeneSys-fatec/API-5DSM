@@ -29,6 +29,7 @@ class ScenarioConfigController extends ChangeNotifier {
 
   bool _isLoading = false;
   bool _isCalculating = false;
+  bool _isDisposed = false;
   String? _successMessage;
   String? _errorMessage;
   SimulationResponse? _lastSimulationResult;
@@ -45,12 +46,18 @@ class ScenarioConfigController extends ChangeNotifier {
   }
 
   void _initListeners() {
-    txPowerController.addListener(notifyListeners);
-    rxSensitivityController.addListener(notifyListeners);
-    gatewayHeightController.addListener(notifyListeners);
-    deviceHeightController.addListener(notifyListeners);
-    maxGatewaysController.addListener(notifyListeners);
-    frequencyController.addListener(notifyListeners);
+    txPowerController.addListener(_safeNotify);
+    rxSensitivityController.addListener(_safeNotify);
+    gatewayHeightController.addListener(_safeNotify);
+    deviceHeightController.addListener(_safeNotify);
+    maxGatewaysController.addListener(_safeNotify);
+    frequencyController.addListener(_safeNotify);
+  }
+
+  void _safeNotify() {
+    if (!_isDisposed) {
+      notifyListeners();
+    }
   }
 
   String get selectedFrequencyPreset => _selectedFrequencyPreset;
@@ -153,7 +160,17 @@ class ScenarioConfigController extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    if (AreaDelimitationController.sharedResult == null) {
+      await AreaDelimitationController.restoreSharedStateFromStorage(
+        storageService: _storageService,
+      );
+    }
+
+    if (_isDisposed) return;
+
     final config = await _storageService.loadScenario();
+    if (_isDisposed) return;
+
     _applyModelToState(config);
 
     _isLoading = false;
@@ -269,6 +286,7 @@ class ScenarioConfigController extends ChangeNotifier {
         regionName: config?.address ?? 'Campinas - SP',
       );
       
+      await _storageService.saveLastSimulationScenario(scenario);
       _onSimulationComplete?.call(scenario);
 
       _isCalculating = false;
@@ -375,6 +393,7 @@ class ScenarioConfigController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     txPowerController.dispose();
     rxSensitivityController.dispose();
     gatewayHeightController.dispose();
