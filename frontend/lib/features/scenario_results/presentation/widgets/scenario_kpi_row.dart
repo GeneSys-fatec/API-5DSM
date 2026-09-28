@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
-import '../../models/scenario_history_models.dart';
+import '../../models/scenario_results_models.dart';
 
 class ScenarioKpiRow extends StatelessWidget {
   final SimulationScenario scenario;

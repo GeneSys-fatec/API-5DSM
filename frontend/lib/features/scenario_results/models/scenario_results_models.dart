@@ -1,4 +1,4 @@
-library scenario_history_models;
+library scenario_results_models;
 
 class GatewayPoint {
   final String id;

@@ -6,12 +6,14 @@ class ScenarioWizardStepper extends StatelessWidget {
   final int currentStep;
   final VoidCallback? onStep1Tap;
   final VoidCallback? onStep2Tap;
+  final bool showSystemPills;
 
   const ScenarioWizardStepper({
     super.key,
     required this.currentStep,
     this.onStep1Tap,
     this.onStep2Tap,
+    this.showSystemPills = true,
   });
 
   @override
@@ -35,7 +37,7 @@ class ScenarioWizardStepper extends StatelessWidget {
                   child: _StepBadge(
                     stepNumber: 1,
                     totalSteps: 2,
-                    title: '1. Delimitação de Área',
+                    title: 'Delimitação de Área',
                     subtitle: currentStep == 1 ? 'ETAPA 1 DE 2' : 'ETAPA 1 (CONCLUÍDA)',
                     isActive: currentStep == 1,
                     isCompleted: currentStep > 1,
@@ -50,7 +52,7 @@ class ScenarioWizardStepper extends StatelessWidget {
                   child: _StepBadge(
                     stepNumber: 2,
                     totalSteps: 2,
-                    title: '2. Parâmetros de RF',
+                    title: 'Parâmetros de RF',
                     subtitle: currentStep == 2 ? 'ETAPA 2 DE 2' : 'ETAPA 2 (PRÓXIMA)',
                     isActive: currentStep == 2,
                     isCompleted: false,
@@ -64,52 +66,43 @@ class ScenarioWizardStepper extends StatelessWidget {
       );
     }
 
-    return Container(
+        return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final showPills = constraints.maxWidth >= 1050;
-          return Row(
-            children: [
-              Flexible(
-                child: _StepBadge(
-                  stepNumber: 1,
-                  totalSteps: 2,
-                  title: '1. Delimitação de Área & Candidatos',
-                  subtitle: currentStep == 1 ? 'ETAPA 1 DE 2' : 'ETAPA 1 (CONCLUÍDA)',
-                  isActive: currentStep == 1,
-                  isCompleted: currentStep > 1,
-                  onTap: onStep1Tap,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
-              ),
-              Flexible(
-                child: _StepBadge(
-                  stepNumber: 2,
-                  totalSteps: 2,
-                  title: '2. Parâmetros de RF e Otimização',
-                  subtitle: currentStep == 2 ? 'ETAPA 2 DE 2' : 'ETAPA 2 (PRÓXIMA)',
-                  isActive: currentStep == 2,
-                  isCompleted: false,
-                  onTap: onStep2Tap,
-                ),
-              ),
-              if (showPills) ...[
-                const SizedBox(width: 16),
-                const Spacer(),
-                const _SystemContextPills(),
-              ],
-            ],
-          );
-        },
+      child: Row(
+        children: [
+          _StepBadge(
+            stepNumber: 1,
+            totalSteps: 2,
+            title: 'Delimitação de Área & Candidatos',
+            subtitle: currentStep == 1 ? 'ETAPA 1 DE 2' : 'ETAPA 1 (CONCLUÍDA)',
+            isActive: currentStep == 1,
+            isCompleted: currentStep > 1,
+            onTap: onStep1Tap,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+          ),
+          _StepBadge(
+            stepNumber: 2,
+            totalSteps: 2,
+            title: 'Parâmetros de RF e Otimização',
+            subtitle: currentStep == 2 ? 'ETAPA 2 DE 2' : 'ETAPA 2 (PRÓXIMA)',
+            isActive: currentStep == 2,
+            isCompleted: false,
+            onTap: onStep2Tap,
+          ),
+          if (showSystemPills) ...[
+            const SizedBox(width: 16),
+            const Spacer(),
+            const _SystemContextPills(),
+          ],
+        ],
       ),
     );
   }
@@ -220,7 +213,7 @@ class _StepBadge extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       title,
-                      maxLines: 1,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
@@ -279,29 +272,6 @@ class _SystemContextPills extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(width: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.statusGreenLight,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.circle, color: AppColors.statusGreen, size: 8),
-              SizedBox(width: 6),
-              Text(
-                'Motor GIS Ativo',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.statusGreen,
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );
