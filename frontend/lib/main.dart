@@ -31,8 +31,8 @@ class TecsysApp extends StatelessWidget {
         '/bdgd-import': (_) => const BdgdImportScreen(),
         '/scenario': (_) => const AreaDelimitationScreen(),
         '/scenario/rf': (_) => const ScenarioConfigScreen(),
-        '/history': (_) => const HistoryScreen(),
-        '/settings': (_) => const SettingsScreen(),
+        // '/history': (_) => const HistoryScreen(),
+        // '/settings': (_) => const SettingsScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/results') {
