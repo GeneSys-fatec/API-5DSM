@@ -16,7 +16,7 @@ class ScenarioKpiRow extends StatelessWidget {
       _KpiCard(
         icon: Icons.donut_large,
         label: 'Cobertura Total',
-        value: '${results.coveragePercent}%',
+        value: '${results.coveragePercent.toStringAsFixed(1)}%',
       ),
       _KpiCard(
         icon: Icons.wifi_tethering,

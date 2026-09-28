@@ -31,7 +31,9 @@ class _AreaDelimitationScreenState extends State<AreaDelimitationScreen> {
   void initState() {
     super.initState();
     _controller = widget.controller ?? AreaDelimitationController();
-    _controller.init();
+    if (widget.controller == null) {
+      _controller.init();
+    }
   }
 
   @override
@@ -68,6 +70,7 @@ class _AreaDelimitationScreenState extends State<AreaDelimitationScreen> {
                 children: [
                   ScenarioWizardStepper(
                     currentStep: 1,
+                    baseName: _controller.config.baseName,
                     onStep2Tap: _controller.canAdvance
                         ? _navigateToStep2
                         : null,

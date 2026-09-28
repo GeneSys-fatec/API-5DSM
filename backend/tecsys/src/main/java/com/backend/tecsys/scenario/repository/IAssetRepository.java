@@ -7,4 +7,6 @@ import java.util.List;
 public interface IAssetRepository {
 
     List<Asset> findByUtilityId(Long utilityId);
+
+    List<Asset> findWithinRadius(double latitude, double longitude, double radiusMeters);
 }

@@ -22,15 +22,35 @@ class AreaDelimitationMap extends StatefulWidget {
 
 class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
   late final MapController _mapController;
+  LatLng? _lastCenter;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    _lastCenter = LatLng(
+      widget.controller.config.centerLatitude,
+      widget.controller.config.centerLongitude,
+    );
+    widget.controller.addListener(_onControllerChange);
+  }
+
+  void _onControllerChange() {
+    final cfg = widget.controller.config;
+    final newCenter = LatLng(cfg.centerLatitude, cfg.centerLongitude);
+    if (_lastCenter == null ||
+        (_lastCenter!.latitude - newCenter.latitude).abs() > 0.0001 ||
+        (_lastCenter!.longitude - newCenter.longitude).abs() > 0.0001) {
+      _lastCenter = newCenter;
+      try {
+        _mapController.move(newCenter, _mapController.camera.zoom);
+      } catch (_) {}
+    }
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onControllerChange);
     _mapController.dispose();
     super.dispose();
   }
@@ -41,6 +61,9 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
     final center = LatLng(cfg.centerLatitude, cfg.centerLongitude);
     final radiusM = cfg.radiusMeters;
     final candidates = widget.controller.filteredCandidates;
+    final candidatesToRender = candidates.length > 500
+        ? candidates.take(500).toList()
+        : candidates;
     final selectedCand = widget.controller.selectedCandidate;
     final activeLayer = widget.controller.activeMapLayer;
 
@@ -136,7 +159,7 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
                       ),
                     ),
                   ),
-                  ...candidates.map((cand) {
+                  ...candidatesToRender.map((cand) {
                     return Marker(
                       point: LatLng(cand.latitude, cand.longitude),
                       width: 28,
@@ -199,6 +222,37 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
               ),
             ),
           ),
+          if (candidates.length > 500)
+            Positioned(
+              top: 56,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.cardBorder),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.speed_rounded, size: 14, color: AppColors.primaryPurple),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Exibindo 500 de ${candidates.length} ativos (Amostragem Otimizada)',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (selectedCand != null)
             Positioned(
               top: 56,
@@ -206,6 +260,39 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
               child: _CandidateDetailsCard(
                 candidate: selectedCand,
                 onClose: () => widget.controller.selectCandidate(null),
+              ),
+            ),
+          if (widget.controller.isLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.15),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3)),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryPurple),
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Carregando ativos candidatos da BDGD...',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           Positioned(

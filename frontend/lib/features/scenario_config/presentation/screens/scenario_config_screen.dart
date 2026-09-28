@@ -23,7 +23,15 @@ class _ScenarioConfigScreenState extends State<ScenarioConfigScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? ScenarioConfigController();
+    _controller = widget.controller ??
+        ScenarioConfigController(
+          onSimulationComplete: (scenario) {
+            Navigator.of(context).pushNamed(
+              '/results',
+              arguments: scenario,
+            );
+          },
+        );
     _controller.loadConfig();
   }
 

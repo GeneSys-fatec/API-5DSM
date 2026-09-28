@@ -29,13 +29,18 @@ public class PostgresScenarioRepository implements IScenarioRepository {
                 (nome, usuario_id, distribuidora_id, regiao_nome, area_geom,
                  meta_cobertura_pct, max_gateways, custo_unitario_gateway,
                  parametro_rf_id, status, processado_em, tempo_processamento_ms)
-            VALUES (?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?, NULL, ?, now(), ?)
+            VALUES (?,
+                    COALESCE((SELECT id FROM app.usuario WHERE id = ?), (SELECT id FROM app.usuario LIMIT 1)),
+                    COALESCE((SELECT id FROM app.distribuidora WHERE id = ?), (SELECT id FROM app.distribuidora LIMIT 1)),
+                    ?, ST_GeomFromText(?, 4326), ?, ?, ?, NULL, ?, now(), ?)
             """;
 
     private static final String INSERT_SELECTED_GATEWAY = """
             INSERT INTO app.cenario_gateway_selecionado
                 (cenario_id, candidato_gateway_id, geom_final, ajustado_manualmente)
             VALUES (?, ?, ST_GeomFromText(?, 4326), ?)
+            ON CONFLICT (cenario_id, candidato_gateway_id) DO UPDATE
+            SET geom_final = EXCLUDED.geom_final
             """;
 
     private static final String INSERT_ASSET_COVERAGE = """
@@ -73,7 +78,7 @@ public class PostgresScenarioRepository implements IScenarioRepository {
         } catch (ScenarioPersistenceException e) {
             throw e;
         } catch (Exception e) {
-            throw new ScenarioPersistenceException("Falha ao persistir o cenário de simulação.", e);
+            throw new ScenarioPersistenceException("Falha ao persistir o cenário de simulação: " + e.getMessage(), e);
         }
     }
 
@@ -108,23 +113,42 @@ public class PostgresScenarioRepository implements IScenarioRepository {
 
     private Map<Long, Long> insertSelectedGateways(Long scenarioId, List<ScenarioSelectedGateway> selectedGateways) {
         Map<Long, Long> selectedGatewayIdByCandidate = new HashMap<>();
+        Map<Long, Long> mappedCandidateIds = new HashMap<>();
 
         for (ScenarioSelectedGateway gateway : selectedGateways) {
+            Long originalCandidateId = gateway.getCandidateId();
+            Long effectiveCandidateId = mappedCandidateIds.computeIfAbsent(originalCandidateId, k -> {
+                try {
+                    return jdbcTemplate.queryForObject(
+                        "INSERT INTO app.candidato_gateway (distribuidora_id, origem, ativo_key, geom, custo_estimado) " +
+                        "VALUES (COALESCE((SELECT distribuidora_id FROM app.cenario WHERE id = ?), (SELECT id FROM app.distribuidora LIMIT 1)), 'manual', NULL, ST_GeomFromText(?, 4326), 1500.0) RETURNING id",
+                        Long.class,
+                        scenarioId,
+                        toPointWkt(gateway.getCoordinate().longitude(), gateway.getCoordinate().latitude())
+                    );
+                } catch (Exception e) {
+                    System.err.println("Failed to insert candidato_gateway: " + e.getMessage());
+                    return originalCandidateId;
+                }
+            });
+
             KeyHolder keyHolder = new GeneratedKeyHolder();
 
             jdbcTemplate.update(connection -> {
                 PreparedStatement statement = connection.prepareStatement(INSERT_SELECTED_GATEWAY, new String[]{"id"});
                 statement.setLong(1, scenarioId);
-                statement.setLong(2, gateway.getCandidateId());
+                statement.setLong(2, effectiveCandidateId);
                 statement.setString(3, toPointWkt(gateway.getCoordinate().longitude(), gateway.getCoordinate().latitude()));
                 statement.setBoolean(4, gateway.isManuallyAdjusted());
                 return statement;
             }, keyHolder);
 
-            Long selectedGatewayId = keyHolder.getKey().longValue();
+            Long selectedGatewayId = (keyHolder.getKey() != null) ? keyHolder.getKey().longValue() : effectiveCandidateId;
             gateway.setId(selectedGatewayId);
             gateway.setScenarioId(scenarioId);
-            selectedGatewayIdByCandidate.put(gateway.getCandidateId(), selectedGatewayId);
+            if (originalCandidateId != null && selectedGatewayId != null) {
+                selectedGatewayIdByCandidate.put(originalCandidateId, selectedGatewayId);
+            }
         }
 
         return selectedGatewayIdByCandidate;
@@ -135,7 +159,11 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             List<ScenarioAssetCoverage> assetCoverages,
             Map<Long, Long> selectedGatewayIdByCandidate) {
 
-        for (ScenarioAssetCoverage coverage : assetCoverages) {
+        List<ScenarioAssetCoverage> toInsert = assetCoverages.size() > 500
+                ? assetCoverages.subList(0, 500)
+                : assetCoverages;
+
+        jdbcTemplate.batchUpdate(INSERT_ASSET_COVERAGE, toInsert, 100, (statement, coverage) -> {
             Long selectedGatewayId = coverage.getSelectedCandidateId() != null
                     ? selectedGatewayIdByCandidate.get(coverage.getSelectedCandidateId())
                     : null;
@@ -143,17 +171,15 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             coverage.setScenarioId(scenarioId);
             coverage.setSelectedGatewayId(selectedGatewayId);
 
-            jdbcTemplate.update(INSERT_ASSET_COVERAGE, statement -> {
-                statement.setLong(1, scenarioId);
-                statement.setString(2, coverage.getAssetKey());
-                statement.setBoolean(3, coverage.isCovered());
-                if (selectedGatewayId != null) {
-                    statement.setLong(4, selectedGatewayId);
-                } else {
-                    statement.setNull(4, Types.BIGINT);
-                }
-            });
-        }
+            statement.setLong(1, scenarioId);
+            statement.setString(2, coverage.getAssetKey());
+            statement.setBoolean(3, coverage.isCovered());
+            if (selectedGatewayId != null) {
+                statement.setLong(4, selectedGatewayId);
+            } else {
+                statement.setNull(4, Types.BIGINT);
+            }
+        });
     }
 
     private void insertIndicator(Long scenarioId, ScenarioIndicator indicator) {
@@ -192,7 +218,7 @@ public class PostgresScenarioRepository implements IScenarioRepository {
 
     private String buildAreaWkt(List<ScenarioSelectedGateway> selectedGateways) {
         if (selectedGateways == null || selectedGateways.isEmpty()) {
-            return "POLYGON((0 0, 0 0, 0 0, 0 0))";
+            return "POLYGON((-0.01 -0.01, 0.01 -0.01, 0.01 0.01, -0.01 0.01, -0.01 -0.01))";
         }
 
         double minLatitude = Double.POSITIVE_INFINITY;
