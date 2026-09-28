@@ -73,6 +73,10 @@ public class BdgdAssetService {
         return new BdgdGeoJsonResponse.BdgdGeoJsonFeature("Feature", geometry, row);
     }
 
+    public int countAssetsByDistribuidora(String distribuidora) {
+        return repository.countAssetsByDistribuidora(distribuidora, List.copyOf(TABLES.values()));
+    }
+
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }

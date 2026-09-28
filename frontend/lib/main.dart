@@ -36,7 +36,8 @@ class TecsysApp extends StatelessWidget {
         // '/settings': (_) => const SettingsScreen(),
       },
       onGenerateRoute: (settings) {
-        if (settings.name == '/results' && settings.arguments is SimulationScenario) {
+        if (settings.name == '/results' &&
+            settings.arguments is SimulationScenario) {
           final scenario = settings.arguments as SimulationScenario;
           return MaterialPageRoute(
             builder: (_) => ScenarioResultsScreen(scenario: scenario),
