@@ -109,7 +109,7 @@ Uma tarefa é considerada **pronta** quando:
 
 | Sprint | Previsão | Status | Relatório | Vídeo do Projeto |
 |---|---|---|---|---|
-| 1 | 07/09/2026 - 27/09/2026 | Em andamento | Ver Relatório | Ver Vídeo |
+| 1 | 07/09/2026 - 27/09/2026 | ✅ Concluído | [Ver Relatório](https://github.com/GeneSys-fatec/API-5DSM/blob/docs-sprint-1/README.md) | [Ver Vídeo](https://youtu.be/1CPARC5iv88) |
 | 2 | 05/10/2026 - 25/10/2026 | Em breve | Ver Relatório | Ver Vídeo |
 | 3 | 02/11/2026 - 22/11/2026 | Em breve | Ver Relatório | Ver Vídeo |
 
@@ -123,11 +123,14 @@ As seguintes ferramentas, linguagens, bibliotecas e tecnologias foram usadas na 
 
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
-![Tailwind](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Spring](https://img.shields.io/badge/spring-%236DB33F.svg?style=for-the-badge&logo=spring&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-000?style=for-the-badge&logo=postgresql)
+![n8n](https://img.shields.io/badge/n8n-%23EA4B71.svg?style=for-the-badge&logo=n8n&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-%2385EA2D.svg?style=for-the-badge&logo=swagger&logoColor=black)
 ![AWS](https://img.shields.io/badge/AWS-000.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![Git](https://img.shields.io/badge/Git-20232A?style=for-the-badge&logo=git&logoColor=F05032)
 ![Jira](https://img.shields.io/badge/Jira-20232A?style=for-the-badge&logo=jira&logoColor=0052CC)
 ![Figma](https://img.shields.io/badge/Figma-20232A?style=for-the-badge&logo=figma&logoColor=F24E1E)
