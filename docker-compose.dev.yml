@@ -1,0 +1,70 @@
+# Subir o ambiente (postgis_dev + backend + adminer_dev, sem o etl):
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Rodar o ETL pontualmente:
+#   docker compose -f docker-compose.dev.yml --profile etl run --rm etl python main.py <gdb> <dist> <regiao>
+#
+# Adminer: http://localhost:8082 (Sistema: PostgreSQL, Servidor: postgis_dev)
+#
+# Derrubar preservando os dados:
+#   docker compose -f docker-compose.dev.yml down
+# Derrubar e apagar os dados:
+#   docker compose -f docker-compose.dev.yml down -v
+
+services:
+  postgis_dev:
+    image: postgis/postgis:16-3.4
+    container_name: bdgd_postgis_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bdgd_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-bdgd_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bdgd_dev} -d ${POSTGRES_DB:-bdgd_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  etl:
+    build:
+      context: ./ETL
+    container_name: bdgd_etl_dev
+    profiles: ["etl"]
+    environment:
+      BDGD_DB_URL: ${BDGD_DB_URL:-postgresql://bdgd_dev:changeme@postgis_dev:5432/bdgd_dev}
+    depends_on:
+      postgis_dev:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend/tecsys
+    container_name: bdgd_backend_dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgis_dev:5432/bdgd_dev}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-bdgd_dev}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-changeme}
+    depends_on:
+      postgis_dev:
+        condition: service_healthy
+
+  adminer_dev:
+    image: adminer:4
+    container_name: bdgd_adminer_dev
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgis_dev:
+        condition: service_healthy
+
+volumes:
+  postgis_dev_data:

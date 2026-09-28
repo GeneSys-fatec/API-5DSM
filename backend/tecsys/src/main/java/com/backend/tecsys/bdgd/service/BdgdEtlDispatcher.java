@@ -39,6 +39,8 @@ public class BdgdEtlDispatcher {
 
             log.info("Despachando importacao {} para N8N com gdbPath={}", importId, gdbPath);
             n8nWebhookService.triggerProcessing(payload);
+            repository.updateStatus(importId, BdgdImportStatus.CONCLUIDO, null);
+            log.info("Importacao {} concluida com sucesso!", importId);
         } catch (Exception exception) {
             log.error("Falha ao despachar webhook N8N para importacao {}: {}", importId, exception.getMessage(), exception);
             repository.updateStatus(importId, BdgdImportStatus.FALHOU, exception.getMessage());

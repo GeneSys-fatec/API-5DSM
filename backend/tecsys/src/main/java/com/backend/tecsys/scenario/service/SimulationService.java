@@ -28,7 +28,6 @@ import java.util.Set;
 public class SimulationService {
 
     private final IAssetRepository assetRepository;
-    private final GatewayCandidateProvider gatewayCandidateProvider;
     private final PropagationModelRegistry propagationModelRegistry;
     private final RadioCoverageCalculator radioCoverageCalculator;
     private final GatewaySelectionService gatewaySelectionService;
@@ -38,7 +37,6 @@ public class SimulationService {
 
     public SimulationService(
             IAssetRepository assetRepository,
-            GatewayCandidateProvider gatewayCandidateProvider,
             PropagationModelRegistry propagationModelRegistry,
             RadioCoverageCalculator radioCoverageCalculator,
             GatewaySelectionService gatewaySelectionService,
@@ -46,7 +44,6 @@ public class SimulationService {
             CostCalculator costCalculator,
             IScenarioRepository scenarioRepository) {
         this.assetRepository = assetRepository;
-        this.gatewayCandidateProvider = gatewayCandidateProvider;
         this.propagationModelRegistry = propagationModelRegistry;
         this.radioCoverageCalculator = radioCoverageCalculator;
         this.gatewaySelectionService = gatewaySelectionService;
@@ -60,16 +57,27 @@ public class SimulationService {
 
         long startedAt = System.currentTimeMillis();
 
-        List<Asset> assets = assetRepository.findByUtilityId(utilityId);
-        if (assets.isEmpty()) {
-            throw new InvalidSimulationParameterException(
-                    "Nenhum ativo encontrado para a distribuidora informada.");
-        }
-
-        List<GatewayCandidate> candidates = new ArrayList<>(gatewayCandidateProvider.getCandidates(utilityId));
+        List<GatewayCandidate> candidates = new ArrayList<>(command.gatewayCandidates());
         if (candidates.isEmpty()) {
             throw new InvalidGatewayCandidateException(
                     "Nenhum candidato a gateway foi encontrado para a região informada.");
+        }
+
+        List<Asset> assets = new ArrayList<>();
+        double centerLat = candidates.stream().mapToDouble(c -> c.getCoordinate().latitude()).average().orElse(0.0);
+        double centerLon = candidates.stream().mapToDouble(c -> c.getCoordinate().longitude()).average().orElse(0.0);
+        try {
+            assets = assetRepository.findWithinRadius(centerLat, centerLon, 25000.0);
+        } catch (Exception ignored) {
+        }
+
+        if (assets == null || assets.isEmpty()) {
+            assets = assetRepository.findByUtilityId(utilityId);
+        }
+
+        if (assets.isEmpty()) {
+            throw new InvalidSimulationParameterException(
+                    "Nenhum ativo encontrado para a distribuidora informada.");
         }
 
         PropagationModel propagationModel = propagationModelRegistry.resolve(command.propagationModel());
@@ -241,7 +249,8 @@ public class SimulationService {
             int maxGateways,
             Double gatewayUnitCost,
             PropagationModelType propagationModel,
-            RfParameter rfParameter) {
+                RfParameter rfParameter,
+                List<GatewayCandidate> gatewayCandidates) {
     }
 
     public record SimulationOutcome(

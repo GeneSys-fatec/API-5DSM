@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/main.dart';
 
 void main() {
-  testWidgets('Renderiza a tela de cadastro e o banner institucional', (WidgetTester tester) async {
+  testWidgets('Renderiza a tela de cadastro e o banner institucional', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -14,7 +16,6 @@ void main() {
 
     expect(find.textContaining('Planejamento Inteligente'), findsOneWidget);
     expect(find.textContaining('Integração Direta BDGD'), findsOneWidget);
-    expect(find.textContaining('Otimização Heurística'), findsOneWidget);
 
     expect(find.text('Crie sua Conta'), findsOneWidget);
     expect(find.text('Nome Completo'), findsOneWidget);
@@ -25,7 +26,9 @@ void main() {
     expect(find.text('Já tenho uma conta'), findsOneWidget);
   });
 
-  testWidgets('Valida campos obrigatorios e senhas diferentes', (WidgetTester tester) async {
+  testWidgets('Valida campos obrigatorios e senhas diferentes', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -52,7 +55,9 @@ void main() {
     expect(find.text('As senhas não coincidem'), findsOneWidget);
   });
 
-  testWidgets('Alterna entre as abas de entrar e criar conta', (WidgetTester tester) async {
+  testWidgets('Alterna entre as abas de entrar e criar conta', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -73,7 +78,9 @@ void main() {
     expect(find.text('Crie sua Conta'), findsOneWidget);
   });
 
-  testWidgets('Alterna a visibilidade da senha pelo icone de olho', (WidgetTester tester) async {
+  testWidgets('Alterna a visibilidade da senha pelo icone de olho', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);

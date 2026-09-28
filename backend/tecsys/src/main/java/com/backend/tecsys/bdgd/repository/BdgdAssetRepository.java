@@ -42,8 +42,8 @@ public class BdgdAssetRepository {
                 SELECT id, tipo_ativo, distribuidora, regiao, asset_key,
                        ST_AsGeoJSON(geometry) AS geometry
                 FROM bdgd.%s
-                WHERE (? IS NULL OR distribuidora = ?)
-                  AND (? IS NULL OR regiao = ?)
+                WHERE (CAST(? AS text) IS NULL OR distribuidora = CAST(? AS text))
+                  AND (CAST(? AS text) IS NULL OR regiao = CAST(? AS text))
           %s
                 ORDER BY id
                 LIMIT ? OFFSET ?
@@ -56,11 +56,68 @@ public class BdgdAssetRepository {
       return jdbc.queryForList(sql, distribuidora, distribuidora, regiao, regiao, limit, offset);
     }
 
+    private final Map<String, Integer> countCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile java.util.Set<String> cachedTables = null;
+
+    private java.util.Set<String> getExistingTables() {
+        if (cachedTables == null) {
+            synchronized (this) {
+                if (cachedTables == null) {
+                    try {
+                        cachedTables = new java.util.HashSet<>(jdbc.queryForList(
+                            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'bdgd'",
+                            String.class
+                        ));
+                    } catch (Exception e) {
+                        cachedTables = java.util.Collections.emptySet();
+                    }
+                }
+            }
+        }
+        return cachedTables;
+    }
+
+    public int countAssetsByDistribuidora(String distribuidora, List<String> tableNames) {
+        String cacheKey = distribuidora == null ? "__ALL__" : distribuidora.toLowerCase().trim();
+        if (countCache.containsKey(cacheKey)) {
+            return countCache.get(cacheKey);
+        }
+
+        int total = 0;
+        try {
+            Integer ativoCount = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM bdgd.ativo WHERE (CAST(? AS text) IS NULL OR ativo_key ILIKE CAST(? AS text))",
+                    Integer.class,
+                    distribuidora, "%" + distribuidora + "%");
+            if (ativoCount != null && ativoCount > 0) {
+                total = ativoCount;
+            }
+        } catch (Exception ignored) {
+        }
+
+        if (total == 0) {
+            java.util.Set<String> existing = getExistingTables();
+            for (String tableName : tableNames) {
+                if (existing.contains(tableName.toLowerCase())) {
+                    try {
+                        Integer count = jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM bdgd." + tableName + " WHERE (CAST(? AS text) IS NULL OR distribuidora = CAST(? AS text))",
+                                Integer.class,
+                                distribuidora, distribuidora);
+                        if (count != null) {
+                            total += count;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        }
+
+        countCache.put(cacheKey, total);
+        return total;
+    }
+
     private boolean tableExists(String tableName) {
-      return Boolean.TRUE.equals(jdbc.queryForObject(
-          "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-              + "WHERE table_schema = 'bdgd' AND table_name = ?)",
-          Boolean.class,
-          tableName));
+        return getExistingTables().contains(tableName.toLowerCase());
     }
 }

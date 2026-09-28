@@ -18,25 +18,20 @@ TARGET_CRS: str = "EPSG:4326"
 
 SOURCE_CRS_FALLBACK: str = "EPSG:4674"
 
-# ---------------------------------------------------------------------------
-# Layers relevantes da BDGD
-# ---------------------------------------------------------------------------
-# O desafio usa apenas consumidores, postes, subestações e segmentos de rede.
-# As demais feature classes do .gdb baixado da zona raw devem ser descartadas.
 CONSUMER_LAYERS: list[str] = [
-    "UCBT",  # Unidade Consumidora de Baixa Tensão
-    "UCMT",  # Unidade Consumidora de Média Tensão
+    "UCBT",
+    "UCMT",
 ]
 
 INFRASTRUCTURE_LAYERS: list[str] = [
-    "POSTE",  # Suporte físico de rede (poste)
-    "SUB",    # Subestação
+    "POSTE",
+    "SUB",
 ]
 
 NETWORK_SEGMENT_LAYERS: list[str] = [
-    "SSDBT",  # Segmento de Rede de Baixa Tensão
-    "SSDMT",  # Segmento de Rede de Média Tensão
-    "SSDAT",  # Segmento de Rede de Alta Tensão
+    "SSDBT",
+    "SSDMT",
+    "SSDAT",
 ]
 
 RELEVANT_LAYERS: list[str] = [
@@ -45,7 +40,6 @@ RELEVANT_LAYERS: list[str] = [
     *NETWORK_SEGMENT_LAYERS,
 ]
 
-# Mantém compatibilidade com o restante do ETL.
 LAYERS: list[str] = RELEVANT_LAYERS
 
 KEY_COLUMN_BY_LAYER: dict[str, str] = {
@@ -59,3 +53,13 @@ KEY_COLUMN_BY_LAYER: dict[str, str] = {
 }
 
 KEY_COLUMN_FALLBACK: str = "FID"
+
+# Modelo BDGD V1.0/V1.1 (Manual de Instrucoes BDGD/ANEEL) descontinuou a
+# entidade POSTE: postes agora sao um subtipo de PONNOT (TIP_PN = "POS").
+LAYER_FALLBACKS: dict[str, dict[str, str]] = {
+    "POSTE": {
+        "layer": "PONNOT",
+        "filter_col": "TIP_PN",
+        "filter_value": "POS",
+    },
+}

@@ -1,11 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/scenario_config/data/services/scenario_storage_service.dart';
+import 'package:frontend/features/scenario_config/data/services/simulation_service.dart';
+import 'package:frontend/features/scenario_config/data/services/area_delimitation_service.dart';
 import 'package:frontend/features/scenario_config/domain/models/scenario_config_model.dart';
 import 'package:frontend/features/scenario_config/presentation/controllers/scenario_config_controller.dart';
+import 'package:frontend/features/scenario_config/presentation/controllers/area_delimitation_controller.dart';
 import 'package:frontend/features/scenario_config/presentation/screens/scenario_config_screen.dart';
+import 'package:frontend/features/scenario_config/data/models/api_models.dart';
+import 'package:frontend/features/scenario_config/domain/models/area_delimitation_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class MockSimulationService extends SimulationService {
+  @override
+  Future<SimulationResponse> runSimulationWithAuth(SimulationRequest request) async {
+    return SimulationResponse(
+      scenarioId: 1,
+      status: 'concluido',
+      propagationModel: 'OKUMURA_HATA_SUBURBAN',
+      rfParameter: {},
+      selectedGateways: [],
+      totalCoveragePct: 95.0,
+      coveragePctByAssetType: {},
+      coveredAssetKeys: [],
+      uncoveredAssetKeys: [],
+      usedGatewayCount: 3,
+      totalEstimatedCost: 4500.0,
+      processingTimeMs: 100,
+      targetReached: true,
+    );
+  }
+}
+
+class MockAreaDelimitationService extends AreaDelimitationService {
+  @override
+  Future<AreaDelimitationResult> evaluateArea(AreaDelimitationConfig config) async {
+    return AreaDelimitationResult(
+      isValid: true,
+      maxAllowedRadiusKm: 8.0,
+      isRadiusExceeded: false,
+      intersectsBoundary: true,
+      boundaryOverlapPct: 12.0,
+      candidates: [
+        CandidateAsset(
+          id: 'cand-1',
+          assetKey: 'PST-01',
+          type: CandidateAssetType.poste,
+          latitude: -22.9068,
+          longitude: -47.0616,
+        ),
+        CandidateAsset(
+          id: 'cand-2',
+          assetKey: 'TR-01',
+          type: CandidateAssetType.trafo,
+          latitude: -22.9070,
+          longitude: -47.0620,
+        ),
+      ],
+      countsByType: {
+        CandidateAssetType.poste: 1,
+        CandidateAssetType.trafo: 1,
+        CandidateAssetType.religador: 0,
+        CandidateAssetType.subestacao: 0,
+      },
+    );
+  }
+}
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('ScenarioConfigModel & ScenarioStorageService', () {
     test('Valores padrao do modelo de cenario estao corretos', () {
       const model = ScenarioConfigModel();
@@ -46,19 +112,22 @@ void main() {
       expect(deserialized.maxGateways, 18);
     });
 
-    test('ScenarioStorageService grava e recupera cenario em memoria', () async {
-      final storage = ScenarioStorageService();
-      const customModel = ScenarioConfigModel(
-        txPowerDbm: 25.0,
-        maxGateways: 15,
-      );
+    test(
+      'ScenarioStorageService grava e recupera cenario em memoria',
+      () async {
+        final storage = ScenarioStorageService();
+        const customModel = ScenarioConfigModel(
+          txPowerDbm: 25.0,
+          maxGateways: 15,
+        );
 
-      await storage.saveScenario(customModel);
-      final loaded = await storage.loadScenario();
+        await storage.saveScenario(customModel);
+        final loaded = await storage.loadScenario();
 
-      expect(loaded.txPowerDbm, 25.0);
-      expect(loaded.maxGateways, 15);
-    });
+        expect(loaded.txPowerDbm, 25.0);
+        expect(loaded.maxGateways, 15);
+      },
+    );
   });
 
   group('ScenarioConfigController Validations', () {
@@ -112,7 +181,10 @@ void main() {
     test('Valida que sensibilidade RX nao pode ser maior que potencia TX', () {
       controller.txPowerController.text = '21';
       controller.rxSensitivityController.text = '25';
-      expect(controller.rxSensitivityError, 'Sensibilidade não pode ser maior que potência TX');
+      expect(
+        controller.rxSensitivityError,
+        'Sensibilidade não pode ser maior que potência TX',
+      );
       expect(controller.isValid, isFalse);
 
       controller.rxSensitivityController.text = '-120';
@@ -122,19 +194,22 @@ void main() {
   });
 
   group('ScenarioConfigScreen Widget Tests', () {
-    testWidgets('Renderiza todos os componentes e campos principais', (WidgetTester tester) async {
+    testWidgets('Renderiza todos os componentes e campos principais', (
+      WidgetTester tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(
-        const MaterialApp(home: ScenarioConfigScreen()),
-      );
+      await tester.pumpWidget(const MaterialApp(home: ScenarioConfigScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Parâmetros de Tecnologia & Radiofrequência'), findsOneWidget);
+      expect(
+        find.text('Parâmetros de Tecnologia & Radiofrequência'),
+        findsOneWidget,
+      );
       expect(find.text('915 MHz'), findsWidgets);
       expect(find.text('POTÊNCIA TX GATEWAY'), findsOneWidget);
       expect(find.text('SENSIBILIDADE RX'), findsOneWidget);
@@ -142,7 +217,10 @@ void main() {
       expect(find.text('ALTURA DO RECEPTOR'), findsOneWidget);
       expect(find.text('Okumura-Hata Suburbano'), findsOneWidget);
 
-      expect(find.text('Metas de Cobertura e Restrições de Orçamento'), findsOneWidget);
+      expect(
+        find.text('Metas de Cobertura e Restrições de Orçamento'),
+        findsOneWidget,
+      );
       expect(find.textContaining('META DE COBERTURA'), findsOneWidget);
       expect(find.textContaining('MARGEM DE DESVANECIMENTO'), findsOneWidget);
       expect(find.text('Limite de Gateways'), findsOneWidget);
@@ -151,7 +229,9 @@ void main() {
       expect(find.text('Calcular Cenário'), findsOneWidget);
     });
 
-    testWidgets('Bloqueia o botao Calcular Cenario quando campo e invalido', (WidgetTester tester) async {
+    testWidgets('Bloqueia o botao Calcular Cenario quando campo e invalido', (
+      WidgetTester tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -164,7 +244,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      final calcularBtnFinder = find.widgetWithText(ElevatedButton, 'Calcular Cenário');
+      final calcularBtnFinder = find.widgetWithText(
+        ElevatedButton,
+        'Calcular Cenário',
+      );
       await tester.ensureVisible(calcularBtnFinder);
       final calcularBtn = tester.widget<ElevatedButton>(calcularBtnFinder);
       expect(calcularBtn.onPressed, isNotNull);
@@ -173,36 +256,87 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      final calcularBtnDesabilitado = tester.widget<ElevatedButton>(calcularBtnFinder);
+      final calcularBtnDesabilitado = tester.widget<ElevatedButton>(
+        calcularBtnFinder,
+      );
       expect(calcularBtnDesabilitado.onPressed, isNull);
       expect(find.text('Gateways deve ser a partir de 1'), findsOneWidget);
     });
 
-    testWidgets('Dispara a simulacao ao clicar no botao habilitado', (WidgetTester tester) async {
+    testWidgets('Dispara a simulacao ao clicar no botao habilitado', (
+      WidgetTester tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final controller = ScenarioConfigController();
+      AreaDelimitationController.resetSharedState();
+      final areaController = AreaDelimitationController(service: MockAreaDelimitationService());
+      await areaController.init();
+
+      final controller = ScenarioConfigController(simulationService: MockSimulationService());
       await tester.pumpWidget(
         MaterialApp(home: ScenarioConfigScreen(controller: controller)),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      final calcularBtn = find.widgetWithText(ElevatedButton, 'Calcular Cenário');
+      final calcularBtn = find.widgetWithText(
+        ElevatedButton,
+        'Calcular Cenário',
+      );
       await tester.ensureVisible(calcularBtn);
       await tester.pumpAndSettle();
 
       final btnWidget = tester.widget<ElevatedButton>(calcularBtn);
       btnWidget.onPressed!();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
       expect(controller.successMessage, isNotNull);
-      expect(find.textContaining('Cenário salvo! Simulação de cobertura iniciada.'), findsOneWidget);
+      expect(
+        find.textContaining('Simulação concluída com sucesso!'),
+        findsOneWidget,
+      );
     });
+
+    testWidgets(
+      'Navega para Etapa 1 ao clicar no stepper sem redirecionar para login',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        bool navigatedToScenario = false;
+        final controller = ScenarioConfigController();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            initialRoute: '/scenario/rf',
+            routes: {
+              '/': (_) => const Scaffold(body: Text('Login Screen Mock')),
+              '/scenario': (_) {
+                navigatedToScenario = true;
+                return const Scaffold(body: Text('Etapa 1 Tela'));
+              },
+              '/scenario/rf': (_) =>
+                  ScenarioConfigScreen(controller: controller),
+            },
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final step1Finder = find.text('1. Delimitação de Área & Candidatos');
+        expect(step1Finder, findsOneWidget);
+        await tester.tap(step1Finder);
+        await tester.pumpAndSettle();
+
+        expect(navigatedToScenario, isTrue);
+        expect(find.text('Etapa 1 Tela'), findsOneWidget);
+        expect(find.text('Login Screen Mock'), findsNothing);
+      },
+    );
   });
 }

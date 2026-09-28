@@ -31,6 +31,15 @@ public class PostgresAssetRepository implements IAssetRepository {
             .coordinate(new RfCoordinate(rs.getDouble("latitude"), rs.getDouble("longitude")))
             .build();
 
+    private static final String SELECT_ASSETS_WITHIN_RADIUS = """
+            SELECT ativo_key, tipo_ativo,
+                   ST_Y(ST_Centroid(geom)) AS latitude, ST_X(ST_Centroid(geom)) AS longitude
+            FROM bdgd.ativo
+            WHERE ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)
+            ORDER BY ativo_key
+            LIMIT 5000
+            """;
+
     public PostgresAssetRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -42,6 +51,16 @@ public class PostgresAssetRepository implements IAssetRepository {
         } catch (Exception e) {
             throw new ScenarioPersistenceException(
                     "Falha ao obter os ativos da distribuidora " + utilityId + ".", e);
+        }
+    }
+
+    @Override
+    public List<Asset> findWithinRadius(double latitude, double longitude, double radiusMeters) {
+        try {
+            return jdbcTemplate.query(SELECT_ASSETS_WITHIN_RADIUS, assetRowMapper, longitude, latitude, radiusMeters);
+        } catch (Exception e) {
+            throw new ScenarioPersistenceException(
+                    "Falha ao obter os ativos no raio especificado.", e);
         }
     }
 }

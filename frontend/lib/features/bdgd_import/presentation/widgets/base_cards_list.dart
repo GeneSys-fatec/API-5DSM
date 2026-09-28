@@ -5,7 +5,8 @@ import '../../models/bdgd_base.dart';
 
 class BaseCardsList extends StatelessWidget {
   final List<BdgdBase> bases;
-  const BaseCardsList({super.key, required this.bases});
+  final ValueChanged<BdgdBase>? onSelectBase;
+  const BaseCardsList({super.key, required this.bases, this.onSelectBase});
 
   @override
   Widget build(BuildContext context) {
@@ -22,22 +23,73 @@ class BaseCardsList extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(b.distribuidora,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    const SizedBox(height: 6),
-                    Text('${b.versaoBase} · ${formatThousands(b.ativosMapeados)} pts',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    Text(b.projecao,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
                     Row(
-                      children: const [
-                        Icon(Icons.map_outlined, size: 18, color: AppColors.textSecondary),
-                        SizedBox(width: 16),
-                        Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
-                        SizedBox(width: 16),
-                        Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.vermelhoErro),
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            b.distribuidora,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: b.tagColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: b.tagColor.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            b.statusLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: b.tagColor,
+                            ),
+                          ),
+                        ),
                       ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (b.fileName != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          b.fileName!,
+                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        ),
+                      ),
+                    Text(
+                      '${b.versaoBase} · ${b.ativosMapeados > 0 ? '${formatThousands(b.ativosMapeados)} pts' : (b.status == 'processando' ? 'Em processamento...' : '0 pts')}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    Text(
+                      b.projecao,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed: (b.status == 'concluido' || b.status == 'concluído')
+                            ? () => onSelectBase?.call(b)
+                            : null,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                        label: const Text(
+                          'Simular Cenário',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: AppColors.border,
+                          disabledForegroundColor: AppColors.textMuted,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
