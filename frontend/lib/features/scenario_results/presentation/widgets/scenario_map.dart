@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,14 +9,47 @@ import 'gateway_info_card.dart';
 import 'map_layer_toggle_bar.dart';
 import 'map_layer_type.dart';
 
+/// Enquadramento inicial do mapa: a área de busca da Etapa 1 mais o alcance de
+/// cada gateway, para que dê para ver o quanto da área os gateways cobrem.
+/// Retorna null quando o cenário não tem área de busca (usa o zoom padrão).
+LatLngBounds? computeScenarioViewBounds(SimulationScenario scenario) {
+  if (scenario.searchRadiusMeters <= 0) return null;
+
+  var minLat = double.infinity;
+  var maxLat = -double.infinity;
+  var minLng = double.infinity;
+  var maxLng = -double.infinity;
+
+  void include(double lat, double lng, double radiusMeters) {
+    const metersPerDegreeLat = 111320.0;
+    final metersPerDegreeLng =
+        metersPerDegreeLat * math.cos(lat * math.pi / 180.0);
+    final dLat = radiusMeters / metersPerDegreeLat;
+    final dLng = metersPerDegreeLng <= 0 ? 180.0 : radiusMeters / metersPerDegreeLng;
+    minLat = math.min(minLat, lat - dLat);
+    maxLat = math.max(maxLat, lat + dLat);
+    minLng = math.min(minLng, lng - dLng);
+    maxLng = math.max(maxLng, lng + dLng);
+  }
+
+  include(scenario.centerLat, scenario.centerLng, scenario.searchRadiusMeters);
+  for (final gw in scenario.results.gateways) {
+    include(gw.lat, gw.lng, gw.coverageRadiusMeters);
+  }
+
+  return LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng));
+}
+
 class ScenarioMap extends StatefulWidget {
   final SimulationScenario scenario;
   final bool isFullScreen;
+  final bool enableTiles;
 
   const ScenarioMap({
     super.key,
     required this.scenario,
     this.isFullScreen = false,
+    this.enableTiles = true,
   });
 
   @override
@@ -23,6 +58,7 @@ class ScenarioMap extends StatefulWidget {
 
 class _ScenarioMapState extends State<ScenarioMap> {
   Set<MapLayerType> _activeLayers = {
+    MapLayerType.searchArea,
     MapLayerType.coverage,
     MapLayerType.gateways,
   };
@@ -63,6 +99,7 @@ class _ScenarioMapState extends State<ScenarioMap> {
             child: ScenarioMap(
               scenario: widget.scenario,
               isFullScreen: true,
+              enableTiles: widget.enableTiles,
             ),
           ),
         ),
@@ -74,6 +111,9 @@ class _ScenarioMapState extends State<ScenarioMap> {
   Widget build(BuildContext context) {
     final center = LatLng(widget.scenario.centerLat, widget.scenario.centerLng);
     final gateways = widget.scenario.results.gateways;
+    final searchRadius = widget.scenario.searchRadiusMeters;
+    final hasSearchArea = searchRadius > 0;
+    final viewBounds = computeScenarioViewBounds(widget.scenario);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -81,6 +121,7 @@ class _ScenarioMapState extends State<ScenarioMap> {
         MapLayerToggleBar(
           activeLayers: _activeLayers,
           onToggle: _toggleLayer,
+          hiddenLayers: hasSearchArea ? const {} : const {MapLayerType.searchArea},
         ),
         const SizedBox(height: 10),
         Expanded(
@@ -92,16 +133,37 @@ class _ScenarioMapState extends State<ScenarioMap> {
                   options: MapOptions(
                     initialCenter: center,
                     initialZoom: 12,
+                    initialCameraFit: viewBounds == null
+                        ? null
+                        : CameraFit.bounds(
+                            bounds: viewBounds,
+                            padding: const EdgeInsets.all(24),
+                          ),
                     interactionOptions: const InteractionOptions(
                       flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                     ),
                     onTap: (_, __) => setState(() => _selectedGateway = null),
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.tecsys.api5dsm',
-                    ),
+                    if (widget.enableTiles)
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.tecsys.api5dsm',
+                      ),
+                    if (hasSearchArea &&
+                        _activeLayers.contains(MapLayerType.searchArea))
+                      CircleLayer(
+                        circles: [
+                          CircleMarker(
+                            point: center,
+                            radius: searchRadius,
+                            useRadiusInMeter: true,
+                            color: Colors.deepOrange.withValues(alpha: 0.05),
+                            borderColor: Colors.deepOrange.withValues(alpha: 0.85),
+                            borderStrokeWidth: 2,
+                          ),
+                        ],
+                      ),
                     if (_activeLayers.contains(MapLayerType.coverage))
                       CircleLayer(
                         circles: gateways
@@ -154,6 +216,12 @@ class _ScenarioMapState extends State<ScenarioMap> {
                     ),
                   ],
                 ),
+                if (hasSearchArea && _activeLayers.contains(MapLayerType.searchArea))
+                  Positioned(
+                    right: 8,
+                    bottom: 24,
+                    child: _SearchAreaLegend(radiusMeters: searchRadius),
+                  ),
                 if (_selectedGateway != null)
                   Positioned(
                     left: 12,
@@ -177,6 +245,49 @@ class _ScenarioMapState extends State<ScenarioMap> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SearchAreaLegend extends StatelessWidget {
+  final double radiusMeters;
+
+  const _SearchAreaLegend({required this.radiusMeters});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = radiusMeters >= 1000
+        ? '${(radiusMeters / 1000).toStringAsFixed(1)} km'
+        : '${radiusMeters.toStringAsFixed(0)} m';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 1)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.deepOrange.withValues(alpha: 0.15),
+              border: Border.all(color: Colors.deepOrange, width: 2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Área de busca (raio $label)',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 }

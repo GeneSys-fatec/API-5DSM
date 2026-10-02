@@ -163,6 +163,55 @@ class SimulationIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(body.get("coveredAssetKeys").size() > 0);
     }
 
+    @Test
+    void shouldUseSearchAreaAsAssetUniverse() throws Exception {
+        // Raio de 50 m em volta do ASSET-1 do mock (-22.0, -47.0): só ele está dentro.
+        SimulationRequest request = validRequest();
+        request.setSearchCenterLatitude(-22.0000);
+        request.setSearchCenterLongitude(-47.0000);
+        request.setSearchRadiusMeters(50.0);
+
+        MvcResult result = mockMvc.perform(post("/simulations")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        int universe = body.get("coveredAssetKeys").size() + body.get("uncoveredAssetKeys").size();
+        org.junit.jupiter.api.Assertions.assertEquals(1, universe);
+        org.junit.jupiter.api.Assertions.assertEquals(100.0, body.get("totalCoveragePct").asDouble(), 0.001);
+        org.junit.jupiter.api.Assertions.assertTrue(body.get("targetReached").asBoolean());
+    }
+
+    @Test
+    void shouldRejectSearchAreaWithoutAnyAssets() throws Exception {
+        SimulationRequest request = validRequest();
+        request.setSearchCenterLatitude(10.0);
+        request.setSearchCenterLongitude(10.0);
+        request.setSearchRadiusMeters(100.0);
+
+        mockMvc.perform(post("/simulations")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldRejectPartialSearchArea() throws Exception {
+        SimulationRequest request = validRequest();
+        request.setSearchCenterLatitude(-22.0000);
+        request.setSearchCenterLongitude(-47.0000);
+
+        mockMvc.perform(post("/simulations")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
     private String loginAsAdmin() throws Exception {
         LoginRequest login = new LoginRequest("admin@tecsys.com", "Admin@123");
 
