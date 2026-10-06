@@ -16,7 +16,33 @@ except ImportError:
 
 from dotenv import load_dotenv
 
-load_dotenv()
+ETL_DIR = Path(__file__).resolve().parent.parent
+REPOSITORY_DIR = ETL_DIR.parent
+
+for env_path in (REPOSITORY_DIR / ".env", REPOSITORY_DIR / "backend" / "tecsys" / ".env"):
+    load_dotenv(env_path)
+
+
+def _database_url_from_environment() -> str:
+    explicit_url = os.getenv("BDGD_DB_URL")
+    if explicit_url:
+        return explicit_url
+
+    spring_url = os.getenv("SPRING_DATASOURCE_URL")
+    if not spring_url:
+        return "postgresql://postgres:123@localhost:5432/bdgd"
+
+    url = spring_url.removeprefix("jdbc:")
+    if "://" not in url or "@" in url:
+        return url
+
+    from urllib.parse import quote, urlsplit, urlunsplit
+
+    parsed = urlsplit(url)
+    username = quote(os.getenv("SPRING_DATASOURCE_USERNAME", "postgres"), safe="")
+    password = quote(os.getenv("SPRING_DATASOURCE_PASSWORD", ""), safe="")
+    userinfo = f"{username}:{password}@" if password else f"{username}@"
+    return urlunsplit((parsed.scheme, userinfo + parsed.netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 @dataclass
@@ -33,7 +59,7 @@ class PipelineConfig:
 @dataclass
 class DatabaseConfig:
     type: str = "postgres"  # postgres | mysql
-    url: str = os.getenv("BDGD_DB_URL", "postgresql://postgres:123@localhost:5432/bdgd")
+    url: str = _database_url_from_environment()
     schema: str = "bdgd"
     target_srid: int = 4326
     source_srid_fallback: int = 4674
@@ -83,7 +109,7 @@ def load_config(config_path: str | Path | None = None) -> ETLConfig:
                 data = tomllib.load(f)
     else:
         # Check standard default locations
-        default_toml = Path("config.toml")
+        default_toml = ETL_DIR / "config.toml"
         if default_toml.exists():
             with open(default_toml, "rb") as f:
                 data = tomllib.load(f)
@@ -112,9 +138,8 @@ def load_config(config_path: str | Path | None = None) -> ETLConfig:
     if "url" in d_data:
         cfg.database.url = str(d_data["url"])
     # Environment variable overrides
-    env_db = os.getenv("BDGD_DB_URL")
-    if env_db:
-        cfg.database.url = env_db
+    if os.getenv("BDGD_DB_URL") or os.getenv("SPRING_DATASOURCE_URL"):
+        cfg.database.url = _database_url_from_environment()
 
     if "schema" in d_data:
         cfg.database.schema = str(d_data["schema"])
