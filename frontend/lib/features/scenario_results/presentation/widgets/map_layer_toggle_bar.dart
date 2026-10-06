@@ -5,11 +5,13 @@ import 'map_layer_type.dart';
 class MapLayerToggleBar extends StatelessWidget {
   final Set<MapLayerType> activeLayers;
   final ValueChanged<MapLayerType> onToggle;
+  final Set<MapLayerType> hiddenLayers;
 
   const MapLayerToggleBar({
     super.key,
     required this.activeLayers,
     required this.onToggle,
+    this.hiddenLayers = const {},
   });
 
   @override
@@ -17,7 +19,9 @@ class MapLayerToggleBar extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: kMapLayerInfo.entries.map((entry) {
+      children: kMapLayerInfo.entries
+          .where((entry) => !hiddenLayers.contains(entry.key))
+          .map((entry) {
         final layer = entry.key;
         final info = entry.value;
         final isActive = activeLayers.contains(layer);

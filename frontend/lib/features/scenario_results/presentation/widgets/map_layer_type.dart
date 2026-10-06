@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 enum MapLayerType {
+  searchArea,
   coverage,
   gateways,
   rssiHeatmap,
@@ -21,6 +22,10 @@ class MapLayerInfo {
 }
 
 const Map<MapLayerType, MapLayerInfo> kMapLayerInfo = {
+  MapLayerType.searchArea: MapLayerInfo(
+    label: 'Área de busca',
+    icon: Icons.radar,
+  ),
   MapLayerType.coverage: MapLayerInfo(
     label: 'Cobertura RF',
     icon: Icons.blur_circular,

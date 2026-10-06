@@ -159,6 +159,9 @@ class SimulationRequest {
   final List<GatewayCandidateRequest> gatewayCandidates;
   final String propagationModel;
   final double? gatewayUnitCost;
+  final double? searchCenterLatitude;
+  final double? searchCenterLongitude;
+  final double? searchRadiusMeters;
   final RfParameterRequest rfParameter;
 
   const SimulationRequest({
@@ -169,6 +172,9 @@ class SimulationRequest {
     required this.gatewayCandidates,
     required this.propagationModel,
     this.gatewayUnitCost,
+    this.searchCenterLatitude,
+    this.searchCenterLongitude,
+    this.searchRadiusMeters,
     required this.rfParameter,
   });
 
@@ -181,6 +187,11 @@ class SimulationRequest {
       'gatewayCandidates': gatewayCandidates.map((e) => e.toMap()).toList(),
       'propagationModel': propagationModel,
       if (gatewayUnitCost != null) 'gatewayUnitCost': gatewayUnitCost,
+      if (searchCenterLatitude != null && searchCenterLongitude != null && searchRadiusMeters != null) ...{
+        'searchCenterLatitude': searchCenterLatitude,
+        'searchCenterLongitude': searchCenterLongitude,
+        'searchRadiusMeters': searchRadiusMeters,
+      },
       'frequencyMhz': rfParameter.frequencyMhz,
       'transmitPowerDbm': rfParameter.transmitPowerDbm,
       'receiverSensitivityDbm': rfParameter.receiverSensitivityDbm,
@@ -279,6 +290,7 @@ class SimulationResponse {
     required String centerLat,
     required String centerLng,
     required String regionName,
+    double searchRadiusMeters = 0.0,
   }) {
     final gateways = selectedGateways.map((gw) {
       final candidateIndex = gw.candidateId - 1;
@@ -309,6 +321,7 @@ class SimulationResponse {
       region: regionName,
       centerLat: double.tryParse(centerLat) ?? (selectedGateways.isNotEmpty ? selectedGateways.first.latitude : -22.9068),
       centerLng: double.tryParse(centerLng) ?? (selectedGateways.isNotEmpty ? selectedGateways.first.longitude : -47.0616),
+      searchRadiusMeters: searchRadiusMeters,
       executedAt: DateTime.now(),
       parameters: ScenarioParameters(
         feederName: regionName,
