@@ -29,7 +29,8 @@ class BdgdBase {
   });
 
   factory BdgdBase.fromJson(Map<String, dynamic> json) {
-    final statusStr = (json['status'] as String? ?? 'desconhecido').toLowerCase();
+    final statusStr = (json['status'] as String? ?? 'desconhecido')
+        .toLowerCase();
     Color color;
     switch (statusStr) {
       case 'concluido':
@@ -52,7 +53,8 @@ class BdgdBase {
 
     final distribuidora = json['distribuidora'] as String? ?? 'Desconhecida';
     final regiao = json['regiao'] as String?;
-    final dataRef = json['dataReferencia'] as String? ?? json['data'] as String?;
+    final dataRef =
+        json['dataReferencia'] as String? ?? json['data'] as String?;
     final fileName = json['fileName'] as String?;
 
     String versao = 'Módulo 8';
@@ -62,14 +64,9 @@ class BdgdBase {
       versao = fileName;
     }
 
-    String distFormatada = distribuidora;
-    if (regiao != null && regiao.isNotEmpty) {
-      distFormatada = '$distribuidora ($regiao)';
-    }
-
     return BdgdBase(
       id: json['id']?.toString(),
-      distribuidora: distFormatada,
+      distribuidora: distribuidora,
       regiao: regiao,
       dataReferencia: dataRef,
       fileName: fileName,
@@ -97,116 +94,138 @@ class BdgdBase {
   }
 
   double get defaultLatitude {
-    final lower = '${distribuidora.toLowerCase()} ${(regiao ?? '').toLowerCase()}';
+    final lower =
+        '${distribuidora.toLowerCase()} ${(regiao ?? '').toLowerCase()}';
     if (lower.contains('sulgipe')) {
       return -11.2683;
     }
-    if (lower.contains('brasilia') || lower.contains('brasília') || lower.contains('ceb')) {
+    if (lower.contains('brasilia') ||
+        lower.contains('brasília') ||
+        lower.contains('ceb')) {
       return -15.7975;
     }
-    if (lower.contains('energisa') || lower.contains('sergipe') || lower.contains('sul / se')) {
+    if (lower.contains('energisa') ||
+        lower.contains('sergipe') ||
+        lower.contains('sul / se')) {
       return -10.9095;
     }
-    if (lower.contains('enel') || lower.contains('são paulo') || lower.contains('capital')) {
+    if (lower.contains('enel') ||
+        lower.contains('são paulo') ||
+        lower.contains('capital')) {
       return -23.5505;
     }
-    if (lower.contains('edp') || lower.contains('vale') || lower.contains('sjc') || lower.contains('jacareí')) {
+    if (lower.contains('edp') ||
+        lower.contains('vale') ||
+        lower.contains('sjc') ||
+        lower.contains('jacareí')) {
       return -23.2010;
     }
     if (lower.contains('light') || lower.contains('rio')) {
       return -22.9068;
     }
-    if (lower.contains('cemig') || lower.contains('minas') || lower.contains('bh')) {
+    if (lower.contains('cemig') ||
+        lower.contains('minas') ||
+        lower.contains('bh')) {
       return -19.9208;
     }
-    if (lower.contains('copel') || lower.contains('paraná') || lower.contains('curitiba')) {
+    if (lower.contains('copel') ||
+        lower.contains('paraná') ||
+        lower.contains('curitiba')) {
       return -25.4284;
     }
-    if (lower.contains('equatorial') || lower.contains('pará') || lower.contains('maranhão')) {
+    if (lower.contains('equatorial') ||
+        lower.contains('pará') ||
+        lower.contains('maranhão')) {
       return -1.4558;
     }
-    if (lower.contains('neoenergia') || lower.contains('bahia') || lower.contains('coelba')) {
+    if (lower.contains('neoenergia') ||
+        lower.contains('bahia') ||
+        lower.contains('coelba')) {
       return -12.9777;
     }
     return -22.9068;
   }
 
   double get defaultLongitude {
-    final lower = '${distribuidora.toLowerCase()} ${(regiao ?? '').toLowerCase()}';
+    final lower =
+        '${distribuidora.toLowerCase()} ${(regiao ?? '').toLowerCase()}';
     if (lower.contains('sulgipe')) {
       return -37.4383;
     }
-    if (lower.contains('brasilia') || lower.contains('brasília') || lower.contains('ceb')) {
+    if (lower.contains('brasilia') ||
+        lower.contains('brasília') ||
+        lower.contains('ceb')) {
       return -47.8919;
     }
-    if (lower.contains('energisa') || lower.contains('sergipe') || lower.contains('sul / se')) {
+    if (lower.contains('energisa') ||
+        lower.contains('sergipe') ||
+        lower.contains('sul / se')) {
       return -37.0674;
     }
-    if (lower.contains('enel') || lower.contains('são paulo') || lower.contains('capital')) {
+    if (lower.contains('enel') ||
+        lower.contains('são paulo') ||
+        lower.contains('capital')) {
       return -46.6333;
     }
-    if (lower.contains('edp') || lower.contains('vale') || lower.contains('sjc') || lower.contains('jacareí')) {
+    if (lower.contains('edp') ||
+        lower.contains('vale') ||
+        lower.contains('sjc') ||
+        lower.contains('jacareí')) {
       return -45.8890;
     }
     if (lower.contains('light') || lower.contains('rio')) {
       return -43.1729;
     }
-    if (lower.contains('cemig') || lower.contains('minas') || lower.contains('bh')) {
+    if (lower.contains('cemig') ||
+        lower.contains('minas') ||
+        lower.contains('bh')) {
       return -43.9378;
     }
-    if (lower.contains('copel') || lower.contains('paraná') || lower.contains('curitiba')) {
+    if (lower.contains('copel') ||
+        lower.contains('paraná') ||
+        lower.contains('curitiba')) {
       return -49.2733;
     }
-    if (lower.contains('equatorial') || lower.contains('pará') || lower.contains('maranhão')) {
+    if (lower.contains('equatorial') ||
+        lower.contains('pará') ||
+        lower.contains('maranhão')) {
       return -48.4902;
     }
-    if (lower.contains('neoenergia') || lower.contains('bahia') || lower.contains('coelba')) {
+    if (lower.contains('neoenergia') ||
+        lower.contains('bahia') ||
+        lower.contains('coelba')) {
       return -38.5016;
     }
     return -47.0616;
   }
 
   String get defaultAddress {
-    final lower = '${distribuidora.toLowerCase()} ${(regiao ?? '').toLowerCase()}';
+    final lower =
+        '${distribuidora.toLowerCase()} ${(regiao ?? '').toLowerCase()}';
     if (lower.contains('sulgipe')) {
       return 'Estância - SE ($distribuidora)';
     }
-    if (lower.contains('brasilia') || lower.contains('brasília') || lower.contains('ceb')) {
+    if (lower.contains('brasilia') ||
+        lower.contains('brasília') ||
+        lower.contains('ceb')) {
       return 'Brasília - DF ($distribuidora)';
     }
-    if (lower.contains('energisa') || lower.contains('sergipe') || lower.contains('sul / se')) {
+    if (lower.contains('energisa') ||
+        lower.contains('sergipe') ||
+        lower.contains('sul / se')) {
       return 'Aracaju - SE ($distribuidora)';
     }
-    if (lower.contains('enel') || lower.contains('são paulo') || lower.contains('capital')) {
+    if (lower.contains('enel') ||
+        lower.contains('são paulo') ||
+        lower.contains('capital')) {
       return 'São Paulo - SP ($distribuidora)';
     }
-    if (lower.contains('edp') || lower.contains('vale') || lower.contains('sjc') || lower.contains('jacareí')) {
+    if (lower.contains('edp') ||
+        lower.contains('vale') ||
+        lower.contains('sjc') ||
+        lower.contains('jacareí')) {
       return 'São José dos Campos - SP ($distribuidora)';
     }
     return '$distribuidora${regiao != null ? " ($regiao)" : ""}';
   }
 }
-
-final List<BdgdBase> kMockBases = [
-  const BdgdBase(
-    distribuidora: 'CPFL Paulista (Regional Leste)',
-    versaoBase: '2024.Q3 (Módulo 8)',
-    ativosMapeados: 142850,
-    projecao: 'SIRGAS 2000 / UTM 23S',
-    tagColor: AppColors.warning,
-  ),
-  const BdgdBase(
-    distribuidora: 'Enel Distribuição SP (Centro-Oeste)',
-    versaoBase: '2024.Q2 (Consolidada)',
-    ativosMapeados: 128430,
-    projecao: 'SIRGAS 2000 / UTM 23S',
-    tagColor: AppColors.success,
-  ),
-  const BdgdBase(
-    distribuidora: 'Neoenergia Elektro (Mogi Mirim)',
-    versaoBase: '2023.Q4 (Auditoria)',
-    ativosMapeados: 91200,
-    projecao: 'SIRGAS 2000 / UTM 23S',
-    tagColor: AppColors.info,
-  ),
-];

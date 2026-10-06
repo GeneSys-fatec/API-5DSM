@@ -35,9 +35,11 @@ class BaseCardsList extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: b.tagColor.withOpacity(0.12),
+                            color: b.tagColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: b.tagColor.withOpacity(0.3)),
+                            border: Border.all(
+                              color: b.tagColor.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Text(
                             b.statusLabel,

@@ -96,7 +96,7 @@ class BasesSection extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.08),
+                  color: AppColors.error.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -144,12 +144,60 @@ class BasesSection extends StatelessWidget {
                 ),
               )
             else
-              useTable
-                  ? BasesTable(bases: bases, onSelectBase: onSelectBase)
-                  : BaseCardsList(bases: bases, onSelectBase: onSelectBase),
+            _GroupedBases(
+              bases: bases,
+              useTable: useTable,
+              onSelectBase: onSelectBase,
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GroupedBases extends StatelessWidget {
+  final List<BdgdBase> bases;
+  final bool useTable;
+  final ValueChanged<BdgdBase>? onSelectBase;
+
+  const _GroupedBases({
+    required this.bases,
+    required this.useTable,
+    this.onSelectBase,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = <String, List<BdgdBase>>{};
+    for (final base in bases) {
+      final region = base.regiao?.trim().isNotEmpty == true ? base.regiao!.trim() : 'Região não informada';
+      final key = '$region\u0000${base.distribuidora}';
+      grouped.putIfAbsent(key, () => []).add(base);
+    }
+    final groups = grouped.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: groups.map((entry) {
+        final parts = entry.key.split('\u0000');
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+            Text(parts[0], style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
+            const SizedBox(height: 4),
+            Text(parts[1], style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            useTable
+                ? BasesTable(bases: entry.value, onSelectBase: onSelectBase)
+                : BaseCardsList(bases: entry.value, onSelectBase: onSelectBase),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

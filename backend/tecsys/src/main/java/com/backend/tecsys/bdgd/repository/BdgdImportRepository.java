@@ -44,4 +44,22 @@ public class BdgdImportRepository {
                         rs.getString("storage_key"), BdgdImportStatus.valueOf(rs.getString("status")), rs.getString("error_message"),
                         rs.getTimestamp("created_at").toInstant()));
     }
+
+    public List<String> findRegions() {
+        return jdbc.queryForList(
+                        "SELECT DISTINCT regiao FROM bdgd_imports WHERE regiao IS NOT NULL AND TRIM(regiao) <> '' ORDER BY regiao",
+                        String.class);
+    }
+
+    public List<String> findDistributorsByRegion(String regiao) {
+        return jdbc.queryForList(
+                        "SELECT DISTINCT distribuidora FROM bdgd_imports WHERE regiao = ? AND distribuidora IS NOT NULL AND TRIM(distribuidora) <> '' ORDER BY distribuidora",
+                        String.class, regiao);
+    }
+
+    public List<String> findDistributors() {
+        return jdbc.queryForList(
+                        "SELECT DISTINCT distribuidora FROM bdgd_imports WHERE distribuidora IS NOT NULL AND TRIM(distribuidora) <> '' ORDER BY distribuidora",
+                        String.class);
+    }
 }

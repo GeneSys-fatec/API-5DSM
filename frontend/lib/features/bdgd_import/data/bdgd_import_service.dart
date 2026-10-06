@@ -94,19 +94,28 @@ class BdgdImportService {
     return null;
   }
 
-  Future<List<BdgdBase>> fetchBases() async {
+  Future<List<BdgdBase>> fetchBases({String? regiao, String? distribuidora}) async {
     final prefs = await SharedPreferences.getInstance();
     var token = prefs.getString('auth_token');
     if (token == null) {
       token = await _attemptAutoLogin();
     }
     if (token == null) {
-      return kMockBases;
+      throw const BdgdUploadException(
+        'Sessão expirada. Faça login novamente para consultar as BDGDs.',
+      );
     }
 
     try {
+      final query = <String, String>{};
+      if (regiao != null && regiao.isNotEmpty) query['regiao'] = regiao;
+      if (distribuidora != null && distribuidora.isNotEmpty) {
+        query['distribuidora'] = distribuidora;
+      }
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases')
+          .replace(queryParameters: query);
       var response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
+        uri,
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -117,7 +126,7 @@ class BdgdImportService {
         token = await _attemptAutoLogin();
         if (token != null) {
           response = await http.get(
-            Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
+            uri,
             headers: {
               'Authorization': 'Bearer $token',
               'Accept': 'application/json',
@@ -132,9 +141,23 @@ class BdgdImportService {
             .map((item) => BdgdBase.fromJson(item as Map<String, dynamic>))
             .toList();
       }
-    } catch (_) {}
+      throw BdgdUploadException(
+        'Falha ao consultar as BDGDs. HTTP ${response.statusCode}.',
+      );
+    } catch (error) {
+      if (error is BdgdUploadException) rethrow;
+      throw BdgdUploadException('Falha ao consultar as BDGDs importadas: $error');
+    }
+  }
 
-    return kMockBases;
+  Future<List<String>> fetchRegions() async {
+    final bases = await fetchBases();
+    return bases.map((base) => base.regiao).whereType<String>().where((value) => value.isNotEmpty).toSet().toList()..sort();
+  }
+
+  Future<List<String>> fetchDistributors(String regiao) async {
+    final bases = await fetchBases(regiao: regiao);
+    return bases.map((base) => base.distribuidora).toSet().toList()..sort();
   }
 }
 

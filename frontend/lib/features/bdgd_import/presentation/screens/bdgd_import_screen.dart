@@ -34,6 +34,8 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   List<BdgdBase> _bases = [];
   bool _isLoadingBases = false;
   String? _basesError;
+  String? _selectedRegion;
+  String? _selectedDistributor;
   final GlobalKey _dateFieldKey = GlobalKey();
   OverlayEntry? _dateOverlayEntry;
 
@@ -54,6 +56,12 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       if (!mounted) return;
       setState(() {
         _bases = bases;
+        if (!_regions.contains(_selectedRegion)) {
+          _selectedRegion = null;
+          _selectedDistributor = null;
+        } else if (!_distributors.contains(_selectedDistributor)) {
+          _selectedDistributor = null;
+        }
       });
     } on BdgdUploadException catch (e) {
       if (!mounted) return;
@@ -73,6 +81,30 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       }
     }
   }
+
+  List<String> get _regions =>
+      _bases
+          .map((base) => base.regiao)
+          .whereType<String>()
+          .where((value) => value.trim().isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+
+  List<String> get _distributors =>
+      _bases
+          .where((base) =>
+              _selectedRegion == null || base.regiao == _selectedRegion)
+          .map((base) => base.distribuidora)
+          .toSet()
+          .toList()
+        ..sort();
+
+  List<BdgdBase> get _filteredBases => _bases.where((base) {
+    return (_selectedRegion == null || base.regiao == _selectedRegion) &&
+        (_selectedDistributor == null ||
+            base.distribuidora == _selectedDistributor);
+  }).toList();
 
   Future<void> _pickFile() async {
     setState(() {
@@ -176,9 +208,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                       child: Theme(
                         data: Theme.of(context).copyWith(
                           colorScheme: Theme.of(context).colorScheme.copyWith(
-                                primary: AppColors.primary,
-                                onPrimary: Colors.white,
-                              ),
+                            primary: AppColors.primary,
+                            onPrimary: Colors.white,
+                          ),
                         ),
                         child: CalendarDatePicker(
                           initialDate: _parseDate(_dataController.text) ?? now,
@@ -241,20 +273,20 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       _errorMessage = null;
       _successMessage = null;
     });
-    
+
     try {
       print('1. Iniciando chamada do Service na Tela...');
       await _importService.upload(
         fileName: file.name,
         fileStream: file.readStream, // Passando o stream
-        fileSize: file.size,         // Passando o tamanho
+        fileSize: file.size,
         filePath: kIsWeb ? null : file.path, // Corrige o erro de path na Web
         distribuidora: _distribuidoraController.text.trim(),
         regiao: _regiaoController.text.trim(),
         data: _dataController.text.trim(),
       );
       print('6. Upload concluído com sucesso e retornado à Tela!');
-      
+
       if (!mounted) return;
       setState(() => _successMessage = 'Arquivo enviado para a pasta uploads.');
       _clearFile();
@@ -375,10 +407,16 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
+                          disabledBackgroundColor: AppColors.primary
+                              .withValues(alpha: 0.4),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         onPressed: _selectedFile == null || _isUploading
                             ? null
@@ -404,14 +442,82 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          _buildFilters(),
+          const SizedBox(height: 16),
           BasesSection(
-            bases: _bases,
+            bases: _filteredBases,
             isLoading: _isLoadingBases,
             onRefresh: _loadBases,
             error: _basesError,
             onSelectBase: _onSelectBase,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: 240,
+              child: DropdownButtonFormField<String>(
+                initialValue:
+                    _regions.contains(_selectedRegion) ? _selectedRegion : null,
+                decoration: const InputDecoration(labelText: 'Região'),
+                hint: const Text('Todas as regiões'),
+                items: _regions
+                    .map(
+                      (value) =>
+                          DropdownMenuItem(value: value, child: Text(value)),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() {
+                  _selectedRegion = value;
+                  _selectedDistributor = null;
+                }),
+              ),
+            ),
+            SizedBox(
+              width: 280,
+              child: DropdownButtonFormField<String>(
+                initialValue: _distributors.contains(_selectedDistributor)
+                    ? _selectedDistributor
+                    : null,
+                decoration: const InputDecoration(labelText: 'Distribuidora'),
+                hint: Text(
+                  _selectedRegion == null
+                      ? 'Todas as distribuidoras'
+                      : 'Todas as distribuidoras',
+                ),
+                items: _distributors
+                    .map(
+                      (value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(value),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _selectedDistributor = value),
+              ),
+            ),
+            if (_selectedRegion != null || _selectedDistributor != null)
+              TextButton.icon(
+                onPressed: () => setState(() {
+                  _selectedRegion = null;
+                  _selectedDistributor = null;
+                }),
+                icon: const Icon(Icons.clear),
+                label: const Text('Limpar filtros'),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -451,10 +557,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: TextStyle(
-          fontSize: 13,
-          color: Colors.grey.shade400,
-        ),
+        hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
         prefixIcon: icon == null
             ? null
             : Icon(icon, size: 18, color: Colors.grey.shade500),
