@@ -90,7 +90,6 @@ void main() {
 
     test('engloba a area de busca inteira', () {
       final bounds = computeScenarioViewBounds(_scenario())!;
-      // 3500 m ~ 0.0314 grau de latitude a partir do centro.
       expect(bounds.south, lessThan(-10.909 - 0.031));
       expect(bounds.north, greaterThan(-10.909 + 0.031));
       expect(bounds.west, lessThan(-37.068 - 0.031));
@@ -110,7 +109,6 @@ void main() {
         results: _scenario().results,
       );
       final bounds = computeScenarioViewBounds(wide)!;
-      // O alcance de 1751 m do gateway domina o raio de 500 m.
       expect(bounds.north, greaterThan(-10.909 + 0.0157));
     });
   });

@@ -137,7 +137,6 @@ class SimulationScenario {
   final String region;
   final double centerLat;
   final double centerLng;
-  /// Raio da área de busca definida na Etapa 1 (0 quando desconhecido).
   final double searchRadiusMeters;
   final DateTime executedAt;
   final ScenarioParameters parameters;

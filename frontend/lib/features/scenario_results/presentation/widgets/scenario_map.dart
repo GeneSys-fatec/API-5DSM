@@ -9,9 +9,6 @@ import 'gateway_info_card.dart';
 import 'map_layer_toggle_bar.dart';
 import 'map_layer_type.dart';
 
-/// Enquadramento inicial do mapa: a área de busca da Etapa 1 mais o alcance de
-/// cada gateway, para que dê para ver o quanto da área os gateways cobrem.
-/// Retorna null quando o cenário não tem área de busca (usa o zoom padrão).
 LatLngBounds? computeScenarioViewBounds(SimulationScenario scenario) {
   if (scenario.searchRadiusMeters <= 0) return null;
 

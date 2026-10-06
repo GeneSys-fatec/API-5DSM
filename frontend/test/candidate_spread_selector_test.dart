@@ -8,8 +8,6 @@ import 'package:frontend/features/scenario_config/domain/models/area_delimitatio
 const _centerLat = -10.909;
 const _centerLng = -37.068;
 
-/// Grade de [side] x [side] candidatos com [stepMeters] de espaçamento,
-/// centrada em ([_centerLat], [_centerLng]).
 List<CandidateAsset> _grid(int side, double stepMeters) {
   const metersPerDegreeLat = 111320.0;
   final metersPerDegreeLng = metersPerDegreeLat * math.cos(_centerLat * math.pi / 180.0);
@@ -85,7 +83,7 @@ void main() {
     });
 
     test('espalha os candidatos: distancia minima entre eles e muito maior que a dos mais proximos do centro', () {
-      final candidates = _grid(40, 100); // 4 km x 4 km, 1600 postes
+      final candidates = _grid(40, 100);
       const max = 15;
 
       final spread = selectSpreadCandidates(
@@ -106,8 +104,6 @@ void main() {
       final spreadMin = _minPairwise(spread);
       final clusteredMin = _minPairwise(clustered);
 
-      // Os 15 mais proximos do centro ficam a ~100 m uns dos outros (colados);
-      // espalhados, ficam a centenas de metros.
       expect(clusteredMin, lessThan(150));
       expect(spreadMin, greaterThan(800));
     });

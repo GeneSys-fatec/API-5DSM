@@ -40,7 +40,6 @@ public class PostgresAssetRepository implements IAssetRepository {
             LIMIT 5000
             """;
 
-    // O envelope (&&) usa o índice GiST de geom; o ST_DWithin em geography refina para o círculo exato.
     private static final String SELECT_ALL_ASSETS_WITHIN_RADIUS = """
             SELECT ativo_key, tipo_ativo,
                    ST_Y(ST_Centroid(geom)) AS latitude, ST_X(ST_Centroid(geom)) AS longitude

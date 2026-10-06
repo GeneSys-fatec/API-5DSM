@@ -165,7 +165,6 @@ class SimulationIntegrationTest {
 
     @Test
     void shouldUseSearchAreaAsAssetUniverse() throws Exception {
-        // Raio de 50 m em volta do ASSET-1 do mock (-22.0, -47.0): só ele está dentro.
         SimulationRequest request = validRequest();
         request.setSearchCenterLatitude(-22.0000);
         request.setSearchCenterLongitude(-47.0000);

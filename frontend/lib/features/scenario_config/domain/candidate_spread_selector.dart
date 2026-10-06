@@ -2,13 +2,6 @@ import 'dart:math' as math;
 
 import 'models/area_delimitation_model.dart';
 
-/// Escolhe até [max] candidatos espalhados pela área de busca (farthest-point
-/// sampling): parte do candidato mais próximo do centro e, a cada passo, pega o
-/// que está mais longe de todos os já escolhidos.
-///
-/// Selecionar os candidatos mais próximos do centro os deixa colados uns nos
-/// outros: os círculos de cobertura se sobrepõem quase por completo, o segundo
-/// gateway não acrescenta ativos e o algoritmo guloso do backend para cedo.
 List<CandidateAsset> selectSpreadCandidates(
   List<CandidateAsset> candidates, {
   required int max,

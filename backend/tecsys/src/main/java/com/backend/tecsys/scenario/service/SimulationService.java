@@ -149,11 +149,6 @@ public class SimulationService {
                 coverageRadiusMeters);
     }
 
-    /**
-     * Universo de ativos que o cenário precisa cobrir: todos os ativos dentro da
-     * área de busca da Etapa 1. Sem a área explícita, usa a região alcançável
-     * pelos candidatos (centroide + maior afastamento + raio de cobertura RF).
-     */
     private List<Asset> loadAssetUniverse(
             SimulationCommand command,
             List<GatewayCandidate> candidates,
