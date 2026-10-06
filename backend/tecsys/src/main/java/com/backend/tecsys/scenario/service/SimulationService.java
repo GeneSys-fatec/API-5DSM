@@ -1,6 +1,8 @@
 package com.backend.tecsys.scenario.service;
 
+import com.backend.tecsys.radio.model.RfCoordinate;
 import com.backend.tecsys.radio.model.RfParameter;
+import com.backend.tecsys.radio.service.GeoDistanceCalculator;
 import com.backend.tecsys.radio.service.PropagationModel;
 import com.backend.tecsys.radio.service.PropagationModelRegistry;
 import com.backend.tecsys.radio.service.RadioCoverageCalculator;
@@ -26,6 +28,8 @@ import java.util.Set;
 
 @Service
 public class SimulationService {
+
+    private static final double MAX_DERIVED_UNIVERSE_RADIUS_M = 25_000.0;
 
     private final IAssetRepository assetRepository;
     private final PropagationModelRegistry propagationModelRegistry;
@@ -63,24 +67,8 @@ public class SimulationService {
                     "Nenhum candidato a gateway foi encontrado para a região informada.");
         }
 
-        List<Asset> assets = new ArrayList<>();
-        double centerLat = candidates.stream().mapToDouble(c -> c.getCoordinate().latitude()).average().orElse(0.0);
-        double centerLon = candidates.stream().mapToDouble(c -> c.getCoordinate().longitude()).average().orElse(0.0);
-        try {
-            assets = assetRepository.findWithinRadius(centerLat, centerLon, 25000.0);
-        } catch (Exception ignored) {
-        }
-
-        if (assets == null || assets.isEmpty()) {
-            assets = assetRepository.findByUtilityId(utilityId);
-        }
-
-        if (assets.isEmpty()) {
-            throw new InvalidSimulationParameterException(
-                    "Nenhum ativo encontrado para a distribuidora informada.");
-        }
-
         PropagationModel propagationModel = propagationModelRegistry.resolve(command.propagationModel());
+        List<Asset> assets = loadAssetUniverse(command, candidates, propagationModel);
 
         List<GatewayCoverage> individualCoverages = new ArrayList<>();
         for (GatewayCandidate candidate : candidates) {
@@ -161,9 +149,51 @@ public class SimulationService {
                 coverageRadiusMeters);
     }
 
+    private List<Asset> loadAssetUniverse(
+            SimulationCommand command,
+            List<GatewayCandidate> candidates,
+            PropagationModel propagationModel) {
+
+        double centerLatitude;
+        double centerLongitude;
+        double radiusMeters;
+
+        if (command.hasSearchArea()) {
+            centerLatitude = command.searchCenterLatitude();
+            centerLongitude = command.searchCenterLongitude();
+            radiusMeters = command.searchRadiusMeters();
+        } else {
+            centerLatitude = candidates.stream().mapToDouble(c -> c.getCoordinate().latitude()).average().orElse(0.0);
+            centerLongitude = candidates.stream().mapToDouble(c -> c.getCoordinate().longitude()).average().orElse(0.0);
+            RfCoordinate center = new RfCoordinate(centerLatitude, centerLongitude);
+            double farthestCandidateM = candidates.stream()
+                    .mapToDouble(c -> GeoDistanceCalculator.distanceMeters(center, c.getCoordinate()))
+                    .max()
+                    .orElse(0.0);
+            double coverageRadiusM = radioCoverageCalculator.calculateCoverageRadius(
+                    command.rfParameter(), propagationModel);
+            radiusMeters = Math.min(farthestCandidateM + coverageRadiusM, MAX_DERIVED_UNIVERSE_RADIUS_M);
+        }
+
+        List<Asset> assets = assetRepository.findAllWithinRadius(centerLatitude, centerLongitude, radiusMeters);
+        if (assets == null || assets.isEmpty()) {
+            throw new InvalidSimulationParameterException(
+                    "Nenhum ativo encontrado na área de busca informada.");
+        }
+        return assets;
+    }
+
     private void validate(SimulationCommand command) {
         if (command.scenarioName() == null || command.scenarioName().isBlank()) {
             throw new InvalidSimulationParameterException("O nome do cenário é obrigatório.");
+        }
+
+        int searchAreaFieldsProvided = (command.searchCenterLatitude() != null ? 1 : 0)
+                + (command.searchCenterLongitude() != null ? 1 : 0)
+                + (command.searchRadiusMeters() != null ? 1 : 0);
+        if (searchAreaFieldsProvided != 0 && searchAreaFieldsProvided != 3) {
+            throw new InvalidSimulationParameterException(
+                    "Informe latitude, longitude e raio da área de busca juntos, ou nenhum deles.");
         }
 
         if (command.coverageTargetPct() < 1.0 || command.coverageTargetPct() > 100.0) {
@@ -249,8 +279,17 @@ public class SimulationService {
             int maxGateways,
             Double gatewayUnitCost,
             PropagationModelType propagationModel,
-                RfParameter rfParameter,
-                List<GatewayCandidate> gatewayCandidates) {
+            RfParameter rfParameter,
+            List<GatewayCandidate> gatewayCandidates,
+            Double searchCenterLatitude,
+            Double searchCenterLongitude,
+            Double searchRadiusMeters) {
+
+        public boolean hasSearchArea() {
+            return searchCenterLatitude != null
+                    && searchCenterLongitude != null
+                    && searchRadiusMeters != null;
+        }
     }
 
     public record SimulationOutcome(

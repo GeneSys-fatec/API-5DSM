@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/services/scenario_storage_service.dart';
 import '../../data/services/simulation_service.dart';
+import '../../domain/candidate_spread_selector.dart';
 import '../../domain/models/scenario_config_model.dart';
 import '../../domain/models/area_delimitation_model.dart';
 import '../controllers/area_delimitation_controller.dart'
@@ -284,6 +285,7 @@ class ScenarioConfigController extends ChangeNotifier {
         centerLat: config?.centerLatitude.toString() ?? defaultLat,
         centerLng: config?.centerLongitude.toString() ?? defaultLng,
         regionName: config?.address ?? 'Campinas - SP',
+        searchRadiusMeters: config?.radiusMeters ?? 0.0,
       );
       
       await _storageService.saveLastSimulationScenario(scenario);
@@ -308,9 +310,13 @@ class ScenarioConfigController extends ChangeNotifier {
 
   SimulationRequest _buildSimulationRequest(ScenarioConfigModel model, List<CandidateAsset> candidates) {
     const maxCandidates = 30;
-    final limitedCandidates = candidates.length > maxCandidates
-        ? _sampleCandidates(candidates, maxCandidates)
-        : candidates;
+    final searchArea = AreaDelimitationController.sharedConfig;
+    final limitedCandidates = selectSpreadCandidates(
+      candidates,
+      max: maxCandidates,
+      centerLatitude: searchArea?.centerLatitude ?? candidates.first.latitude,
+      centerLongitude: searchArea?.centerLongitude ?? candidates.first.longitude,
+    );
 
     final gatewayCandidates = limitedCandidates.asMap().entries.map((entry) {
       final index = entry.key;
@@ -339,6 +345,9 @@ class ScenarioConfigController extends ChangeNotifier {
       gatewayCandidates: gatewayCandidates,
       propagationModel: propagationModelMap[model.propagationModel] ?? 'OKUMURA_HATA_SUBURBAN',
       gatewayUnitCost: 1500.0,
+      searchCenterLatitude: searchArea?.centerLatitude,
+      searchCenterLongitude: searchArea?.centerLongitude,
+      searchRadiusMeters: searchArea?.radiusMeters,
       rfParameter: RfParameterRequest(
         frequencyMhz: model.frequencyMhz,
         transmitPowerDbm: model.txPowerDbm,
@@ -367,28 +376,6 @@ class ScenarioConfigController extends ChangeNotifier {
     _successMessage = null;
     _errorMessage = null;
     notifyListeners();
-  }
-
-  List<CandidateAsset> _sampleCandidates(List<CandidateAsset> candidates, int max) {
-    if (candidates.length <= max) return candidates;
-
-    final priorityOrder = [
-      CandidateAssetType.subestacao,
-      CandidateAssetType.religador,
-      CandidateAssetType.trafo,
-      CandidateAssetType.poste,
-    ];
-
-    final sortedCandidates = List<CandidateAsset>.from(candidates)
-      ..sort((a, b) {
-        final aPriority = priorityOrder.indexOf(a.type);
-        final bPriority = priorityOrder.indexOf(b.type);
-        final comp = (aPriority == -1 ? 99 : aPriority).compareTo(bPriority == -1 ? 99 : bPriority);
-        if (comp != 0) return comp;
-        return a.distanceMeters.compareTo(b.distanceMeters);
-      });
-
-    return sortedCandidates.take(max).toList();
   }
 
   @override

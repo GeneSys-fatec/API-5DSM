@@ -76,4 +76,9 @@ public class MockAssetRepository implements IAssetRepository {
         }
         return result;
     }
+
+    @Override
+    public List<Asset> findAllWithinRadius(double latitude, double longitude, double radiusMeters) {
+        return findWithinRadius(latitude, longitude, radiusMeters);
+    }
 }

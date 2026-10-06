@@ -49,7 +49,10 @@ public class SimulationController {
                 request.getGatewayUnitCost(),
                 propagationModel,
                 request.toRfParameter(),
-                request.toGatewayCandidates(user.getUtilityId()));
+                request.toGatewayCandidates(user.getUtilityId()),
+                request.getSearchCenterLatitude(),
+                request.getSearchCenterLongitude(),
+                request.getSearchRadiusMeters());
 
         SimulationService.SimulationOutcome outcome =
                 simulationService.simulate(command, user.getId(), user.getUtilityId());

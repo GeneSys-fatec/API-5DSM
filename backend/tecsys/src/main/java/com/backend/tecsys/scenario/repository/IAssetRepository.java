@@ -9,4 +9,6 @@ public interface IAssetRepository {
     List<Asset> findByUtilityId(Long utilityId);
 
     List<Asset> findWithinRadius(double latitude, double longitude, double radiusMeters);
+
+    List<Asset> findAllWithinRadius(double latitude, double longitude, double radiusMeters);
 }

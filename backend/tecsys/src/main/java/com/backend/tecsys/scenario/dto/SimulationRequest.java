@@ -54,6 +54,22 @@ public class SimulationRequest {
         @Valid
         private List<GatewayCandidateRequest> gatewayCandidates;
 
+    @DecimalMin(value = "-90.0", message = "A latitude do centro da área de busca deve estar entre -90 e 90.")
+    @DecimalMax(value = "90.0", message = "A latitude do centro da área de busca deve estar entre -90 e 90.")
+    @Schema(description = "Latitude do centro da área de busca da Etapa 1. Junto com longitude e raio, define o "
+            + "universo de ativos a cobrir. Quando os três são omitidos, o universo é derivado dos candidatos.",
+            example = "-10.909")
+    private Double searchCenterLatitude;
+
+    @DecimalMin(value = "-180.0", message = "A longitude do centro da área de busca deve estar entre -180 e 180.")
+    @DecimalMax(value = "180.0", message = "A longitude do centro da área de busca deve estar entre -180 e 180.")
+    @Schema(description = "Longitude do centro da área de busca da Etapa 1.", example = "-37.068")
+    private Double searchCenterLongitude;
+
+    @Positive(message = "O raio da área de busca deve ser maior que zero.")
+    @Schema(description = "Raio da área de busca da Etapa 1, em metros.", example = "3500")
+    private Double searchRadiusMeters;
+
     @NotBlank(message = "O modelo de propagação é obrigatório.")
     @Schema(description = "Modelo de propagação RF.",
             example = "OKUMURA_HATA_SUBURBAN",
