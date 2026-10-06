@@ -137,6 +137,7 @@ class SimulationScenario {
   final String region;
   final double centerLat;
   final double centerLng;
+  final double searchRadiusMeters;
   final DateTime executedAt;
   final ScenarioParameters parameters;
   final ScenarioResults results;
@@ -147,6 +148,7 @@ class SimulationScenario {
     required this.region,
     required this.centerLat,
     required this.centerLng,
+    this.searchRadiusMeters = 0.0,
     required this.executedAt,
     required this.parameters,
     required this.results,
@@ -159,6 +161,7 @@ class SimulationScenario {
       'region': region,
       'centerLat': centerLat,
       'centerLng': centerLng,
+      'searchRadiusMeters': searchRadiusMeters,
       'executedAt': executedAt.toIso8601String(),
       'parameters': parameters.toMap(),
       'results': results.toMap(),
@@ -174,6 +177,7 @@ class SimulationScenario {
       region: map['region'] as String? ?? '',
       centerLat: (map['centerLat'] as num?)?.toDouble() ?? 0.0,
       centerLng: (map['centerLng'] as num?)?.toDouble() ?? 0.0,
+      searchRadiusMeters: (map['searchRadiusMeters'] as num?)?.toDouble() ?? 0.0,
       executedAt: map['executedAt'] != null
           ? DateTime.tryParse(map['executedAt'] as String) ?? DateTime.now()
           : DateTime.now(),
