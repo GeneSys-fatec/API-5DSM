@@ -25,7 +25,8 @@ public class N8nWebhookService {
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-   private final HttpClient httpClient = HttpClient.newBuilder()
+   // 1. Forçar o HttpClient a usar HTTP/1.1
+    private final HttpClient httpClient = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1) 
             .connectTimeout(Duration.ofSeconds(10))
             .build();

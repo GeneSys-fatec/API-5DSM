@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "command": "=\"D:\\Programacao\\API-5DSM\\.n8n-python\\Scripts\\python.exe\" \"D:\\Programacao\\API-5DSM\\ETL\\main.py\" \"{{$json.body.gdb_path}}\" \"{{$json.body.distribuidora}}\" \"{{$json.body.regiao}}\" --layers UCBT UCMT POSTE SUB SSDBT SSDMT SSDAT -w 4 --json"
+        "command": "=\"D:\\Programacao\\API-5DSM\\.venv\\Scripts\\python.exe\" \"D:\\Programacao\\API-5DSM\\ETL\\main.py\" \"{{$json.body.gdb_path}}\" \"{{$json.body.distribuidora}}\" \"{{$json.body.regiao}}\" --layers UCBT UCMT POSTE SUB SSDBT SSDMT SSDAT -w 4 --json"
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
