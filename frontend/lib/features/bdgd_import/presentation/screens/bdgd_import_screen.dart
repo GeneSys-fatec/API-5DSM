@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_scaffold.dart';
@@ -22,8 +24,10 @@ class BdgdImportScreen extends StatefulWidget {
 
 class _BdgdImportScreenState extends State<BdgdImportScreen> {
   PlatformFile? _selectedFile;
+  html.File? _webFile; // arquivo nativo do browser para upload chunked
   bool _isPicking = false;
   bool _isUploading = false;
+  double _uploadProgress = 0.0; // 0.0 a 1.0
   String? _errorMessage;
   String? _successMessage;
   final _distribuidoraController = TextEditingController();
@@ -84,17 +88,17 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: kAllowedExtensions,
-        withData: false, // Muito importante: não carregar na memória
-        withReadStream: true, // Importante: ler como fluxo de dados
+        withData: false,
+        withReadStream: true, // Lê como stream; não carrega tudo na RAM
       );
 
-      if (result == null) {
-        return;
-      }
+      if (result == null) return;
 
       setState(() {
         _selectedFile = result.files.single;
+        _webFile = null; // será obtido via readStream
         _successMessage = null;
+        _uploadProgress = 0.0;
       });
     } catch (e) {
       setState(() {
@@ -221,8 +225,10 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   void _clearFile() {
     setState(() {
       _selectedFile = null;
+      _webFile = null;
       _errorMessage = null;
       _successMessage = null;
+      _uploadProgress = 0.0;
     });
   }
 
@@ -238,34 +244,38 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
 
     setState(() {
       _isUploading = true;
+      _uploadProgress = 0.0;
       _errorMessage = null;
       _successMessage = null;
     });
-    
+
     try {
-      print('1. Iniciando chamada do Service na Tela...');
       await _importService.upload(
         fileName: file.name,
-        fileStream: file.readStream, // Passando o stream
-        fileSize: file.size,         // Passando o tamanho
-        filePath: kIsWeb ? null : file.path, // Corrige o erro de path na Web
+        fileStream: file.readStream, // stream chunked — não bufferiza
+        fileSize: file.size,
+        filePath: kIsWeb ? null : file.path,
+        webFile: _webFile,
         distribuidora: _distribuidoraController.text.trim(),
         regiao: _regiaoController.text.trim(),
         data: _dataController.text.trim(),
+        onProgress: (p) {
+          if (mounted) setState(() => _uploadProgress = p);
+        },
       );
-      print('6. Upload concluído com sucesso e retornado à Tela!');
-      
+
       if (!mounted) return;
-      setState(() => _successMessage = 'Arquivo enviado para a pasta uploads.');
+      setState(() {
+        _successMessage = 'Arquivo enviado com sucesso!';
+        _uploadProgress = 1.0;
+      });
       _clearFile();
       _loadBases();
     } on BdgdUploadException catch (e) {
-      print('Erro BdgdUploadException: ${e.message}');
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (e, stackTrace) {
-      print('Erro fatal desconhecido no Dart: $e');
-      print('Stacktrace: $stackTrace');
-      if (mounted) setState(() => _errorMessage = 'Erro local: $e');
+      print('Erro fatal: $e\n$stackTrace');
+      if (mounted) setState(() => _errorMessage = 'Erro: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -362,9 +372,50 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                   ),
                   if (_successMessage != null) ...[
                     const SizedBox(height: 12),
-                    Text(
-                      _successMessage!,
-                      style: const TextStyle(color: Colors.green),
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          _successMessage!,
+                          style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ],
+                  // Barra de progresso do upload chunked
+                  if (_isUploading) ...[
+                    const SizedBox(height: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Enviando em partes…',
+                              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                            Text(
+                              '${(_uploadProgress * 100).toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: _uploadProgress,
+                            minHeight: 6,
+                            backgroundColor: AppColors.primaryLight,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -394,7 +445,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                               )
                             : const Icon(Icons.upload_file_rounded, size: 18),
                         label: Text(
-                          _isUploading ? 'Enviando...' : 'Enviar arquivo',
+                          _isUploading
+                              ? 'Enviando ${(_uploadProgress * 100).toStringAsFixed(0)}%…'
+                              : 'Enviar arquivo',
                         ),
                       ),
                     ),

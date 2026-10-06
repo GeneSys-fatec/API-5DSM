@@ -9,6 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "bdgd.ingestion")
 public class BdgdIngestionProperties {
     private long maxUploadBytes = 5368709120L;
+    /** Tamanho de cada chunk em bytes. Padrão: 10 MB. Deve coincidir com o frontend. */
+    private long chunkSize = 10_485_760L;
     private String storage = "local";
     private String localDirectory = "./data/raw";
     private String bucket = "bdgd-raw";
@@ -16,3 +18,4 @@ public class BdgdIngestionProperties {
     private String region = "sa-east-1";
     private String n8nWebhookUrl = "http://localhost:5678/webhook/get-etl-data";
 }
+

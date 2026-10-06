@@ -1,0 +1,49 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "bdgd-etl"
+version = "2.0.0"
+description = "High-performance ETL pipeline for ESRI Geodatabase (BDGD) directly from multi-GB ZIP files using GDAL /vsizip/, DuckDB Spatial, GeoParquet, and PostgreSQL COPY bulk loading."
+authors = ["GeneSys / Tecsys API-5DSM Team"]
+readme = "README.md"
+packages = [{ include = "bdgd_etl" }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+# GIS & GDAL bindings (requires libgdal >= 3.4 installed on system)
+pyogrio = ">=0.9.0"
+fiona = ">=1.9.0"
+geopandas = ">=0.14.0"
+pyproj = ">=3.6.0"
+shapely = ">=2.0.0"
+
+# DuckDB + Spatial engine
+duckdb = ">=1.0.0"
+
+# Arrow & Data storage
+pyarrow = ">=14.0.0"
+pandas = ">=2.0.0"
+
+# Database & Bulk loading
+psycopg2-binary = ">=2.9.9"
+SQLAlchemy = ">=2.0.0"
+GeoAlchemy2 = ">=0.14.0"
+
+# Utilities & Config
+python-dotenv = ">=1.0.0"
+click = ">=8.1.0"
+psutil = ">=5.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.0.0"
+pytest-benchmark = ">=4.0.0"
+
+[tool.poetry.scripts]
+bdgd-etl = "bdgd_etl.cli:main"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]

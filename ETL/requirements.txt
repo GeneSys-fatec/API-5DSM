@@ -1,10 +1,24 @@
+# GDAL & GIS bindings (requires system libgdal >= 3.4)
 fiona>=1.9,<2.0
+pyogrio>=0.9.0
 geopandas>=0.14
 pyproj>=3.6
 shapely>=2.0
+
+# DuckDB + Spatial engine
+duckdb>=1.0.0
+
+# Arrow & Data storage
+pyarrow>=14.0.0
+pandas>=2.0
+
+# Database connectivity & bulk loading
 psycopg2-binary>=2.9
 SQLAlchemy>=2.0,<3.0
 GeoAlchemy2>=0.14
-pandas>=2.0
+
+# Configuration & Telemetry
 python-dotenv>=1.0
+click>=8.1
+psutil>=5.9
 pytest>=8.0,<9.0
