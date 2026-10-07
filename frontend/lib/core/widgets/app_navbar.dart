@@ -13,6 +13,7 @@ const List<NavItem> kNavItems = [
   NavItem(label: 'Importação BDGD', icon: Icons.cloud_upload_rounded, route: '/bdgd-import'),
   NavItem(label: 'Configuração de Cenário', icon: Icons.tune_rounded, route: '/scenario'),
   NavItem(label: 'Resultados & Cobertura', icon: Icons.wifi_tethering_rounded, route: '/results'),
+  NavItem(label: 'Manual do Usuário', icon: Icons.menu_book_rounded, route: '/manual'),
   // NavItem(label: 'Histórico de Simulações', icon: Icons.history_rounded, route: '/history'),
   // NavItem(label: 'Configurações do Sistema', icon: Icons.settings_rounded, route: '/settings'),
 ];

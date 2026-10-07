@@ -6,12 +6,14 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final String userName;
   final VoidCallback? onMenuTap;
+  final VoidCallback? onHelpTap;
 
   const AppHeader({
     super.key,
     required this.title,
     this.userName = 'Usuário',
     this.onMenuTap,
+    this.onHelpTap,
   });
 
   @override
@@ -43,6 +45,14 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                     tooltip: 'Abrir menu',
                   ),
                 const Spacer(),
+                if (onHelpTap != null) ...[
+                  IconButton(
+                    icon: const Icon(Icons.help_outline_rounded, color: AppColors.primary),
+                    onPressed: onHelpTap,
+                    tooltip: 'Tutorial & Ajuda desta tela',
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 _UserBadge(userName: userName, compact: isMobile),
               ],
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../features/manual/presentation/widgets/contextual_help_dialog.dart';
 import 'app_footer.dart';
 import 'app_header.dart';
 import 'app_navbar.dart';
@@ -19,6 +20,8 @@ class AppScaffold extends StatelessWidget {
   final String currentRoute;
   final Widget body;
   final bool showFooter;
+  final VoidCallback? onHelpTap;
+  final bool showHelpButton;
 
   const AppScaffold({
     super.key,
@@ -26,6 +29,8 @@ class AppScaffold extends StatelessWidget {
     required this.currentRoute,
     required this.body,
     this.showFooter = true,
+    this.onHelpTap,
+    this.showHelpButton = true,
   });
 
   void _handleSelect(BuildContext context, String route) {
@@ -71,21 +76,27 @@ class AppScaffold extends StatelessWidget {
             ),
           Expanded(
             child: Builder(
-              builder: (innerContext) => Column(
-                children: [
-                  AppHeader(
-                    title: title,
-                    onMenuTap: () => Scaffold.of(innerContext).openDrawer(),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.all(Responsive.horizontalPadding(context)),
-                      child: body,
+              builder: (innerContext) {
+                final helpCallback = showHelpButton && currentRoute != '/manual'
+                    ? (onHelpTap ?? () => showContextualHelpDialog(innerContext, route: currentRoute))
+                    : null;
+                return Column(
+                  children: [
+                    AppHeader(
+                      title: title,
+                      onMenuTap: () => Scaffold.of(innerContext).openDrawer(),
+                      onHelpTap: helpCallback,
                     ),
-                  ),
-                  if (showFooter) const AppFooter(),
-                ],
-              ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(Responsive.horizontalPadding(context)),
+                        child: body,
+                      ),
+                    ),
+                    if (showFooter) const AppFooter(),
+                  ],
+                );
+              },
             ),
           ),
         ],

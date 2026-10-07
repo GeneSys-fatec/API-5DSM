@@ -8,6 +8,7 @@ import 'features/scenario_results/presentation/screens/scenario_results_screen.d
 import 'features/scenario_history/presentation/screens/history_screen.dart';
 import 'features/settings/presentation/screens/settings_screen.dart';
 import 'features/scenario_results/models/scenario_results_models.dart';
+import 'features/manual/presentation/screens/manual_screen.dart';
 
 void main() {
   runApp(const TecsysApp());
@@ -31,10 +32,18 @@ class TecsysApp extends StatelessWidget {
         '/bdgd-import': (_) => const BdgdImportScreen(),
         '/scenario': (_) => const AreaDelimitationScreen(),
         '/scenario/rf': (_) => const ScenarioConfigScreen(),
+        '/manual': (_) => const ManualScreen(),
         // '/history': (_) => const HistoryScreen(),
         // '/settings': (_) => const SettingsScreen(),
       },
       onGenerateRoute: (settings) {
+        if (settings.name == '/manual') {
+          final sectionId = settings.arguments is String ? settings.arguments as String : null;
+          return MaterialPageRoute(
+            builder: (_) => ManualScreen(initialSectionId: sectionId),
+            settings: settings,
+          );
+        }
         if (settings.name == '/results') {
           final scenario = settings.arguments is SimulationScenario
               ? settings.arguments as SimulationScenario
