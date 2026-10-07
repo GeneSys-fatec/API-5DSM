@@ -1,13 +1,112 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../models/manual_content.dart';
 
-class ManualSectionPreviewCard extends StatelessWidget {
+class ManualSectionPreviewCard extends StatefulWidget {
   final String sectionId;
+  final ManualSection? section;
 
-  const ManualSectionPreviewCard({super.key, required this.sectionId});
+  const ManualSectionPreviewCard({
+    super.key,
+    required this.sectionId,
+    this.section,
+  });
+
+  @override
+  State<ManualSectionPreviewCard> createState() => _ManualSectionPreviewCardState();
+}
+
+class _ManualSectionPreviewCardState extends State<ManualSectionPreviewCard> {
+  bool _showInteractiveDiagram = false;
+
+  ManualSection get _section {
+    if (widget.section != null) return widget.section!;
+    return findManualSectionById(widget.sectionId) ?? kManualSections.first;
+  }
+
+  void _showLightbox(BuildContext context, ManualSection section) {
+    if (section.imageAssetPath == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 850),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(section.icon, color: AppColors.primary, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            section.title,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            section.imageCaption ?? section.subtitle,
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      tooltip: 'Fechar',
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: Container(
+                  color: const Color(0xFF0F172A),
+                  padding: const EdgeInsets.all(12),
+                  child: InteractiveViewer(
+                    maxScale: 4.0,
+                    child: Center(
+                      child: Image.asset(
+                        section.imageAssetPath!,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final section = _section;
+    final hasImage = section.imageAssetPath != null;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -28,7 +127,7 @@ class ManualSectionPreviewCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: const Color(0xFFF8FAFC),
               child: Row(
                 children: [
@@ -59,10 +158,12 @@ class ManualSectionPreviewCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Visualização Ilustrativa da Funcionalidade',
-                      style: TextStyle(
+                      hasImage && !_showInteractiveDiagram
+                          ? (section.imageCaption ?? 'Captura de Tela da Funcionalidade')
+                          : 'Esquema Interativo da Funcionalidade',
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
@@ -70,16 +171,129 @@ class ManualSectionPreviewCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (hasImage) ...[
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showInteractiveDiagram = !_showInteractiveDiagram;
+                        });
+                      },
+                      icon: Icon(
+                        _showInteractiveDiagram ? Icons.photo_library_outlined : Icons.account_tree_outlined,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      label: Text(
+                        _showInteractiveDiagram ? 'Ver Print' : 'Ver Diagrama',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    if (!_showInteractiveDiagram)
+                      IconButton(
+                        icon: const Icon(Icons.fullscreen_rounded, size: 18, color: AppColors.primary),
+                        onPressed: () => _showLightbox(context, section),
+                        tooltip: 'Ampliar captura',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                  ],
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
-              child: _buildPreviewBody(sectionId),
+              padding: const EdgeInsets.all(16),
+              child: hasImage && !_showInteractiveDiagram
+                  ? _buildImageHero(context, section)
+                  : _buildPreviewBody(widget.sectionId),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImageHero(BuildContext context, ManualSection section) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          onTap: () => _showLightbox(context, section),
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 480),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Center(
+                    child: Image.asset(
+                      section.imageAssetPath!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => _buildPreviewBody(widget.sectionId),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.72),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.zoom_in_rounded, size: 14, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            'Clique para ampliar',
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (section.imageCaption != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundLight,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    section.imageCaption!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 

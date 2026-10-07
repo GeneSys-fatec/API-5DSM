@@ -34,6 +34,8 @@ class ManualSection {
   final String routeTarget;
   final List<String> routeKeywords;
   final String overview;
+  final String? imageAssetPath;
+  final String? imageCaption;
   final List<ManualStepItem> steps;
   final List<ManualFieldItem> fields;
   final List<String> tips;
@@ -47,6 +49,8 @@ class ManualSection {
     required this.routeTarget,
     required this.routeKeywords,
     required this.overview,
+    this.imageAssetPath,
+    this.imageCaption,
     required this.steps,
     required this.fields,
     required this.tips,
@@ -64,6 +68,8 @@ const List<ManualSection> kManualSections = [
     routeKeywords: ['/login', '/', '/register'],
     overview:
         'O acesso ao sistema Tecsys é protegido por autenticação segura via JSON Web Token (JWT). Novos operadores e engenheiros de planejamento podem criar suas contas corporativas diretamente pela interface e acessar o ambiente com suas credenciais.',
+    imageAssetPath: 'assets/images/manual/auth_register.png',
+    imageCaption: 'Tela de Autenticação: Criação de conta corporativa e login no sistema',
     steps: [
       ManualStepItem(
         stepNumber: 1,
@@ -121,6 +127,8 @@ const List<ManualSection> kManualSections = [
     routeKeywords: ['/bdgd-import'],
     overview:
         'A Base de Dados Georreferenciada das Distribuidoras (BDGD), regulamentada pela ANEEL, contém o mapeamento de todos os ativos da malha elétrica (transformadores, postes, subestações, medidores). O Tecsys processa esses dados através de um pipeline automatizado de ETL no n8n e armazena os dados espaciais no PostgreSQL com PostGIS.',
+    imageAssetPath: 'assets/images/manual/bdgd_import.png',
+    imageCaption: 'Tela de Importação da BDGD: Upload e listagem de bases processadas com status',
     steps: [
       ManualStepItem(
         stepNumber: 1,
@@ -189,6 +197,8 @@ const List<ManualSection> kManualSections = [
     routeKeywords: ['/scenario'],
     overview:
         'A Etapa 1 do Wizard de Planejamento de RF permite delimitar geograficamente o perímetro de análise da simulação. O sistema extrai do banco PostGIS os ativos e estruturas existentes dentro da área de influência selecionada.',
+    imageAssetPath: 'assets/images/manual/area_delimitation.png',
+    imageCaption: 'Etapa 1: Ponto central da subestação, raio circular de busca e mapa de ativos',
     steps: [
       ManualStepItem(
         stepNumber: 1,
@@ -258,6 +268,8 @@ const List<ManualSection> kManualSections = [
     routeKeywords: ['/scenario/rf'],
     overview:
         'A Etapa 2 permite customizar os parâmetros físicos do enlace de rádio e os critérios de otimização. O backend utiliza esses dados para calcular o balanço de enlace (Link Budget), determinar o raio de propagação e alimentar o algoritmo de seleção ótima de gateways.',
+    imageAssetPath: 'assets/images/manual/rf_config.png',
+    imageCaption: 'Etapa 2: Parametrização de radiofrequência, potências e modelo de propagação',
     steps: [
       ManualStepItem(
         stepNumber: 1,
@@ -350,6 +362,8 @@ const List<ManualSection> kManualSections = [
     routeKeywords: ['/results'],
     overview:
         'A Etapa 3 consolida o resultado do algoritmo guloso de seleção de gateways (Greedy Set-Cover). A interface exibe os indicadores de eficácia (KPIs), o mapa geoespacial com as manchas de sinal e a lista detalhada de gateways sugeridos.',
+    imageAssetPath: 'assets/images/manual/results_kpis.png',
+    imageCaption: 'Etapa 3: Cobertura total alcançada, alocação de gateways e mancha de sinal RF no mapa',
     steps: [
       ManualStepItem(
         stepNumber: 1,
@@ -423,6 +437,8 @@ const List<ManualSection> kManualSections = [
     routeKeywords: ['/history', '/export', '/settings'],
     overview:
         'Funcionalidade planejada na evolução da plataforma para permitir que operadores salvem cenários de simulação no banco de dados, comparem diferentes configurações técnicas para a mesma região e exportem relatórios técnicos executivos.',
+    imageAssetPath: 'assets/images/manual/save_export.png',
+    imageCaption: 'Consolidação e Persistência: Cenário simulado com sucesso e pronto para análise',
     steps: [
       ManualStepItem(
         stepNumber: 1,

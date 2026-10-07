@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/widgets/app_navbar.dart';
 import 'package:frontend/features/manual/models/manual_content.dart';
 import 'package:frontend/features/manual/presentation/screens/manual_screen.dart';
 import 'package:frontend/features/manual/presentation/widgets/contextual_help_dialog.dart';
+import 'package:frontend/features/manual/presentation/widgets/manual_section_previews.dart';
 
 Widget createTestApp({Widget? child, RouteFactory? onGenerateRoute}) {
   return MaterialApp(
@@ -42,6 +44,16 @@ void main() {
       expect(section, isNotNull);
       expect(section!.title, 'Parâmetros de RF (Etapa 2)');
       expect(findManualSectionById('id-inexistente'), isNull);
+    });
+
+    test('Todas as 6 seções possuem imagem de captura de tela e legenda associadas', () {
+      for (final section in kManualSections) {
+        expect(section.imageAssetPath, isNotNull);
+        expect(section.imageAssetPath!.isNotEmpty, isTrue);
+        expect(section.imageAssetPath!.startsWith('assets/images/manual/'), isTrue);
+        expect(section.imageCaption, isNotNull);
+        expect(section.imageCaption!.isNotEmpty, isTrue);
+      }
     });
   });
 
@@ -187,6 +199,40 @@ void main() {
 
       expect(find.text('Importação de BDGD'), findsOneWidget);
       expect(find.text('TUTORIAL CONTEXTUAL'), findsOneWidget);
+    });
+
+    testWidgets('AppNavbar renderiza o Manual do Usuário posicionado na parte inferior com divisor', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppNavbar(
+              currentRoute: '/scenario',
+              onSelect: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Manual do Usuário'), findsOneWidget);
+      expect(find.byType(Divider), findsOneWidget);
+    });
+
+    testWidgets('ManualSectionPreviewCard renderiza print e permite alternar para diagrama', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ManualSectionPreviewCard(sectionId: 'area-delimitation'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ver Diagrama'), findsOneWidget);
+      await tester.tap(find.text('Ver Diagrama'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ver Print'), findsOneWidget);
     });
   });
 }

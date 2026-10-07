@@ -13,10 +13,15 @@ const List<NavItem> kNavItems = [
   NavItem(label: 'Importação BDGD', icon: Icons.cloud_upload_rounded, route: '/bdgd-import'),
   NavItem(label: 'Configuração de Cenário', icon: Icons.tune_rounded, route: '/scenario'),
   NavItem(label: 'Resultados & Cobertura', icon: Icons.wifi_tethering_rounded, route: '/results'),
-  NavItem(label: 'Manual do Usuário', icon: Icons.menu_book_rounded, route: '/manual'),
   // NavItem(label: 'Histórico de Simulações', icon: Icons.history_rounded, route: '/history'),
   // NavItem(label: 'Configurações do Sistema', icon: Icons.settings_rounded, route: '/settings'),
 ];
+
+const NavItem kManualNavItem = NavItem(
+  label: 'Manual do Usuário',
+  icon: Icons.menu_book_rounded,
+  route: '/manual',
+);
 
 class AppNavbar extends StatelessWidget {
   final String currentRoute;
@@ -48,6 +53,15 @@ class AppNavbar extends StatelessWidget {
                       onTap: () => onSelect(item.route),
                     ))
                 .toList(),
+          ),
+        ),
+        const Divider(height: 1, color: AppColors.border),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+          child: _NavTile(
+            item: kManualNavItem,
+            selected: currentRoute == kManualNavItem.route,
+            onTap: () => onSelect(kManualNavItem.route),
           ),
         ),
       ],
