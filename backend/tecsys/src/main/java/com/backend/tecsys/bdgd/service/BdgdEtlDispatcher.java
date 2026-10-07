@@ -6,7 +6,6 @@ import com.backend.tecsys.bdgd.model.N8nWebhookPayload;
 import com.backend.tecsys.bdgd.repository.BdgdImportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
@@ -20,7 +19,6 @@ public class BdgdEtlDispatcher {
     private final BdgdS3StorageService storage;
     private final N8nWebhookService n8nWebhookService;
 
-    @Async
     public void dispatch(UUID importId) {
         try {
             BdgdImportRecord record = repository.find(importId);

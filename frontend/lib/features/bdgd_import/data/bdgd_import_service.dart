@@ -349,13 +349,13 @@ class BdgdImportService {
     final prefs = await SharedPreferences.getInstance();
     var token = prefs.getString('auth_token');
     if (token == null) token = await _attemptAutoLogin();
-    if (token == null) return kMockBases;
+    if (token == null) return const <BdgdBase>[];
 
     try {
       var response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
         headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 401 || response.statusCode == 403) {
         token = await _attemptAutoLogin();
@@ -363,7 +363,7 @@ class BdgdImportService {
           response = await http.get(
             Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
             headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
-          ).timeout(const Duration(seconds: 8));
+          ).timeout(const Duration(seconds: 30));
         }
       }
 
@@ -373,7 +373,7 @@ class BdgdImportService {
       }
     } catch (_) {}
 
-    return kMockBases;
+    return const <BdgdBase>[];
   }
 }
 

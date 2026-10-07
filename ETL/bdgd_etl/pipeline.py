@@ -47,6 +47,7 @@ def process_single_layer_task(args: dict[str, Any]) -> LayerMetrics:
     force = args["force"]
     run_id = args["run_id"]
     structured_json = args.get("structured_json", False)
+    import_id = args.get("import_id")
 
     # 1. Idempotency Check
     idempotency_mgr = IdempotencyManager(db_url=db_url, schema=schema)
@@ -92,6 +93,7 @@ def process_single_layer_task(args: dict[str, Any]) -> LayerMetrics:
                 source_srid=source_srid,
                 target_srid=target_srid,
                 filter_spec=filter_spec,
+                import_id=import_id,
             )
 
             # Step C: Bulk Load (COPY FROM STDIN) into Target Database
@@ -237,6 +239,7 @@ def run_pipeline(cfg: ETLConfig) -> list[LayerMetrics]:
             "force": cfg.pipeline.force,
             "run_id": run_id,
             "structured_json": cfg.logging.structured_json,
+            "import_id": cfg.pipeline.import_id,
         }
         tasks_args.append(args)
 

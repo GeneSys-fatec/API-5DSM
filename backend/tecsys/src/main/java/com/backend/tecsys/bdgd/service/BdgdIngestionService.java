@@ -32,11 +32,12 @@ public class BdgdIngestionService {
         if (distribuidora == null || distribuidora.isBlank() || regiao == null || regiao.isBlank() || data == null) {
             throw new InvalidBdgdUploadException("Distribuidora, regiao e data sao obrigatorios");
         }
-        UUID id = UUID.randomUUID();
         String safeName = file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
+        LocalDate referenceDate = BdgdReferenceDateParser.parseRequired(safeName);
+        UUID id = UUID.randomUUID();
         String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), distribuidora, data, id, safeName);
         storage.store(file, key);
-        BdgdImportRecord record = new BdgdImportRecord(id, distribuidora, regiao, data, safeName, key,
+        BdgdImportRecord record = new BdgdImportRecord(id, distribuidora, regiao, referenceDate, safeName, key,
                 BdgdImportStatus.PROCESSANDO, null, Instant.now());
         repository.create(record);
         dispatcher.dispatch(id);
@@ -49,10 +50,7 @@ public class BdgdIngestionService {
 
     public List<BdgdBaseSummaryResponse> listAllBases() {
         return repository.findAll().stream().map(record -> {
-            int ativos = assetService.countAssetsByDistribuidora(record.distribuidora());
-            if (ativos == 0 && record.status() == BdgdImportStatus.CONCLUIDO) {
-                ativos = 1450;
-            }
+            int ativos = assetService.countAssetsByImportId(record.id());
             String projecao = "SIRGAS 2000 / UTM 23S";
             return new BdgdBaseSummaryResponse(
                     record.id(),

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -75,6 +76,10 @@ public class BdgdAssetService {
 
     public int countAssetsByDistribuidora(String distribuidora) {
         return repository.countAssetsByDistribuidora(distribuidora, List.copyOf(TABLES.values()));
+    }
+
+    public int countAssetsByImportId(UUID importId) {
+        return repository.countAssetsByImportId(importId, List.copyOf(TABLES.values()));
     }
 
     private String blankToNull(String value) {

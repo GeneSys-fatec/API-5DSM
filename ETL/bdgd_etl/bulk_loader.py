@@ -9,6 +9,7 @@ from __future__ import annotations
 import abc
 import logging
 import re
+import time
 from pathlib import Path
 
 import psycopg2
@@ -55,19 +56,32 @@ class PostgresPostgisBulkLoader(BaseBulkLoader):
         if self._conn is not None and not self._conn.closed:
             return
 
-        try:
-            self._conn = psycopg2.connect(
-                self.db_url,
-                connect_timeout=15,
-                client_encoding="utf-8",
-            )
-            # Ensure schema & postgis
-            with self._conn.cursor() as cur:
-                cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
-                cur.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema};")
-            self._conn.commit()
-            logger.info("Conexão ao PostgreSQL/PostGIS estabelecida: %s", mask_connection_url(self.db_url))
-        except Exception as exc:
+        last_error: Exception | None = None
+        for attempt in range(1, 4):
+            try:
+                self._conn = psycopg2.connect(
+                    self.db_url,
+                    connect_timeout=15,
+                    client_encoding="utf-8",
+                )
+                # Ensure schema & postgis
+                with self._conn.cursor() as cur:
+                    cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+                    cur.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema};")
+                self._conn.commit()
+                logger.info("Conexão ao PostgreSQL/PostGIS estabelecida: %s", mask_connection_url(self.db_url))
+                return
+            except Exception as exc:
+                last_error = exc
+                if self._conn is not None and not self._conn.closed:
+                    self._conn.close()
+                self._conn = None
+                if attempt < 3:
+                    logger.warning("Tentativa %d/3 de conexão ao PostgreSQL falhou; tentando novamente em %d s.", attempt, attempt * 2)
+                    time.sleep(attempt * 2)
+
+        exc = last_error
+        if exc is not None:
             # Handle Windows encoding quirks in libpq error messages
             if isinstance(exc, UnicodeDecodeError) or "codec can't decode" in str(exc):
                 raw_bytes = getattr(exc, "object", None)
@@ -92,6 +106,7 @@ class PostgresPostgisBulkLoader(BaseBulkLoader):
                 tipo_ativo TEXT NOT NULL,
                 distribuidora TEXT NOT NULL,
                 regiao TEXT NOT NULL,
+                importacao_id TEXT,
                 asset_key TEXT NOT NULL,
                 geometry GEOMETRY(Geometry, {self.target_srid}) NOT NULL
             );
@@ -100,6 +115,8 @@ class PostgresPostgisBulkLoader(BaseBulkLoader):
             
             CREATE INDEX IF NOT EXISTS idx_{clean_table}_geometry 
             ON {qualified_table} USING GIST (geometry);
+            ALTER TABLE {qualified_table}
+            ADD COLUMN IF NOT EXISTS importacao_id TEXT;
         """
         with self._conn.cursor() as cur:
             cur.execute(sql)
@@ -132,6 +149,7 @@ class PostgresPostgisBulkLoader(BaseBulkLoader):
                     tipo_ativo TEXT,
                     distribuidora TEXT,
                     regiao TEXT,
+                    importacao_id TEXT,
                     asset_key TEXT,
                     geom_wkt TEXT
                 ) ON COMMIT DROP;
@@ -139,7 +157,7 @@ class PostgresPostgisBulkLoader(BaseBulkLoader):
 
             # 2. Fast streaming bulk load directly from disk via COPY FROM STDIN
             copy_sql = (
-                f"COPY {staging_table} (tipo_ativo, distribuidora, regiao, asset_key, geom_wkt) "
+                f"COPY {staging_table} (tipo_ativo, distribuidora, regiao, importacao_id, asset_key, geom_wkt) "
                 f"FROM STDIN WITH (FORMAT CSV, DELIMITER E'\\t', QUOTE '\"')"
             )
             with open(staging_tsv_path, "r", encoding="utf-8") as f:
@@ -147,11 +165,12 @@ class PostgresPostgisBulkLoader(BaseBulkLoader):
 
             # 3. Set-based atomic upsert from staging to target table
             upsert_sql = f"""
-                INSERT INTO {qualified_table} (tipo_ativo, distribuidora, regiao, asset_key, geometry)
+                INSERT INTO {qualified_table} (tipo_ativo, distribuidora, regiao, importacao_id, asset_key, geometry)
                 SELECT
                     tipo_ativo,
                     distribuidora,
                     regiao,
+                    importacao_id,
                     asset_key,
                     ST_SetSRID(ST_GeomFromText(geom_wkt), {self.target_srid})
                 FROM {staging_table}
@@ -159,6 +178,7 @@ class PostgresPostgisBulkLoader(BaseBulkLoader):
                     tipo_ativo = EXCLUDED.tipo_ativo,
                     distribuidora = EXCLUDED.distribuidora,
                     regiao = EXCLUDED.regiao,
+                    importacao_id = EXCLUDED.importacao_id,
                     geometry = EXCLUDED.geometry;
             """
             cur.execute(upsert_sql)

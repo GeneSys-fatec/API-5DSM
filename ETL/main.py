@@ -50,6 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--db-type", choices=["postgres", "mysql"], default="postgres", help="Tipo de banco.")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Nível de log.")
     parser.add_argument("--json", dest="json", action="store_true", default=None, help="Saída estruturada JSON.")
+    parser.add_argument("--import-id", default=None, help="ID da importação no backend.")
 
     return parser.parse_args(argv)
 
@@ -81,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
         cli_args.extend(["--log-level", args.log_level])
     if args.json:
         cli_args.append("--json")
+    if args.import_id:
+        cli_args.extend(["--import-id", args.import_id])
 
     return cli_main(cli_args)
 

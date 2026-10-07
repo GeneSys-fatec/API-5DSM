@@ -54,6 +54,7 @@ class PipelineConfig:
     force: bool = False
     include_layers: list[str] = field(default_factory=list)
     exclude_layers: list[str] = field(default_factory=list)
+    import_id: str | None = None
 
 
 @dataclass
@@ -130,6 +131,8 @@ def load_config(config_path: str | Path | None = None) -> ETLConfig:
         cfg.pipeline.include_layers = list(p_data["include_layers"])
     if "exclude_layers" in p_data:
         cfg.pipeline.exclude_layers = list(p_data["exclude_layers"])
+    if "import_id" in p_data:
+        cfg.pipeline.import_id = str(p_data["import_id"])
 
     # Database section
     d_data = data.get("database", {})

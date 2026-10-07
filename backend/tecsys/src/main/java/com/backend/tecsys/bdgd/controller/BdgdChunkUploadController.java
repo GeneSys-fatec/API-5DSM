@@ -61,7 +61,7 @@ public class BdgdChunkUploadController {
 
     /** Finaliza o upload: remonta o arquivo e dispara o ETL. */
     @PostMapping("/finalize")
-    @ResponseStatus(HttpStatus.ACCEPTED)
+    @ResponseStatus(HttpStatus.OK)
     public BdgdImportResponse finalizeUpload(@RequestParam("uploadId") String uploadId) {
         return chunkService.finalizeAndDispatch(uploadId);
     }

@@ -44,7 +44,7 @@ public class N8nWebhookService {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(webhookUrl))
-                    .timeout(Duration.ofSeconds(15))
+                    .timeout(Duration.ofSeconds(properties.getN8nTimeoutSeconds()))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
@@ -57,10 +57,14 @@ public class N8nWebhookService {
             } else {
                 log.error("Webhook N8N retornou erro status={} para importId={}, body={}",
                         response.statusCode(), payload.importId(), response.body());
+                throw new IllegalStateException(
+                    "N8N retornou HTTP " + response.statusCode() + ": " + response.body());
             }
 
         } catch (java.net.http.HttpTimeoutException timeoutException) {
-            log.error("Timeout: O N8N não respondeu em 15 segundos. importId={}", payload.importId());
+                log.error("Timeout: O N8N não respondeu em {} segundos. importId={}",
+                    properties.getN8nTimeoutSeconds(), payload.importId());
+                throw new IllegalStateException("Timeout aguardando conclusão do ETL no N8N", timeoutException);
         } catch (Exception exception) {
             log.error("Nao foi possivel disparar webhook N8N em {} para importId={}",
                     webhookUrl, payload.importId(), exception);

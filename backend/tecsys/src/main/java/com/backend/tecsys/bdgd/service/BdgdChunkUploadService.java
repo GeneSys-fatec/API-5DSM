@@ -71,8 +71,9 @@ public class BdgdChunkUploadService {
                     "Tamanho inválido: " + totalSize + " bytes (máx: " + properties.getMaxUploadBytes() + ")");
         }
 
-        String uploadId = UUID.randomUUID().toString();
         String safeName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        LocalDate referenceDate = BdgdReferenceDateParser.parseRequired(safeName);
+        String uploadId = UUID.randomUUID().toString();
         String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), distribuidora, data, uploadId, safeName);
 
         try {
@@ -85,8 +86,8 @@ public class BdgdChunkUploadService {
                 raf.setLength(totalSize);
             }
 
-            sessions.put(uploadId, new UploadSession(
-                    uploadId, safeName, totalSize, distribuidora, regiao, data, tempFile, key,
+                sessions.put(uploadId, new UploadSession(
+                    uploadId, safeName, totalSize, distribuidora, regiao, referenceDate, tempFile, key,
                     ConcurrentHashMap.newKeySet()));
             log.info("Sessão de upload iniciada: {} | arquivo={} | tamanho={} bytes", uploadId, safeName, totalSize);
             return uploadId;

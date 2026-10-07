@@ -17,5 +17,6 @@ public class BdgdIngestionProperties {
     private String keyPrefix = "bdgd";
     private String region = "sa-east-1";
     private String n8nWebhookUrl = "http://localhost:5678/webhook/get-etl-data";
+    private long n8nTimeoutSeconds = 1800L;
 }
 

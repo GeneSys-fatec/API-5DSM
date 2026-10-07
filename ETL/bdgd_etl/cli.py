@@ -106,6 +106,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Ativa saída estruturada JSON de telemetria por camada.",
     )
+    parser.add_argument("--import-id", dest="import_id", default=None,
+                        help="ID da importação no backend para vincular os ativos.")
 
     return parser
 
@@ -150,6 +152,8 @@ def main(argv: list[str] | None = None) -> int:
         cfg.logging.level = args.log_level
     if args.json is not None:
         cfg.logging.structured_json = args.json
+    if args.import_id is not None:
+        cfg.pipeline.import_id = args.import_id
 
     setup_logging(cfg.logging.level)
 

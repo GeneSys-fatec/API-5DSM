@@ -78,6 +78,7 @@ def transform_geoparquet_to_staging(
     source_srid: int = 4674,
     target_srid: int = 4326,
     filter_spec: dict[str, str] | None = None,
+    import_id: str | None = None,
 ) -> int:
     """Executes high-performance DuckDB spatial transformations on intermediate GeoParquet.
 
@@ -158,6 +159,8 @@ def transform_geoparquet_to_staging(
         clean_target_layer = target_layer_name.replace("'", "''")
         clean_dist = distribuidora.replace("'", "''")
         clean_regiao = regiao.replace("'", "''")
+        clean_import_id = (import_id or "").replace("'", "''")
+        asset_prefix = f"{clean_target_layer}::{clean_dist}::{clean_import_id}"
 
         sql_query = f"""
             COPY (
@@ -165,7 +168,8 @@ def transform_geoparquet_to_staging(
                     '{clean_target_layer}' AS tipo_ativo,
                     '{clean_dist}' AS distribuidora,
                     '{clean_regiao}' AS regiao,
-                    '{clean_target_layer}' || '::' || '{clean_dist}' || '::' || CAST("{key_col}" AS VARCHAR) AS asset_key,
+                    NULLIF('{clean_import_id}', '') AS importacao_id,
+                    '{asset_prefix}' || '::' || CAST("{key_col}" AS VARCHAR) AS asset_key,
                     {geom_expr} AS geom_wkt
                 FROM read_parquet('{norm_parquet}')
                 WHERE {where_expr}
