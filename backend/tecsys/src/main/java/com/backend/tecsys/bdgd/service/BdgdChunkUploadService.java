@@ -72,7 +72,7 @@ public class BdgdChunkUploadService {
         }
 
         String safeName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
-        LocalDate referenceDate = BdgdReferenceDateParser.parseRequired(safeName);
+        LocalDate referenceDate = BdgdReferenceDateParser.parseOrDefault(safeName, data);
         String uploadId = UUID.randomUUID().toString();
         String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), distribuidora, data, uploadId, safeName);
 

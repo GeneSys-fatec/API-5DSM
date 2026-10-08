@@ -17,7 +17,15 @@ class BdgdReferenceDateParserTest {
     }
 
     @Test
-    void rejectsFileWithoutReferenceDateInsteadOfUsingUploadDate() {
+    void usesFormDateWhenFileNameHasNoReferenceDate() {
+        assertEquals(
+                LocalDate.of(2026, 8, 26),
+                BdgdReferenceDateParser.parseOrDefault(
+                        "Chesp_upload.gdb.zip", LocalDate.of(2026, 8, 26)));
+    }
+
+    @Test
+    void stillRejectsMissingReferenceDateWhenRequiredParserIsUsed() {
         assertThrows(IllegalArgumentException.class,
                 () -> BdgdReferenceDateParser.parseRequired("Chesp_upload.gdb.zip"));
     }

@@ -33,7 +33,7 @@ public class BdgdIngestionService {
             throw new InvalidBdgdUploadException("Distribuidora, regiao e data sao obrigatorios");
         }
         String safeName = file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
-        LocalDate referenceDate = BdgdReferenceDateParser.parseRequired(safeName);
+        LocalDate referenceDate = BdgdReferenceDateParser.parseOrDefault(safeName, data);
         UUID id = UUID.randomUUID();
         String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), distribuidora, data, id, safeName);
         storage.store(file, key);

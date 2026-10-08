@@ -31,15 +31,6 @@ public class PostgresAssetRepository implements IAssetRepository {
             .coordinate(new RfCoordinate(rs.getDouble("latitude"), rs.getDouble("longitude")))
             .build();
 
-    private static final String SELECT_ALL_ASSETS_WITHIN_RADIUS = """
-            SELECT ativo_key, tipo_ativo,
-                   ST_Y(ST_Centroid(geom)) AS latitude, ST_X(ST_Centroid(geom)) AS longitude
-            FROM bdgd.ativo
-            WHERE geom && ST_MakeEnvelope(?, ?, ?, ?, 4326)
-              AND ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)
-            ORDER BY ativo_key
-            """;
-
     private static final double METERS_PER_DEGREE_LATITUDE = 111_320.0;
     private static final double ENVELOPE_SAFETY_FACTOR = 1.05;
 
@@ -60,15 +51,15 @@ public class PostgresAssetRepository implements IAssetRepository {
     @Override
     public List<Asset> findWithinRadius(double latitude, double longitude, double radiusMeters) {
         try {
-            return jdbcTemplate.query(buildRadiusQuery(), assetRowMapper,
-                radiusParameters(longitude, latitude, radiusMeters));
+            return jdbcTemplate.query(buildRadiusQuery(false), assetRowMapper,
+                radiusParameters(longitude, latitude, radiusMeters, false));
         } catch (Exception e) {
             throw new ScenarioPersistenceException(
                     "Falha ao obter os ativos no raio especificado.", e);
         }
     }
 
-        private String buildRadiusQuery() {
+        private String buildRadiusQuery(boolean withEnvelope) {
         List<String> tables = existingAssetTables();
         if (tables.isEmpty()) {
             return "SELECT NULL::text AS ativo_key, NULL::text AS tipo_ativo, "
@@ -78,7 +69,9 @@ public class PostgresAssetRepository implements IAssetRepository {
         String union = tables.stream()
             .map(table -> "SELECT asset_key AS ativo_key, tipo_ativo, geometry "
                 + "FROM bdgd." + table
-                + " WHERE ST_DWithin(geometry::geography, "
+                + " WHERE " + (withEnvelope
+                    ? "geometry && ST_MakeEnvelope(?, ?, ?, ?, 4326) AND " : "")
+                + "ST_DWithin(geometry::geography, "
                 + "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)")
             .collect(java.util.stream.Collectors.joining(" UNION ALL "));
         return "SELECT ativo_key, tipo_ativo, ST_Y(ST_Centroid(geometry)) AS latitude, "
@@ -86,9 +79,21 @@ public class PostgresAssetRepository implements IAssetRepository {
             + "ORDER BY ativo_key LIMIT 5000";
         }
 
-        private Object[] radiusParameters(double longitude, double latitude, double radiusMeters) {
+        private Object[] radiusParameters(
+                double longitude, double latitude, double radiusMeters, boolean withEnvelope) {
         List<Object> parameters = new java.util.ArrayList<>();
         for (int ignored = 0; ignored < existingAssetTables().size(); ignored++) {
+            if (withEnvelope) {
+                double deltaLatitude = radiusMeters / METERS_PER_DEGREE_LATITUDE * ENVELOPE_SAFETY_FACTOR;
+                double metersPerDegreeLongitude = METERS_PER_DEGREE_LATITUDE * Math.cos(Math.toRadians(latitude));
+                double deltaLongitude = metersPerDegreeLongitude <= 0
+                        ? 180.0
+                        : radiusMeters / metersPerDegreeLongitude * ENVELOPE_SAFETY_FACTOR;
+                parameters.add(longitude - deltaLongitude);
+                parameters.add(latitude - deltaLatitude);
+                parameters.add(longitude + deltaLongitude);
+                parameters.add(latitude + deltaLatitude);
+            }
             parameters.add(longitude);
             parameters.add(latitude);
             parameters.add(radiusMeters);
@@ -97,7 +102,7 @@ public class PostgresAssetRepository implements IAssetRepository {
         }
 
         private List<String> existingAssetTables() {
-        List<String> candidates = List.of("poste", "sub", "untrmt", "unremt");
+        List<String> candidates = List.of("poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat");
         return candidates.stream()
             .filter(table -> Boolean.TRUE.equals(jdbcTemplate.queryForObject(
                 "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
@@ -108,19 +113,11 @@ public class PostgresAssetRepository implements IAssetRepository {
 
     @Override
     public List<Asset> findAllWithinRadius(double latitude, double longitude, double radiusMeters) {
-        double deltaLatitude = radiusMeters / METERS_PER_DEGREE_LATITUDE * ENVELOPE_SAFETY_FACTOR;
-        double metersPerDegreeLongitude = METERS_PER_DEGREE_LATITUDE * Math.cos(Math.toRadians(latitude));
-        double deltaLongitude = metersPerDegreeLongitude <= 0
-                ? 180.0
-                : radiusMeters / metersPerDegreeLongitude * ENVELOPE_SAFETY_FACTOR;
-
         try {
             return jdbcTemplate.query(
-                    SELECT_ALL_ASSETS_WITHIN_RADIUS,
+                buildRadiusQuery(true),
                     assetRowMapper,
-                    longitude - deltaLongitude, latitude - deltaLatitude,
-                    longitude + deltaLongitude, latitude + deltaLatitude,
-                    longitude, latitude, radiusMeters);
+                radiusParameters(longitude, latitude, radiusMeters, true));
         } catch (Exception e) {
             throw new ScenarioPersistenceException(
                     "Falha ao obter os ativos da área de busca.", e);

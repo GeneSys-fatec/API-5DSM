@@ -28,4 +28,17 @@ public final class BdgdReferenceDateParser {
                     "Data de referência inválida no nome do arquivo BDGD: " + fileName, exception);
         }
     }
+
+    public static LocalDate parseOrDefault(String fileName, LocalDate fallback) {
+        Matcher matcher = DATE_IN_FILE_NAME.matcher(fileName == null ? "" : fileName);
+        if (!matcher.find()) {
+            return fallback;
+        }
+        try {
+            return LocalDate.parse(matcher.group(1), FORMATTER);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(
+                    "Data de referência inválida no nome do arquivo BDGD: " + fileName, exception);
+        }
+    }
 }

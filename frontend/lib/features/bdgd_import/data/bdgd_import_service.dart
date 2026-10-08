@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import '../platform/bdgd_web_file.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,7 +23,7 @@ class BdgdImportService {
     required Stream<List<int>>? fileStream,
     required int fileSize,
     String? filePath,
-    html.File? webFile,
+    WebFile? webFile,
     required String distribuidora,
     required String regiao,
     required String data,
@@ -84,7 +83,7 @@ class BdgdImportService {
   // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>> _chunkedWebUpload({
-    required html.File webFile,
+    required WebFile webFile,
     required String fileName,
     required int fileSize,
     required String distribuidora,
@@ -259,16 +258,16 @@ class BdgdImportService {
   Future<void> _sendBlobChunk({
     required String uploadId,
     required int chunkIndex,
-    required html.Blob blob,
+    required WebBlob blob,
     required String token,
   }) {
     final completer = Completer<void>();
-    final formData = html.FormData();
+    final formData = webFormData();
     formData.appendBlob('file', blob, 'chunk');
     formData.append('uploadId', uploadId);
     formData.append('chunkIndex', chunkIndex.toString());
 
-    final xhr = html.HttpRequest();
+    final xhr = webHttpRequest();
     xhr.open('POST', '${ApiConfig.baseUrl}/api/bdgd/upload/chunk');
     xhr.setRequestHeader('Authorization', 'Bearer $token');
     xhr.onLoad.listen((_) {
@@ -295,7 +294,7 @@ class BdgdImportService {
     await _sendBlobChunk(
       uploadId: uploadId,
       chunkIndex: chunkIndex,
-      blob: html.Blob([bytes]),
+      blob: webBlob([bytes]),
       token: token,
     );
   }

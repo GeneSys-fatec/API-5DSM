@@ -1,8 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import '../../platform/bdgd_web_file.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_scaffold.dart';
@@ -24,7 +23,7 @@ class BdgdImportScreen extends StatefulWidget {
 
 class _BdgdImportScreenState extends State<BdgdImportScreen> {
   PlatformFile? _selectedFile;
-  html.File? _webFile; // arquivo nativo do browser para upload chunked
+  WebFile? _webFile; // arquivo nativo do browser para upload chunked
   bool _isPicking = false;
   bool _isUploading = false;
   double _uploadProgress = 0.0; // 0.0 a 1.0
