@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -115,6 +116,30 @@ public class BdgdAssetRepository {
 
         countCache.put(cacheKey, total);
         return total;
+    }
+
+    public int countAssetsByImportId(UUID importId, List<String> tableNames) {
+        List<String> existingTables = tableNames.stream()
+                .map(String::toLowerCase)
+                .filter(getExistingTables()::contains)
+                .toList();
+        if (existingTables.isEmpty()) {
+            return 0;
+        }
+
+        String union = existingTables.stream()
+                .map(table -> "SELECT COUNT(*) AS asset_count FROM bdgd." + table + " WHERE importacao_id = ?")
+                .collect(java.util.stream.Collectors.joining(" UNION ALL "));
+        Object[] parameters = java.util.Collections.nCopies(existingTables.size(), importId.toString()).toArray();
+        try {
+            Integer total = jdbc.queryForObject(
+                    "SELECT COALESCE(SUM(asset_count), 0) FROM (" + union + ") counts",
+                    Integer.class, parameters);
+            return total == null ? 0 : total;
+        } catch (org.springframework.jdbc.BadSqlGrammarException ignored) {
+            // Tabelas criadas antes do vínculo por importação não têm dados confiáveis para este card.
+            return 0;
+        }
     }
 
     private boolean tableExists(String tableName) {

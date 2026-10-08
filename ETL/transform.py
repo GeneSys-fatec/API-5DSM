@@ -170,11 +170,21 @@ def add_stable_key(
 def prepare_layer(
     gdf: gpd.GeoDataFrame,
     layer_name: str,
-    dist_name: str,
-    key_col: str,
-    target_crs: str,
-    source_crs_fallback: str,
+    dist_name: str = "DIST",
+    key_col: str = "COD_ID",
+    target_crs: str = "EPSG:4326",
+    source_crs_fallback: str = "EPSG:4674",
+    **kwargs,
 ) -> gpd.GeoDataFrame:
+    if "key_col" in kwargs:
+        key_col = kwargs["key_col"]
+    if "target_crs" in kwargs:
+        target_crs = kwargs["target_crs"]
+    if "source_crs_fallback" in kwargs:
+        source_crs_fallback = kwargs["source_crs_fallback"]
+    if "dist_name" in kwargs:
+        dist_name = kwargs["dist_name"]
+
     gdf = reproject(gdf, target_crs, source_crs_fallback)
     gdf = fix_geometry(gdf)
     gdf = deduplicate(gdf, key_col)

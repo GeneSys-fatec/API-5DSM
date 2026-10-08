@@ -93,6 +93,10 @@ public class GlobalExceptionHandler {
 
         @ExceptionHandler(Exception.class)
         public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+                if (isClientDisconnect(ex)) {
+                        log.debug("Cliente encerrou a conexão antes do fim da resposta: {}", ex.getMessage());
+                        return ResponseEntity.noContent().build();
+                }
                 log.error("Erro interno ao processar requisicao: {}", ex.getMessage(), ex);
                 String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
                         ? ex.getMessage()
@@ -114,6 +118,21 @@ public class GlobalExceptionHandler {
                         body.put("code", code);
                 }
                 return ResponseEntity.status(status).body(body);
+        }
+
+        private boolean isClientDisconnect(Throwable exception) {
+                for (Throwable current = exception; current != null; current = current.getCause()) {
+                        String className = current.getClass().getName();
+                        if (className.equals("org.apache.catalina.connector.ClientAbortException")
+                                || className.equals("org.springframework.web.context.request.async.AsyncRequestNotUsableException")) {
+                                return true;
+                        }
+                        String message = current.getMessage();
+                        if (message != null && message.contains("conexão estabelecida foi anulada")) {
+                                return true;
+                        }
+                }
+                return false;
         }
 }
 
