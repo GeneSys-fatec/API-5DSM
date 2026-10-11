@@ -127,14 +127,38 @@ public class BdgdAssetRepository {
             return 0;
         }
 
-        String union = existingTables.stream()
-                .map(table -> "SELECT COUNT(*) AS asset_count FROM bdgd." + table + " WHERE importacao_id = ?")
-                .collect(java.util.stream.Collectors.joining(" UNION ALL "));
-        Object[] parameters = java.util.Collections.nCopies(existingTables.size(), importId.toString()).toArray();
+        List<String> queries = new java.util.ArrayList<>();
+        List<Object> parameters = new java.util.ArrayList<>();
+        for (String table : existingTables) {
+            java.util.Set<String> columns = new java.util.HashSet<>(jdbc.queryForList(
+                    "SELECT column_name FROM information_schema.columns "
+                            + "WHERE table_schema = 'bdgd' AND table_name = ?",
+                    String.class, table));
+            List<String> predicates = new java.util.ArrayList<>();
+            if (columns.contains("importacao_id")) {
+                predicates.add("importacao_id = ?");
+                parameters.add(importId.toString());
+            }
+            String keyColumn = columns.contains("asset_key")
+                    ? "asset_key"
+                    : columns.contains("ativo_key") ? "ativo_key" : null;
+            if (keyColumn != null) {
+                predicates.add(keyColumn + " LIKE ?");
+                parameters.add("%::" + importId + "::%");
+            }
+            if (!predicates.isEmpty()) {
+                queries.add("SELECT COUNT(*) AS asset_count FROM bdgd." + table
+                        + " WHERE " + String.join(" OR ", predicates));
+            }
+        }
+        if (queries.isEmpty()) {
+            return 0;
+        }
         try {
             Integer total = jdbc.queryForObject(
-                    "SELECT COALESCE(SUM(asset_count), 0) FROM (" + union + ") counts",
-                    Integer.class, parameters);
+                    "SELECT COALESCE(SUM(asset_count), 0) FROM ("
+                            + String.join(" UNION ALL ", queries) + ") counts",
+                Integer.class, parameters.toArray());
             return total == null ? 0 : total;
         } catch (org.springframework.jdbc.BadSqlGrammarException ignored) {
             // Tabelas criadas antes do vínculo por importação não têm dados confiáveis para este card.

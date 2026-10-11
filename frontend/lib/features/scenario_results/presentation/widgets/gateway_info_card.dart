@@ -40,9 +40,19 @@ class GatewayInfoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            _InfoRow(label: 'Altura antena', value: '${gateway.antennaHeight} m'),
+            _InfoRow(
+              label: 'Altura antena',
+              value: '${gateway.antennaHeight} m',
+            ),
             _InfoRow(label: 'Potência TX', value: '+${gateway.txPowerDbm} dBm'),
-            _InfoRow(label: 'Ativos vinculados', value: '${gateway.linkedAssets}'),
+            _InfoRow(
+              label: 'Ativos vinculados',
+              value: '${gateway.linkedAssets}',
+            ),
+            _InfoRow(
+              label: 'Ativos em sombra',
+              value: '${gateway.shadowedAssetKeys.length}',
+            ),
             _InfoRow(
               label: 'Margem fade média',
               value: '${gateway.avgFadeMarginDb} dB',
