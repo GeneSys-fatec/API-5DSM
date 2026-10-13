@@ -47,25 +47,56 @@ public class BdgdIngestionService {
         return BdgdImportResponse.from(repository.find(id));
     }
 
-    public List<BdgdBaseSummaryResponse> listAllBases() {
-        return repository.findAll().stream().map(record -> {
-            int ativos = assetService.countAssetsByDistribuidora(record.distribuidora());
-            if (ativos == 0 && record.status() == BdgdImportStatus.CONCLUIDO) {
-                ativos = 1450;
-            }
-            String projecao = "SIRGAS 2000 / UTM 23S";
-            return new BdgdBaseSummaryResponse(
-                    record.id(),
-                    record.distribuidora(),
-                    record.regiao(),
-                    record.data(),
-                    record.fileName(),
-                    record.status().name().toLowerCase(),
-                    ativos,
-                    projecao,
-                    record.createdAt(),
-                    record.errorMessage()
-            );
-        }).toList();
+    public List<BdgdBaseSummaryResponse> listAllBases(String regiao, String distribuidora) {
+        return repository.findByFilters(normalize(regiao), normalize(distribuidora)).stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    public BdgdBaseSummaryResponse updateGroup(UUID id, String regiao, String distribuidora) {
+        String normalizedRegion = normalize(regiao);
+        String normalizedDistributor = normalize(distribuidora);
+        if (normalizedRegion == null || normalizedDistributor == null) {
+            throw new InvalidBdgdUploadException("Regiao e distribuidora sao obrigatorias");
+        }
+        repository.find(id);
+        repository.updateGroup(id, normalizedRegion, normalizedDistributor);
+        return toSummary(repository.find(id));
+    }
+
+    private BdgdBaseSummaryResponse toSummary(BdgdImportRecord record) {
+        int ativos = assetService.countAssetsByDistribuidora(record.distribuidora());
+        if (ativos == 0 && record.status() == BdgdImportStatus.CONCLUIDO) {
+            ativos = 1450;
+        }
+        String projecao = "SIRGAS 2000 / UTM 23S";
+        return new BdgdBaseSummaryResponse(
+                record.id(),
+                record.distribuidora(),
+                record.regiao(),
+                record.data(),
+                record.fileName(),
+                record.status().name().toLowerCase(),
+                ativos,
+                projecao,
+                record.createdAt(),
+                record.errorMessage()
+        );
+    }
+
+    public List<String> listRegions() {
+        return repository.findRegions();
+    }
+
+    public List<String> listDistributors(String regiao) {
+        String normalizedRegion = normalize(regiao);
+        if (normalizedRegion == null) {
+            return repository.findDistributors();
+        }
+        return repository.findDistributorsByRegion(normalizedRegion);
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
