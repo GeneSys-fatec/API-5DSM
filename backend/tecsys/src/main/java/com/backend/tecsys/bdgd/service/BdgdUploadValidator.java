@@ -26,12 +26,13 @@ public class BdgdUploadValidator {
             throw new InvalidBdgdUploadException("O arquivo excede o tamanho maximo permitido");
         }
         String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
+        if (name.endsWith(".csv") || name.endsWith(".xls") || name.endsWith(".xlsx") || name.endsWith(".json") || name.endsWith(".gdb")) {
+            return;
+        }
+
         try {
-            if (name.endsWith(".gdb")) {
-                return;
-            }
             if (!name.endsWith(".zip")) {
-                throw new InvalidBdgdUploadException("Formato invalido: use .gdb ou .zip");
+                throw new InvalidBdgdUploadException("Formato inválido: use .csv, .xls, .xlsx, .json, .gdb ou .zip");
             }
             boolean containsGdb = false;
             try (InputStream input = file.getInputStream(); ZipInputStream zip = new ZipInputStream(input)) {
@@ -50,7 +51,7 @@ public class BdgdUploadValidator {
                 throw new InvalidBdgdUploadException("O ZIP deve conter pelo menos um arquivo .gdb");
             }
         } catch (IOException exception) {
-            throw new InvalidBdgdUploadException("Arquivo corrompido ou ilegivel");
+            throw new InvalidBdgdUploadException("Arquivo corrompido ou ilegível");
         }
     }
 

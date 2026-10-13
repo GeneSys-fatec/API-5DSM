@@ -26,6 +26,7 @@ public class BdgdIngestionService {
     private final BdgdEtlDispatcher dispatcher;
     private final BdgdIngestionProperties properties;
     private final BdgdAssetService assetService;
+    private final GenericAssetImportService genericAssetImportService;
 
     public BdgdImportResponse ingest(MultipartFile file, String distribuidora, String regiao, LocalDate data) {
         validator.validate(file);
@@ -39,6 +40,12 @@ public class BdgdIngestionService {
         BdgdImportRecord record = new BdgdImportRecord(id, distribuidora, regiao, data, safeName, key,
                 BdgdImportStatus.PROCESSANDO, null, Instant.now());
         repository.create(record);
+
+        if (genericAssetImportService.isSupportedTabularFormat(safeName)) {
+            genericAssetImportService.importTabularAssets(file, id, distribuidora, regiao);
+            return BdgdImportResponse.from(repository.find(id));
+        }
+
         dispatcher.dispatch(id);
         return BdgdImportResponse.from(record);
     }

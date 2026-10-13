@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_scaffold.dart';
@@ -11,7 +12,7 @@ import '../widgets/file_upload_dropzone.dart';
 import '../../../scenario_config/domain/models/area_delimitation_model.dart';
 import '../../../scenario_config/presentation/controllers/area_delimitation_controller.dart';
 
-const List<String> kAllowedExtensions = ['zip'];
+const List<String> kAllowedExtensions = ['zip', 'csv', 'xls', 'xlsx', 'json'];
 
 class BdgdImportScreen extends StatefulWidget {
   const BdgdImportScreen({super.key});
@@ -92,8 +93,25 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
         return;
       }
 
+      final file = result.files.single;
+      final ext = file.extension?.toLowerCase();
+      if (ext == null || !kAllowedExtensions.contains(ext)) {
+        setState(() {
+          _errorMessage = 'Formato inválido. Utilize .csv, .xls, .xlsx, .json ou .zip.';
+          _selectedFile = null;
+        });
+        return;
+      }
+      if (file.size > 5368709120) {
+        setState(() {
+          _errorMessage = 'O arquivo excede o limite máximo permitido de 5 GB.';
+          _selectedFile = null;
+        });
+        return;
+      }
+
       setState(() {
-        _selectedFile = result.files.single;
+        _selectedFile = file;
         _successMessage = null;
       });
     } catch (e) {
@@ -360,6 +378,8 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                     onPick: _pickFile,
                     onClear: _clearFile,
                   ),
+                  const SizedBox(height: 14),
+                  _buildTemplatesSection(context),
                   if (_successMessage != null) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -375,7 +395,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
+                          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -488,6 +508,176 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
           fontSize: 13,
         ),
       ),
+    );
+  }
+
+  Widget _buildTemplatesSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.help_outline_rounded, size: 16, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text(
+                'Modelos de Arquivo (Templates):',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                icon: const Icon(Icons.table_chart_rounded, size: 15),
+                label: const Text('Modelo CSV'),
+                onPressed: () => _showTemplateModal(context, 'csv'),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                icon: const Icon(Icons.grid_on_rounded, size: 15),
+                label: const Text('Modelo Excel (.xlsx)'),
+                onPressed: () => _showTemplateModal(context, 'xlsx'),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                icon: const Icon(Icons.data_object_rounded, size: 15),
+                label: const Text('Modelo JSON'),
+                onPressed: () => _showTemplateModal(context, 'json'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTemplateModal(BuildContext context, String format) {
+    String sampleContent = '';
+    String instructions = '';
+
+    if (format == 'csv') {
+      instructions = 'Campos obrigatórios: identificador, tipo_ativo, latitude, longitude.\nOpcionais: distribuidora, regiao.';
+      sampleContent = 'identificador,tipo_ativo,latitude,longitude,distribuidora,regiao\n'
+          'POS-001,POSTE,-23.550520,-46.633308,CPFL,SUDESTE\n'
+          'TR-002,TRAFO,-23.551200,-46.634100,CPFL,SUDESTE\n'
+          'REL-003,RELIGADOR,-23.552100,-46.635200,CPFL,SUDESTE';
+    } else if (format == 'json') {
+      instructions = 'O arquivo pode ser um array de objetos ou conter a chave "ativos".';
+      sampleContent = '[\n'
+          '  {\n'
+          '    "identificador": "POS-001",\n'
+          '    "tipo_ativo": "POSTE",\n'
+          '    "latitude": -23.550520,\n'
+          '    "longitude": -46.633308,\n'
+          '    "distribuidora": "CPFL",\n'
+          '    "regiao": "SUDESTE"\n'
+          '  },\n'
+          '  {\n'
+          '    "identificador": "TR-002",\n'
+          '    "tipo_ativo": "TRAFO",\n'
+          '    "latitude": -23.551200,\n'
+          '    "longitude": -46.634100,\n'
+          '    "distribuidora": "CPFL",\n'
+          '    "regiao": "SUDESTE"\n'
+          '  }\n'
+          ']';
+    } else {
+      instructions = 'Primeira linha da planilha deve conter os cabeçalhos das colunas:\n'
+          'Coluna A: identificador\n'
+          'Coluna B: tipo_ativo\n'
+          'Coluna C: latitude\n'
+          'Coluna D: longitude\n'
+          'Coluna E: distribuidora (opcional)\n'
+          'Coluna F: regiao (opcional)';
+      sampleContent = 'identificador | tipo_ativo | latitude | longitude | distribuidora | regiao\n'
+          'POS-001 | POSTE | -23.550520 | -46.633308 | CPFL | SUDESTE\n'
+          'TR-002 | TRAFO | -23.551200 | -46.634100 | CPFL | SUDESTE';
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: Text(
+            'Modelo de Exemplo (${format.toUpperCase()})',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    instructions,
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      sampleContent,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: Color(0xFF38BDF8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            if (format != 'xlsx')
+              TextButton.icon(
+                icon: const Icon(Icons.copy_rounded, size: 16),
+                label: const Text('Copiar Exemplo'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: sampleContent));
+                  Navigator.of(dialogCtx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Exemplo copiado para a área de transferência!')),
+                  );
+                },
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Fechar'),
+            ),
+          ],
+        );
+      },
     );
   }
 

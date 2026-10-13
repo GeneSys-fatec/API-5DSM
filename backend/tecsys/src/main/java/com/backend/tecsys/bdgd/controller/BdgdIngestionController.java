@@ -23,6 +23,19 @@ public class BdgdIngestionController {
 
     private final BdgdIngestionService ingestionService;
     private final BdgdAssetService assetService;
+    private final com.backend.tecsys.bdgd.service.AssetTemplateService templateService;
+
+    @GetMapping("/template/{format}")
+    public org.springframework.http.ResponseEntity<byte[]> downloadTemplate(@PathVariable String format) {
+        byte[] bytes = templateService.getTemplate(format);
+        String filename = templateService.getFilename(format);
+        String contentType = templateService.getContentType(format);
+
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(bytes);
+    }
 
     @GetMapping({"", "/bases"})
     public List<BdgdBaseSummaryResponse> listBases() {
