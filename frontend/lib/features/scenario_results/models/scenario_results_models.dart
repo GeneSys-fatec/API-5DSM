@@ -12,6 +12,8 @@ class GatewayPoint {
   final int linkedAssets;
   final double avgFadeMarginDb;
   final double coverageRadiusMeters;
+  final String? address;
+  final String? municipio;
 
   const GatewayPoint({
     required this.id,
@@ -23,6 +25,8 @@ class GatewayPoint {
     required this.linkedAssets,
     required this.avgFadeMarginDb,
     required this.coverageRadiusMeters,
+    this.address,
+    this.municipio,
   });
 
   Map<String, dynamic> toMap() {
@@ -36,6 +40,8 @@ class GatewayPoint {
       'linkedAssets': linkedAssets,
       'avgFadeMarginDb': avgFadeMarginDb,
       'coverageRadiusMeters': coverageRadiusMeters,
+      if (address != null) 'address': address,
+      if (municipio != null) 'municipio': municipio,
     };
   }
 
@@ -50,6 +56,8 @@ class GatewayPoint {
       linkedAssets: (map['linkedAssets'] as num?)?.toInt() ?? 0,
       avgFadeMarginDb: (map['avgFadeMarginDb'] as num?)?.toDouble() ?? 14.0,
       coverageRadiusMeters: (map['coverageRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      address: map['address'] as String? ?? map['endereco'] as String?,
+      municipio: map['municipio'] as String? ?? map['cidade'] as String?,
     );
   }
 }

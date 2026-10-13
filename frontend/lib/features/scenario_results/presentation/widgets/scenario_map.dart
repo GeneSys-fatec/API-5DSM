@@ -183,23 +183,27 @@ class _ScenarioMapState extends State<ScenarioMap> {
                             .map(
                               (gw) => Marker(
                                 point: LatLng(gw.lat, gw.lng),
-                                width: 34,
-                                height: 34,
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _selectedGateway = gw),
-                                  child: Icon(
-                                    Icons.cell_tower,
-                                    color: _selectedGateway?.id == gw.id
-                                        ? AppColors.primaryDark
-                                        : Colors.amber,
-                                    size: 30,
-                                    shadows: const [
-                                      Shadow(
-                                        blurRadius: 3,
-                                        color: Colors.black45,
-                                      ),
-                                    ],
+                                width: 36,
+                                height: 36,
+                                child: Tooltip(
+                                  message:
+                                      '${gw.id} · ${gw.posteId}\nClique para ver detalhes de localização',
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedGateway = gw),
+                                    child: Icon(
+                                      Icons.cell_tower,
+                                      color: _selectedGateway?.id == gw.id
+                                          ? AppColors.primaryDark
+                                          : Colors.amber.shade700,
+                                      size: 32,
+                                      shadows: const [
+                                        Shadow(
+                                          blurRadius: 4,
+                                          color: Colors.black45,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -221,11 +225,23 @@ class _ScenarioMapState extends State<ScenarioMap> {
                   ),
                 if (_selectedGateway != null)
                   Positioned(
-                    left: 12,
+                    left: MediaQuery.sizeOf(context).width < 600 ? 12 : 16,
+                    right: MediaQuery.sizeOf(context).width < 600 ? 12 : null,
                     bottom: 12,
-                    child: GatewayInfoCard(
-                      gateway: _selectedGateway!,
-                      onClose: () => setState(() => _selectedGateway = null),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.sizeOf(context).width < 600
+                            ? double.infinity
+                            : 360,
+                        maxHeight: MediaQuery.sizeOf(context).width < 600
+                            ? 400
+                            : 480,
+                      ),
+                      child: GatewayInfoCard(
+                        gateway: _selectedGateway!,
+                        defaultMunicipio: widget.scenario.region,
+                        onClose: () => setState(() => _selectedGateway = null),
+                      ),
                     ),
                   ),
                 if (!widget.isFullScreen)

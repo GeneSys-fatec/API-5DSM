@@ -210,12 +210,16 @@ class SelectedGatewayResponse {
   final double latitude;
   final double longitude;
   final double coverageRadiusMeters;
+  final String? address;
+  final String? municipio;
 
   const SelectedGatewayResponse({
     required this.candidateId,
     required this.latitude,
     required this.longitude,
     required this.coverageRadiusMeters,
+    this.address,
+    this.municipio,
   });
 
   factory SelectedGatewayResponse.fromMap(Map<String, dynamic> map) {
@@ -224,6 +228,8 @@ class SelectedGatewayResponse {
       latitude: (map['latitude'] as num).toDouble(),
       longitude: (map['longitude'] as num).toDouble(),
       coverageRadiusMeters: (map['coverageRadiusMeters'] as num).toDouble(),
+      address: map['address'] as String? ?? map['endereco'] as String?,
+      municipio: map['municipio'] as String? ?? map['cidade'] as String?,
     );
   }
 }
@@ -310,6 +316,8 @@ class SimulationResponse {
             : (coveredAssetKeys.length / selectedGateways.length).round(),
         avgFadeMarginDb: rfParameter['systemLossDb'] as double? ?? 14.0,
         coverageRadiusMeters: gw.coverageRadiusMeters,
+        address: gw.address,
+        municipio: gw.municipio ?? (regionName.isNotEmpty ? regionName : null),
       );
     }).toList();
 
