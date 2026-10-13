@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -264,5 +265,97 @@ public class AssetParsersTest {
 
         List<AssetFileRecord> parsedFromXlsxTemplate = excelParser.parse(new ByteArrayInputStream(xlsx), "TEST", "TEST");
         assertTrue(parsedFromXlsxTemplate.size() >= 3);
+    }
+
+    @Test
+    void shouldParseValidLegacyXlsFile() throws Exception {
+        byte[] xlsBytes;
+        try (Workbook wb = new HSSFWorkbook(); ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("Ativos");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("identificador");
+            header.createCell(1).setCellValue("tipo_ativo");
+            header.createCell(2).setCellValue("latitude");
+            header.createCell(3).setCellValue("longitude");
+
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue("LEGACY-001");
+            row.createCell(1).setCellValue("POSTE");
+            row.createCell(2).setCellValue(-23.550520);
+            row.createCell(3).setCellValue(-46.633308);
+
+            wb.write(bos);
+            xlsBytes = bos.toByteArray();
+        }
+
+        List<AssetFileRecord> records = excelParser.parse(new ByteArrayInputStream(xlsBytes), "CPFL", "SUDESTE");
+        assertEquals(1, records.size());
+        assertEquals("LEGACY-001", records.get(0).assetKey());
+        assertEquals("POSTE", records.get(0).assetType());
+        assertEquals(-23.550520, records.get(0).latitude(), 0.00001);
+        assertEquals(-46.633308, records.get(0).longitude(), 0.00001);
+    }
+
+    @Test
+    void shouldFailGeoJsonWithMissingAssetType() {
+        String geojson = """
+                {
+                  "type": "FeatureCollection",
+                  "features": [
+                    {
+                      "type": "Feature",
+                      "geometry": {
+                        "type": "Point",
+                        "coordinates": [-46.633308, -23.550520]
+                      },
+                      "properties": {
+                        "identificador": "GEO-NO-TYPE"
+                      }
+                    }
+                  ]
+                }
+                """;
+        InvalidBdgdUploadException ex = assertThrows(InvalidBdgdUploadException.class, () ->
+                jsonParser.parse(new ByteArrayInputStream(geojson.getBytes(StandardCharsets.UTF_8)), "CPFL", "SUDESTE")
+        );
+        assertTrue(ex.getMessage().contains("tipo_ativo"));
+    }
+
+    @Test
+    void shouldFailGeoJsonWithNonNumericCoordinates() {
+        String geojson = """
+                {
+                  "type": "FeatureCollection",
+                  "features": [
+                    {
+                      "type": "Feature",
+                      "geometry": {
+                        "type": "Point",
+                        "coordinates": ["invalid", "invalid"]
+                      },
+                      "properties": {
+                        "identificador": "GEO-NON-NUM",
+                        "tipo_ativo": "POSTE"
+                      }
+                    }
+                  ]
+                }
+                """;
+        InvalidBdgdUploadException ex = assertThrows(InvalidBdgdUploadException.class, () ->
+                jsonParser.parse(new ByteArrayInputStream(geojson.getBytes(StandardCharsets.UTF_8)), "CPFL", "SUDESTE")
+        );
+        assertTrue(ex.getMessage().contains("numéricos"));
+    }
+
+    @Test
+    void shouldFailCoordinatesWithNonFiniteValues() {
+        String csv = """
+                identificador,tipo_ativo,latitude,longitude
+                POS-100,POSTE,NaN,-46.633308
+                """;
+        InvalidBdgdUploadException ex = assertThrows(InvalidBdgdUploadException.class, () ->
+                csvParser.parse(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)), "CPFL", "SUDESTE")
+        );
+        assertTrue(ex.getMessage().contains("latitude"));
     }
 }

@@ -42,8 +42,8 @@ public class BdgdIngestionService {
         repository.create(record);
 
         if (genericAssetImportService.isSupportedTabularFormat(safeName)) {
-            genericAssetImportService.importTabularAssets(file, id, distribuidora, regiao);
-            return BdgdImportResponse.from(repository.find(id));
+            genericAssetImportService.importTabularAssetsAsync(id, key, safeName, distribuidora, regiao);
+            return BdgdImportResponse.from(record);
         }
 
         dispatcher.dispatch(id);

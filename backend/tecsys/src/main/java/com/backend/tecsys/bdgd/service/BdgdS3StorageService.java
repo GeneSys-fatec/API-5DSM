@@ -91,4 +91,15 @@ public class BdgdS3StorageService {
         }
         return Path.of(properties.getLocalDirectory(), key).toAbsolutePath().normalize();
     }
+
+    public InputStream openStream(String key) throws IOException {
+        if ("s3".equalsIgnoreCase(properties.getStorage())) {
+            return s3.getObject(software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+                    .bucket(properties.getBucket())
+                    .key(key)
+                    .build());
+        }
+        Path destination = Path.of(properties.getLocalDirectory(), key).toAbsolutePath().normalize();
+        return Files.newInputStream(destination);
+    }
 }

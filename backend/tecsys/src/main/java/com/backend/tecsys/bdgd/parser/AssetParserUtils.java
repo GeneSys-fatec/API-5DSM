@@ -82,7 +82,7 @@ public final class AssetParserUtils {
         String sanitized = value.trim().replace(',', '.');
         try {
             double lat = Double.parseDouble(sanitized);
-            if (lat < -90.0 || lat > 90.0) {
+            if (!Double.isFinite(lat) || lat < -90.0 || lat > 90.0) {
                 throw new InvalidBdgdUploadException(
                         "Erro na linha " + rowNumber + ": campo 'latitude' com valor '" + value + "' fora dos limites permitidos (-90.0 a 90.0)."
                 );
@@ -104,7 +104,7 @@ public final class AssetParserUtils {
         String sanitized = value.trim().replace(',', '.');
         try {
             double lon = Double.parseDouble(sanitized);
-            if (lon < -180.0 || lon > 180.0) {
+            if (!Double.isFinite(lon) || lon < -180.0 || lon > 180.0) {
                 throw new InvalidBdgdUploadException(
                         "Erro na linha " + rowNumber + ": campo 'longitude' com valor '" + value + "' fora dos limites permitidos (-180.0 a 180.0)."
                 );

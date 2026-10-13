@@ -22,6 +22,13 @@ public class JsonAssetParser implements AssetParser {
 
     @Override
     public List<AssetFileRecord> parse(InputStream inputStream, String defaultDistribuidora, String defaultRegiao) {
+        List<AssetFileRecord> result = new ArrayList<>();
+        parseAndProcess(inputStream, defaultDistribuidora, defaultRegiao, result::add);
+        return result;
+    }
+
+    @Override
+    public void parseAndProcess(InputStream inputStream, String defaultDistribuidora, String defaultRegiao, java.util.function.Consumer<AssetFileRecord> consumer) {
         try {
             JsonNode root = objectMapper.readTree(inputStream);
             if (root == null || root.isEmpty()) {
@@ -56,19 +63,15 @@ public class JsonAssetParser implements AssetParser {
                 throw new InvalidBdgdUploadException("O arquivo JSON não contém registros de ativos.");
             }
 
-            List<AssetFileRecord> result = new ArrayList<>();
             int itemIndex = 1;
-
             for (JsonNode item : arrayNode) {
                 if (isGeoJson) {
-                    result.add(parseGeoJsonFeature(item, itemIndex, defaultDistribuidora, defaultRegiao));
+                    consumer.accept(parseGeoJsonFeature(item, itemIndex, defaultDistribuidora, defaultRegiao));
                 } else {
-                    result.add(parseStandardJsonObject(item, itemIndex, defaultDistribuidora, defaultRegiao));
+                    consumer.accept(parseStandardJsonObject(item, itemIndex, defaultDistribuidora, defaultRegiao));
                 }
                 itemIndex++;
             }
-
-            return result;
         } catch (InvalidBdgdUploadException e) {
             throw e;
         } catch (Exception e) {
@@ -127,18 +130,26 @@ public class JsonAssetParser implements AssetParser {
             throw new InvalidBdgdUploadException("Erro no item " + itemIndex + ": geometria GeoJSON ausente ou sem 'coordinates'.");
         }
 
+        if (!geom.has("type") || !"Point".equalsIgnoreCase(geom.get("type").asText())) {
+            throw new InvalidBdgdUploadException("Erro no item " + itemIndex + ": geometria GeoJSON deve ser do tipo 'Point'.");
+        }
+
         JsonNode coords = geom.get("coordinates");
         if (!coords.isArray() || coords.size() < 2) {
             throw new InvalidBdgdUploadException("Erro no item " + itemIndex + ": coordenadas do ponto devem conter [longitude, latitude].");
         }
 
+        if (!coords.get(0).isNumber() || !coords.get(1).isNumber()) {
+            throw new InvalidBdgdUploadException("Erro no item " + itemIndex + ": coordenadas do ponto devem conter valores numéricos [longitude, latitude].");
+        }
+
         double longitude = coords.get(0).asDouble();
         double latitude = coords.get(1).asDouble();
 
-        if (latitude < -90.0 || latitude > 90.0) {
+        if (!Double.isFinite(latitude) || latitude < -90.0 || latitude > 90.0) {
             throw new InvalidBdgdUploadException("Erro no item " + itemIndex + ": latitude " + latitude + " fora dos limites (-90 a 90).");
         }
-        if (longitude < -180.0 || longitude > 180.0) {
+        if (!Double.isFinite(longitude) || longitude < -180.0 || longitude > 180.0) {
             throw new InvalidBdgdUploadException("Erro no item " + itemIndex + ": longitude " + longitude + " fora dos limites (-180 a 180).");
         }
 
@@ -173,7 +184,7 @@ public class JsonAssetParser implements AssetParser {
         }
 
         String assetKey = AssetParserUtils.requireNonBlank(rawId, "identificador", itemIndex);
-        String assetType = rawType != null && !rawType.trim().isEmpty() ? rawType.trim().toUpperCase() : "POSTE";
+        String assetType = AssetParserUtils.requireNonBlank(rawType, "tipo_ativo", itemIndex).toUpperCase();
 
         String distribuidora = (rawDist != null && !rawDist.trim().isEmpty()) ? rawDist.trim() : defaultDistribuidora;
         String regiao = (rawReg != null && !rawReg.trim().isEmpty()) ? rawReg.trim() : defaultRegiao;

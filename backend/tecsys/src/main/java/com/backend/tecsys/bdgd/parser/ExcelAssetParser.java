@@ -14,6 +14,13 @@ public class ExcelAssetParser implements AssetParser {
 
     @Override
     public List<AssetFileRecord> parse(InputStream inputStream, String defaultDistribuidora, String defaultRegiao) {
+        List<AssetFileRecord> result = new ArrayList<>();
+        parseAndProcess(inputStream, defaultDistribuidora, defaultRegiao, result::add);
+        return result;
+    }
+
+    @Override
+    public void parseAndProcess(InputStream inputStream, String defaultDistribuidora, String defaultRegiao, java.util.function.Consumer<AssetFileRecord> consumer) {
         try (Workbook workbook = WorkbookFactory.create(inputStream)) {
             if (workbook.getNumberOfSheets() == 0) {
                 throw new InvalidBdgdUploadException("A planilha não possui abas de dados.");
@@ -70,8 +77,8 @@ public class ExcelAssetParser implements AssetParser {
                 );
             }
 
-            List<AssetFileRecord> result = new ArrayList<>();
             DataFormatter formatter = new DataFormatter();
+            int count = 0;
 
             for (int r = 1; r <= lastRowNum; r++) {
                 Row row = sheet.getRow(r);
@@ -99,14 +106,13 @@ public class ExcelAssetParser implements AssetParser {
                 String distribuidora = (rawDist != null && !rawDist.trim().isEmpty()) ? rawDist.trim() : defaultDistribuidora;
                 String regiao = (rawReg != null && !rawReg.trim().isEmpty()) ? rawReg.trim() : defaultRegiao;
 
-                result.add(new AssetFileRecord(lineNumber, assetKey, assetType, latitude, longitude, distribuidora, regiao));
+                consumer.accept(new AssetFileRecord(lineNumber, assetKey, assetType, latitude, longitude, distribuidora, regiao));
+                count++;
             }
 
-            if (result.isEmpty()) {
+            if (count == 0) {
                 throw new InvalidBdgdUploadException("A planilha não contém registros de ativos válidos.");
             }
-
-            return result;
         } catch (InvalidBdgdUploadException e) {
             throw e;
         } catch (Exception e) {
