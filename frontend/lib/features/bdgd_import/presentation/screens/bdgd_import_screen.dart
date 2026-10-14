@@ -24,6 +24,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   PlatformFile? _selectedFile;
   bool _isPicking = false;
   bool _isUploading = false;
+  double? _uploadProgress;
   String? _errorMessage;
   String? _successMessage;
   final _distribuidoraController = TextEditingController();
@@ -240,6 +241,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       _isUploading = true;
       _errorMessage = null;
       _successMessage = null;
+      _uploadProgress = null;
     });
     
     try {
@@ -252,6 +254,13 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
         distribuidora: _distribuidoraController.text.trim(),
         regiao: _regiaoController.text.trim(),
         data: _dataController.text.trim(),
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _uploadProgress = progress;
+            });
+          }
+        },
       );
       print('6. Upload concluído com sucesso e retornado à Tela!');
       
@@ -273,6 +282,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isExtracting =
+        _isUploading && _uploadProgress != null && _uploadProgress! >= 0.999;
+
     return AppScaffold(
       title: 'Importação de Dados BDGD & Ativos de Rede',
       currentRoute: '/bdgd-import',
@@ -280,7 +292,51 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _ImportTitleCard(),
-          const SizedBox(height: 20),
+          if (_isUploading)
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 8, left: 20, right: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: LinearProgressIndicator(
+                          value: isExtracting ? null : _uploadProgress,
+                          minHeight: 6,
+                          borderRadius: const BorderRadius.all(Radius.circular(4)),
+                        ),
+                      ),
+                      if (_uploadProgress != null && !isExtracting)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Text(
+                            '${(_uploadProgress! * 100).toStringAsFixed(1)}%',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isExtracting
+                        ? 'Upload concluído! Descompactando arquivo no servidor, por favor aguarde...'
+                        : 'Importando banco de dados BDGD, por favor aguarde...',
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          if (!_isUploading) const SizedBox(height: 20),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -312,6 +368,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                               _distribuidoraController,
                               'Distribuidora',
                               icon: Icons.business_rounded,
+                              enabled: !_isUploading,
                             ),
                           ),
                           SizedBox(
@@ -322,6 +379,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                               _regiaoController,
                               'Região',
                               icon: Icons.location_on_outlined,
+                              enabled: !_isUploading,
                             ),
                           ),
                           SizedBox(
@@ -334,7 +392,8 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                               hint: 'Selecione a data',
                               icon: Icons.calendar_today_outlined,
                               readOnly: true,
-                              onTap: _toggleDatePicker,
+                              enabled: !_isUploading,
+                              onTap: _isUploading ? null : _toggleDatePicker,
                               fieldKey: _dateFieldKey,
                             ),
                           ),
@@ -355,7 +414,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                   const SizedBox(height: 12),
                   FileUploadDropzone(
                     selectedFile: _selectedFile,
-                    isPicking: _isPicking,
+                    isPicking: _isPicking || _isUploading,
                     errorMessage: _errorMessage,
                     onPick: _pickFile,
                     onClear: _clearFile,
@@ -394,7 +453,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                               )
                             : const Icon(Icons.upload_file_rounded, size: 18),
                         label: Text(
-                          _isUploading ? 'Enviando...' : 'Enviar arquivo',
+                          _isUploading
+                              ? (isExtracting ? 'Descompactando...' : 'Enviando...')
+                              : 'Enviar arquivo',
                         ),
                       ),
                     ),
@@ -436,11 +497,13 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     bool readOnly = false,
     VoidCallback? onTap,
     Key? fieldKey,
+    bool enabled = true,
   }) {
     return TextField(
       key: fieldKey,
       controller: controller,
       readOnly: readOnly,
+      enabled: enabled,
       onTap: onTap,
       style: const TextStyle(
         fontSize: 14,

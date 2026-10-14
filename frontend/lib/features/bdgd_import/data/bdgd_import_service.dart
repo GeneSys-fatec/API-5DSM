@@ -15,6 +15,7 @@ class BdgdImportService {
     required String distribuidora,
     required String regiao,
     required String data,
+    void Function(double)? onProgress,
   }) async {
     final prefs = await SharedPreferences.getInstance(); 
     final token = prefs.getString('auth_token');
@@ -33,24 +34,43 @@ class BdgdImportService {
           ..fields['regiao'] = regiao
           ..fields['data'] = data;
 
-    if (fileStream != null) {
-      print('3. Adicionando Stream ao Request (Tamanho: $fileSize bytes)');
-      request.files.add(
-        http.MultipartFile(
-          'file',
-          fileStream,
-          fileSize,
-          filename: fileName,
-        ),
-      );
-    } else if (filePath != null && filePath.isNotEmpty) {
+    http.MultipartFile filePart;
+    if (filePath != null && filePath.isNotEmpty) {
       print('3. Adicionando ficheiro por caminho: $filePath');
-      request.files.add(
-        await http.MultipartFile.fromPath('file', filePath, filename: fileName),
+      filePart = await http.MultipartFile.fromPath('file', filePath, filename: fileName);
+    } else if (fileStream != null) {
+      print('3. Adicionando Stream ao Request (Tamanho: $fileSize bytes)');
+      filePart = http.MultipartFile(
+        'file',
+        fileStream,
+        fileSize,
+        filename: fileName,
       );
     } else {
       throw BdgdUploadException('Nenhum dado de ficheiro ou caminho foi fornecido.');
     }
+
+    if (onProgress != null) {
+      int bytesRead = 0;
+      final totalBytes = filePart.length;
+      final trackedStream = filePart.finalize().map((chunk) {
+        bytesRead += chunk.length;
+        if (totalBytes > 0) {
+          onProgress(bytesRead / totalBytes);
+        }
+        return chunk;
+      });
+      
+      filePart = http.MultipartFile(
+        filePart.field,
+        trackedStream,
+        totalBytes,
+        filename: filePart.filename,
+        contentType: filePart.contentType,
+      );
+    }
+
+    request.files.add(filePart);
 
     print('4. Chamando request.send() ... (Se travar aqui, o navegador não suporta este tamanho de ficheiro via Dart http)');
     final streamedResponse = await request.send();
