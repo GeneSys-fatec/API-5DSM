@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -49,21 +50,19 @@ public class BdgdIngestionService {
     }
 
     public List<BdgdBaseSummaryResponse> listAllBases() {
-        return repository.findAll().stream().map(record -> {
-            int ativos = assetService.countAssetsByImportId(record.id());
-            String projecao = "SIRGAS 2000 / UTM 23S";
-            return new BdgdBaseSummaryResponse(
-                    record.id(),
-                    record.distribuidora(),
-                    record.regiao(),
-                    record.data(),
-                    record.fileName(),
-                    record.status().name().toLowerCase(),
-                    ativos,
-                    projecao,
-                    record.createdAt(),
-                    record.errorMessage()
-            );
-        }).toList();
+        Map<String, Integer> counts = assetService.countAssetsGroupedByImportId();
+        Map<String, String> crsMap = assetService.getCrsMapByAllImports();
+        return repository.findAll().stream().map(record -> new BdgdBaseSummaryResponse(
+                record.id(),
+                record.distribuidora(),
+                record.regiao(),
+                record.data(),
+                record.fileName(),
+                record.status().name().toLowerCase(),
+                counts.getOrDefault(record.id().toString(), 0),
+                crsMap.getOrDefault(record.id().toString(), "SIRGAS 2000 / UTM N/A"),
+                record.createdAt(),
+                record.errorMessage()
+        )).toList();
     }
 }

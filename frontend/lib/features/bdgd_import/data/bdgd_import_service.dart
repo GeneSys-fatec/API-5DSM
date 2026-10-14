@@ -348,7 +348,9 @@ class BdgdImportService {
     final prefs = await SharedPreferences.getInstance();
     var token = prefs.getString('auth_token');
     if (token == null) token = await _attemptAutoLogin();
-    if (token == null) return const <BdgdBase>[];
+    if (token == null) {
+      throw BdgdUploadException('Sessão expirada. Faça login novamente.');
+    }
 
     try {
       var response = await http.get(
@@ -358,21 +360,28 @@ class BdgdImportService {
 
       if (response.statusCode == 401 || response.statusCode == 403) {
         token = await _attemptAutoLogin();
-        if (token != null) {
-          response = await http.get(
-            Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
-            headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
-          ).timeout(const Duration(seconds: 30));
+        if (token == null) {
+          throw BdgdUploadException('Sessão expirada. Faça login novamente.');
         }
+        response = await http.get(
+          Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
+          headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+        ).timeout(const Duration(seconds: 30));
       }
 
       if (response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body) as List<dynamic>;
         return list.map((item) => BdgdBase.fromJson(item as Map<String, dynamic>)).toList();
       }
-    } catch (_) {}
 
-    return const <BdgdBase>[];
+      throw BdgdUploadException('Erro HTTP ${response.statusCode}');
+    } on BdgdUploadException {
+      rethrow; // já formatada — propaga diretamente
+    } on TimeoutException {
+      throw BdgdUploadException('Tempo limite excedido (10 s). Verifique se o servidor está acessível.');
+    } catch (e) {
+      throw BdgdUploadException('Falha de conexão: ${e.runtimeType}');
+    }
   }
 }
 

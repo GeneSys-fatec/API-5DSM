@@ -61,21 +61,26 @@ public class BdgdAssetRepository {
     private volatile java.util.Set<String> cachedTables = null;
 
     private java.util.Set<String> getExistingTables() {
-        if (cachedTables == null) {
+        // Captura snapshot local para evitar race condition com tableExists() que
+        // pode zerar cachedTables fora do bloco synchronized.
+        java.util.Set<String> snapshot = cachedTables;
+        if (snapshot == null) {
             synchronized (this) {
-                if (cachedTables == null) {
+                snapshot = cachedTables;
+                if (snapshot == null) {
                     try {
-                        cachedTables = new java.util.HashSet<>(jdbc.queryForList(
+                        snapshot = new java.util.HashSet<>(jdbc.queryForList(
                             "SELECT table_name FROM information_schema.tables WHERE table_schema = 'bdgd'",
                             String.class
                         ));
                     } catch (Exception e) {
-                        cachedTables = java.util.Collections.emptySet();
+                        snapshot = java.util.Collections.emptySet();
                     }
+                    cachedTables = snapshot;
                 }
             }
         }
-        return cachedTables;
+        return snapshot;
     }
 
     public int countAssetsByDistribuidora(String distribuidora, List<String> tableNames) {
@@ -166,7 +171,81 @@ public class BdgdAssetRepository {
         }
     }
 
+    public Map<String, Integer> countAssetsGroupedByImportId(List<String> tableNames) {
+    Map<String, Integer> out = new java.util.HashMap<>();
+    for (String table : tableNames) {
+        String t = table.toLowerCase();
+        if (!tableExists(t)) {
+            continue;
+        }
+        try {
+            jdbc.query(
+                    "SELECT importacao_id, COUNT(*) FROM bdgd." + t
+                            + " WHERE importacao_id IS NOT NULL GROUP BY importacao_id",
+                    (org.springframework.jdbc.core.RowCallbackHandler) rs ->
+                            out.merge(rs.getString(1), (int) rs.getLong(2), Integer::sum));
+        } catch (org.springframework.jdbc.BadSqlGrammarException ignored) {
+            // tabela sem coluna importacao_id (criada antes do vinculo por importacao)
+        }
+    }
+    return out;
+}
+
+    public String getCrsByImportId(UUID id, List<String> tables) {
+        for (String t : tables) {
+            if (!tableExists(t.toLowerCase())) continue;
+            try {
+                var res = jdbc.queryForList(
+                        "SELECT ST_X(geometry) as lon, ST_Y(geometry) as lat FROM bdgd." + t
+                                + " WHERE importacao_id=? AND geometry IS NOT NULL LIMIT 1",
+                        id.toString());
+                if (!res.isEmpty()) {
+                    double lon = ((Number) res.get(0).get("lon")).doubleValue();
+                    double lat = ((Number) res.get(0).get("lat")).doubleValue();
+                    return "SIRGAS 2000 / UTM " + ((int) Math.floor((lon + 180) / 6) + 1) + (lat < 0 ? "S" : "N");
+                }
+            } catch (Exception ignored) {}
+        }
+        return "SIRGAS 2000 / UTM N/A";
+    }
+
+    /**
+     * Calcula o CRS UTM SIRGAS 2000 de todos os imports em batch.
+     * Faz no máximo uma query por tabela (em vez de N queries por import),
+     * retornando Map&lt;importacaoId, crs&gt;.
+     */
+    public Map<String, String> getCrsMapByAllImports(List<String> tables) {
+        Map<String, String> result = new java.util.HashMap<>();
+        for (String t : tables) {
+            if (!tableExists(t.toLowerCase())) continue;
+            try {
+                jdbc.query(
+                    "SELECT importacao_id, ST_X(geometry) AS lon, ST_Y(geometry) AS lat "
+                    + "FROM bdgd." + t.toLowerCase()
+                    + " WHERE importacao_id IS NOT NULL AND geometry IS NOT NULL",
+                    (org.springframework.jdbc.core.RowCallbackHandler) rs -> {
+                        String importId = rs.getString("importacao_id");
+                        if (importId != null && !result.containsKey(importId)) {
+                            double lon = rs.getDouble("lon");
+                            double lat = rs.getDouble("lat");
+                            result.put(importId,
+                                "SIRGAS 2000 / UTM " + ((int) Math.floor((lon + 180) / 6) + 1) + (lat < 0 ? "S" : "N"));
+                        }
+                    });
+            } catch (Exception ignored) {}
+        }
+        return result;
+    }
+
     private boolean tableExists(String tableName) {
-        return getExistingTables().contains(tableName.toLowerCase());
+        String t = tableName.toLowerCase();
+        if (getExistingTables().contains(t)) {
+            return true;
+        }
+        // Cache miss: invalida sob synchronized e recarrega uma vez.
+        synchronized (this) {
+            cachedTables = null;
+        }
+        return getExistingTables().contains(t);
     }
 }

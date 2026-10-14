@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import gc
+import hashlib
 import logging
 import os
 import sys
@@ -179,6 +180,9 @@ def run_pipeline(cfg: ETLConfig) -> list[LayerMetrics]:
     logger.info("Calculando hash SHA-256 do arquivo BDGD: %s ...", zip_path.name)
     file_hash = compute_file_sha256(zip_path)
     logger.info("Hash SHA-256: %s", file_hash)
+    state_hash = hashlib.sha256(
+        f"{file_hash}:{cfg.pipeline.import_id or ''}".encode("utf-8")
+    ).hexdigest()
 
     # 2. Resolve GDAL /vsizip/ path
     vsi_path, container_name = resolve_vsi_path(zip_path)
@@ -223,7 +227,7 @@ def run_pipeline(cfg: ETLConfig) -> list[LayerMetrics]:
             "vsi_path": vsi_path,
             "layer_name": actual_layer,
             "target_name": target_name,
-            "file_hash": file_hash,
+            "file_hash": state_hash,
             "file_name": zip_path.name,
             "distribuidora": cfg.pipeline.distribuidora,
             "regiao": cfg.pipeline.regiao,

@@ -267,6 +267,7 @@ class SimulationResponse {
 
   factory SimulationResponse.fromMap(Map<String, dynamic> map) {
     final gatewaysList = map['selectedGateways'] as List<dynamic>? ?? [];
+    final coverageByType = map['coveragePctByAssetType'] as Map? ?? const {};
     return SimulationResponse(
       scenarioId: (map['scenarioId'] as num).toInt(),
       status: map['status'] as String,
@@ -278,8 +279,8 @@ class SimulationResponse {
           )
           .toList(),
       totalCoveragePct: (map['totalCoveragePct'] as num).toDouble(),
-      coveragePctByAssetType: Map<String, double>.from(
-        map['coveragePctByAssetType'] as Map,
+      coveragePctByAssetType: coverageByType.map(
+        (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
       ),
       coveredAssetKeys: List<String>.from(
         map['coveredAssetKeys'] as List? ?? [],
@@ -303,6 +304,11 @@ class SimulationResponse {
     required String regionName,
     double searchRadiusMeters = 0.0,
   }) {
+    double rfNumber(String key, double fallback) {
+      final value = rfParameter[key];
+      return value is num ? value.toDouble() : fallback;
+    }
+
     final gateways = selectedGateways.map((gw) {
       final candidateIndex = gw.candidateId - 1;
       final assetKey =
@@ -315,12 +321,12 @@ class SimulationResponse {
         posteId: assetKey,
         lat: gw.latitude,
         lng: gw.longitude,
-        antennaHeight: rfParameter['antennaHeightM'] as double? ?? 6.0,
-        txPowerDbm: rfParameter['transmitPowerDbm'] as double? ?? 21.0,
+        antennaHeight: rfNumber('antennaHeightM', 6.0),
+        txPowerDbm: rfNumber('transmitPowerDbm', 21.0),
         linkedAssets: selectedGateways.isEmpty
             ? 0
             : (coveredAssetKeys.length / selectedGateways.length).round(),
-        avgFadeMarginDb: rfParameter['systemLossDb'] as double? ?? 14.0,
+        avgFadeMarginDb: rfNumber('systemLossDb', 14.0),
         coverageRadiusMeters: gw.coverageRadiusMeters,
         coverageGeometryGeoJson: gw.coverageGeometryGeoJson,
         shadowedAssetKeys: gw.shadowedAssetKeys,
@@ -349,7 +355,7 @@ class SimulationResponse {
       parameters: ScenarioParameters(
         feederName: regionName,
         gatewayCount: usedGatewayCount,
-        txPowerDbm: rfParameter['transmitPowerDbm'] as double? ?? 21.0,
+        txPowerDbm: rfNumber('transmitPowerDbm', 21.0),
         propagationModel: propagationModel,
       ),
       results: ScenarioResults(
