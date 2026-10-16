@@ -18,18 +18,14 @@ class BdgdAssetRepositoryTest {
     @Test
     void countsAssetsByImportIdInsteadOfReturningOneSharedCount() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.queryForList(anyString(), eq(String.class))).thenAnswer(invocation ->
-            invocation.getArgument(0, String.class).contains("information_schema.columns")
-                ? List.of("asset_key", "importacao_id")
-                : List.of("poste"));
+        when(jdbc.queryForList(anyString(), eq(String.class))).thenReturn(List.of("poste"));
 
         UUID firstImport = UUID.randomUUID();
         UUID secondImport = UUID.randomUUID();
-        when(jdbc.queryForObject(anyString(), eq(Integer.class), any(Object[].class)))
-            .thenAnswer(invocation -> {
-                Object[] parameters = (Object[]) invocation.getArgument(2);
-                return firstImport.toString().equals(parameters[0]) ? 45_909 : 5_258;
-            });
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(firstImport.toString())))
+                .thenReturn(45_909);
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(secondImport.toString())))
+                .thenReturn(5_258);
 
         BdgdAssetRepository repository = new BdgdAssetRepository(jdbc);
 

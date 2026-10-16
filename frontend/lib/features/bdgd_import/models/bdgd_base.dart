@@ -62,14 +62,9 @@ class BdgdBase {
       versao = fileName;
     }
 
-    String distFormatada = distribuidora;
-    if (regiao != null && regiao.isNotEmpty) {
-      distFormatada = '$distribuidora ($regiao)';
-    }
-
     return BdgdBase(
       id: json['id']?.toString(),
-      distribuidora: distFormatada,
+      distribuidora: distribuidora,
       regiao: regiao,
       dataReferencia: dataRef,
       fileName: fileName,
@@ -80,6 +75,14 @@ class BdgdBase {
       tagColor: color,
       errorMessage: json['errorMessage'] as String?,
     );
+  }
+
+  String get displayName {
+    final region = regiao?.trim();
+    if (region != null && region.isNotEmpty) {
+      return '$distribuidora ($region)';
+    }
+    return distribuidora;
   }
 
   String get statusLabel {

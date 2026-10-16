@@ -37,6 +37,10 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   List<BdgdBase> _bases = [];
   bool _isLoadingBases = false;
   String? _basesError;
+  List<String> _regions = [];
+  List<String> _distributors = [];
+  String? _selectedRegion;
+  String? _selectedDistributor;
   final GlobalKey _dateFieldKey = GlobalKey();
   OverlayEntry? _dateOverlayEntry;
 
@@ -44,6 +48,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   void initState() {
     super.initState();
     _loadBases();
+    _loadFilterOptions();
   }
 
   Future<void> _loadBases() async {
@@ -53,7 +58,10 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     });
 
     try {
-      final bases = await _importService.fetchBases();
+      final bases = await _importService.fetchBases(
+        regiao: _selectedRegion,
+        distribuidora: _selectedDistributor,
+      );
       if (!mounted) return;
       setState(() {
         _bases = bases;
@@ -75,6 +83,50 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadFilterOptions() async {
+    final regions = await _importService.fetchRegions();
+    final distributors = await _importService.fetchDistributors(
+      regiao: _selectedRegion,
+    );
+    if (!mounted) return;
+    setState(() {
+      _regions = regions;
+      _distributors = distributors;
+      if (_selectedRegion != null && !_regions.contains(_selectedRegion)) {
+        _selectedRegion = null;
+      }
+      if (_selectedDistributor != null &&
+          !_distributors.contains(_selectedDistributor)) {
+        _selectedDistributor = null;
+      }
+    });
+  }
+
+  Future<void> _onRegionChanged(String? value) async {
+    setState(() {
+      _selectedRegion = value;
+      _selectedDistributor = null;
+    });
+    await _loadFilterOptions();
+    await _loadBases();
+  }
+
+  Future<void> _onDistributorChanged(String? value) async {
+    setState(() {
+      _selectedDistributor = value;
+    });
+    await _loadBases();
+  }
+
+  Future<void> _clearFilters() async {
+    setState(() {
+      _selectedRegion = null;
+      _selectedDistributor = null;
+    });
+    await _loadFilterOptions();
+    await _loadBases();
   }
 
   Future<void> _pickFile() async {
@@ -456,15 +508,119 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          _buildFilters(),
+          const SizedBox(height: 16),
           BasesSection(
             bases: _bases,
             isLoading: _isLoadingBases,
             onRefresh: _loadBases,
             error: _basesError,
             onSelectBase: _onSelectBase,
+            onEditBase: _editBase,
+            emptyMessage: (_selectedRegion != null || _selectedDistributor != null)
+                ? 'Nenhuma base encontrada para os filtros selecionados.'
+                : null,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilters() {
+    final hasFilters = _selectedRegion != null || _selectedDistributor != null;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.end,
+          children: [
+            SizedBox(
+              width: 260,
+              child: _filterDropdown(
+                label: 'Região',
+                hint: 'Todas as regiões',
+                value: _selectedRegion,
+                items: _regions,
+                onChanged: _isLoadingBases ? null : _onRegionChanged,
+              ),
+            ),
+            SizedBox(
+              width: 300,
+              child: _filterDropdown(
+                label: 'Distribuidora',
+                hint: 'Todas as distribuidoras',
+                value: _selectedDistributor,
+                items: _distributors,
+                onChanged: _isLoadingBases ? null : _onDistributorChanged,
+              ),
+            ),
+            if (hasFilters)
+              TextButton.icon(
+                onPressed: _isLoadingBases ? null : _clearFilters,
+                icon: const Icon(Icons.clear, size: 18),
+                label: const Text('Limpar filtros'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterDropdown({
+    required String label,
+    required String hint,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?>? onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: (value != null && items.contains(value)) ? value : null,
+              hint: Text(
+                hint,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+              ),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem<String>(
+                      value: item,
+                      child: Text(
+                        item,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -478,6 +634,43 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     );
     AreaDelimitationController.setSharedConfig(config);
     Navigator.of(context).pushReplacementNamed('/scenario');
+  }
+
+  Future<void> _editBase(BdgdBase base) async {
+    if (base.id == null) return;
+
+    final result = await showDialog<({String regiao, String distribuidora})>(
+      context: context,
+      builder: (_) => _EditGroupDialog(base: base),
+    );
+    if (result == null || !mounted) return;
+
+    try {
+      await _importService.updateBaseGroup(
+        id: base.id!,
+        regiao: result.regiao,
+        distribuidora: result.distribuidora,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Grupo da base atualizado com sucesso.')),
+      );
+      await _loadFilterOptions();
+      await _loadBases();
+    } on BdgdUploadException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.error),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível atualizar o grupo da base.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Widget _metadataField(
@@ -550,6 +743,99 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     _regiaoController.dispose();
     _dataController.dispose();
     super.dispose();
+  }
+}
+
+class _EditGroupDialog extends StatefulWidget {
+  final BdgdBase base;
+
+  const _EditGroupDialog({required this.base});
+
+  @override
+  State<_EditGroupDialog> createState() => _EditGroupDialogState();
+}
+
+class _EditGroupDialogState extends State<_EditGroupDialog> {
+  late final TextEditingController _regiaoController;
+  late final TextEditingController _distribuidoraController;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _regiaoController = TextEditingController(text: widget.base.regiao ?? '');
+    _distribuidoraController = TextEditingController(text: widget.base.distribuidora);
+  }
+
+  @override
+  void dispose() {
+    _regiaoController.dispose();
+    _distribuidoraController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final regiao = _regiaoController.text.trim();
+    final distribuidora = _distribuidoraController.text.trim();
+    if (regiao.isEmpty || distribuidora.isEmpty) {
+      setState(() => _validationError = 'Preencha região e distribuidora.');
+      return;
+    }
+    Navigator.of(context).pop((regiao: regiao, distribuidora: distribuidora));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar grupo da base'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mova a base para outra região/distribuidora.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _regiaoController,
+            decoration: const InputDecoration(
+              labelText: 'Região',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _distribuidoraController,
+            decoration: const InputDecoration(
+              labelText: 'Distribuidora',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (_validationError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _validationError!,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: _submit,
+          child: const Text('Salvar'),
+        ),
+      ],
+    );
   }
 }
 

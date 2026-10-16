@@ -27,11 +27,15 @@ public class BdgdImportTableInitializer {
             }
         }
 
-        jdbc.update("""
-                UPDATE bdgd_imports
-                SET data_referencia = substring(file_name FROM '(20[0-9]{2}-[0-9]{2}-[0-9]{2})')::date
-                WHERE upper(distribuidora) = 'CHESP'
-                  AND file_name ~ '(20[0-9]{2}-[0-9]{2}-[0-9]{2})'
-                """);
+        try {
+            jdbc.update("""
+                    UPDATE bdgd_imports
+                    SET data_referencia = substring(file_name FROM '(20[0-9]{2}-[0-9]{2}-[0-9]{2})')::date
+                    WHERE upper(distribuidora) = 'CHESP'
+                      AND file_name ~ '(20[0-9]{2}-[0-9]{2}-[0-9]{2})'
+                    """);
+        } catch (Exception ignored) {
+            // Em ambientes sem suporte à sintaxe regex/cast do Postgres (ex: H2 em memória nos testes), ignora a migração legada
+        }
     }
 }

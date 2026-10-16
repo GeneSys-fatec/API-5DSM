@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -57,7 +59,16 @@ public class BdgdAssetRepository {
       return jdbc.queryForList(sql, distribuidora, distribuidora, regiao, regiao, limit, offset);
     }
 
-    private final Map<String, Integer> countCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Duration COUNT_CACHE_TTL = Duration.ofSeconds(30);
+    private static final int MAX_COUNT_CACHE_ENTRIES = 256;
+
+    private record CachedCount(int quantidade, Instant calculadoEm) {
+        boolean expirado() {
+            return Duration.between(calculadoEm, Instant.now()).compareTo(COUNT_CACHE_TTL) >= 0;
+        }
+    }
+
+    private final Map<String, CachedCount> countCache = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile java.util.Set<String> cachedTables = null;
 
     private java.util.Set<String> getExistingTables() {
@@ -84,9 +95,10 @@ public class BdgdAssetRepository {
     }
 
     public int countAssetsByDistribuidora(String distribuidora, List<String> tableNames) {
-        String cacheKey = distribuidora == null ? "__ALL__" : distribuidora.toLowerCase().trim();
-        if (countCache.containsKey(cacheKey)) {
-            return countCache.get(cacheKey);
+        String cacheKey = distribuidora == null ? "" : distribuidora.trim();
+        CachedCount cached = countCache.get(cacheKey);
+        if (cached != null && !cached.expirado()) {
+            return cached.quantidade();
         }
 
         int total = 0;
@@ -119,7 +131,7 @@ public class BdgdAssetRepository {
             }
         }
 
-        countCache.put(cacheKey, total);
+        cacheCount(cacheKey, total);
         return total;
     }
 
@@ -132,38 +144,14 @@ public class BdgdAssetRepository {
             return 0;
         }
 
-        List<String> queries = new java.util.ArrayList<>();
-        List<Object> parameters = new java.util.ArrayList<>();
-        for (String table : existingTables) {
-            java.util.Set<String> columns = new java.util.HashSet<>(jdbc.queryForList(
-                    "SELECT column_name FROM information_schema.columns "
-                            + "WHERE table_schema = 'bdgd' AND table_name = ?",
-                    String.class, table));
-            List<String> predicates = new java.util.ArrayList<>();
-            if (columns.contains("importacao_id")) {
-                predicates.add("importacao_id = ?");
-                parameters.add(importId.toString());
-            }
-            String keyColumn = columns.contains("asset_key")
-                    ? "asset_key"
-                    : columns.contains("ativo_key") ? "ativo_key" : null;
-            if (keyColumn != null) {
-                predicates.add(keyColumn + " LIKE ?");
-                parameters.add("%::" + importId + "::%");
-            }
-            if (!predicates.isEmpty()) {
-                queries.add("SELECT COUNT(*) AS asset_count FROM bdgd." + table
-                        + " WHERE " + String.join(" OR ", predicates));
-            }
-        }
-        if (queries.isEmpty()) {
-            return 0;
-        }
+        String union = existingTables.stream()
+                .map(table -> "SELECT COUNT(*) AS asset_count FROM bdgd." + table + " WHERE importacao_id = ?")
+                .collect(java.util.stream.Collectors.joining(" UNION ALL "));
+        Object[] parameters = java.util.Collections.nCopies(existingTables.size(), importId.toString()).toArray();
         try {
             Integer total = jdbc.queryForObject(
-                    "SELECT COALESCE(SUM(asset_count), 0) FROM ("
-                            + String.join(" UNION ALL ", queries) + ") counts",
-                Integer.class, parameters.toArray());
+                    "SELECT COALESCE(SUM(asset_count), 0) FROM (" + union + ") counts",
+                    Integer.class, parameters);
             return total == null ? 0 : total;
         } catch (org.springframework.jdbc.BadSqlGrammarException ignored) {
             // Tabelas criadas antes do vínculo por importação não têm dados confiáveis para este card.
@@ -171,70 +159,18 @@ public class BdgdAssetRepository {
         }
     }
 
-    public Map<String, Integer> countAssetsGroupedByImportId(List<String> tableNames) {
-    Map<String, Integer> out = new java.util.HashMap<>();
-    for (String table : tableNames) {
-        String t = table.toLowerCase();
-        if (!tableExists(t)) {
-            continue;
+    private void cacheCount(String cacheKey, int total) {
+        if (countCache.size() >= MAX_COUNT_CACHE_ENTRIES) {
+            countCache.values().removeIf(CachedCount::expirado);
+            if (countCache.size() >= MAX_COUNT_CACHE_ENTRIES) {
+                countCache.clear();
+            }
         }
-        try {
-            jdbc.query(
-                    "SELECT importacao_id, COUNT(*) FROM bdgd." + t
-                            + " WHERE importacao_id IS NOT NULL GROUP BY importacao_id",
-                    (org.springframework.jdbc.core.RowCallbackHandler) rs ->
-                            out.merge(rs.getString(1), (int) rs.getLong(2), Integer::sum));
-        } catch (org.springframework.jdbc.BadSqlGrammarException ignored) {
-            // tabela sem coluna importacao_id (criada antes do vinculo por importacao)
-        }
-    }
-    return out;
-}
-
-    public String getCrsByImportId(UUID id, List<String> tables) {
-        for (String t : tables) {
-            if (!tableExists(t.toLowerCase())) continue;
-            try {
-                var res = jdbc.queryForList(
-                        "SELECT ST_X(geometry) as lon, ST_Y(geometry) as lat FROM bdgd." + t
-                                + " WHERE importacao_id=? AND geometry IS NOT NULL LIMIT 1",
-                        id.toString());
-                if (!res.isEmpty()) {
-                    double lon = ((Number) res.get(0).get("lon")).doubleValue();
-                    double lat = ((Number) res.get(0).get("lat")).doubleValue();
-                    return "SIRGAS 2000 / UTM " + ((int) Math.floor((lon + 180) / 6) + 1) + (lat < 0 ? "S" : "N");
-                }
-            } catch (Exception ignored) {}
-        }
-        return "SIRGAS 2000 / UTM N/A";
+        countCache.put(cacheKey, new CachedCount(total, Instant.now()));
     }
 
-    /**
-     * Calcula o CRS UTM SIRGAS 2000 de todos os imports em batch.
-     * Faz no máximo uma query por tabela (em vez de N queries por import),
-     * retornando Map&lt;importacaoId, crs&gt;.
-     */
-    public Map<String, String> getCrsMapByAllImports(List<String> tables) {
-        Map<String, String> result = new java.util.HashMap<>();
-        for (String t : tables) {
-            if (!tableExists(t.toLowerCase())) continue;
-            try {
-                jdbc.query(
-                    "SELECT importacao_id, ST_X(geometry) AS lon, ST_Y(geometry) AS lat "
-                    + "FROM bdgd." + t.toLowerCase()
-                    + " WHERE importacao_id IS NOT NULL AND geometry IS NOT NULL",
-                    (org.springframework.jdbc.core.RowCallbackHandler) rs -> {
-                        String importId = rs.getString("importacao_id");
-                        if (importId != null && !result.containsKey(importId)) {
-                            double lon = rs.getDouble("lon");
-                            double lat = rs.getDouble("lat");
-                            result.put(importId,
-                                "SIRGAS 2000 / UTM " + ((int) Math.floor((lon + 180) / 6) + 1) + (lat < 0 ? "S" : "N"));
-                        }
-                    });
-            } catch (Exception ignored) {}
-        }
-        return result;
+    public void evictCountCache() {
+        countCache.clear();
     }
 
     private boolean tableExists(String tableName) {
