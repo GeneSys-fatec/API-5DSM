@@ -9,6 +9,7 @@ import com.backend.tecsys.scenario.exception.ScenarioPersistenceException;
 import com.backend.tecsys.radio.exception.UnavailableTerrainDataException;
 import com.backend.tecsys.radio.exception.UnsupportedPropagationModelException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -84,6 +85,14 @@ public class GlobalExceptionHandler {
         public ResponseEntity<Map<String, Object>> handleScenarioPersistence(ScenarioPersistenceException ex) {
                 log.error("Erro ao persistir cenario: {}", ex.getMessage(), ex);
                 return buildErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        @ExceptionHandler(DataIntegrityViolationException.class)
+        public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+                log.warn("Violacao de integridade ao persistir dados: {}", ex.getMostSpecificCause().getMessage());
+                return buildErrorResponse(
+                        "Dados invalidos para persistencia. Verifique os campos informados.",
+                        HttpStatus.BAD_REQUEST, "DATA_INTEGRITY_VIOLATION");
         }
 
         @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)

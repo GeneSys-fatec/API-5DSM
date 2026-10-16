@@ -3,6 +3,7 @@ package com.backend.tecsys.bdgd.service;
 import com.backend.tecsys.bdgd.model.BdgdImportRecord;
 import com.backend.tecsys.bdgd.model.BdgdImportStatus;
 import com.backend.tecsys.bdgd.model.N8nWebhookPayload;
+import com.backend.tecsys.bdgd.repository.BdgdAssetRepository;
 import com.backend.tecsys.bdgd.repository.BdgdImportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ public class BdgdEtlDispatcher {
     private final BdgdImportRepository repository;
     private final BdgdS3StorageService storage;
     private final N8nWebhookService n8nWebhookService;
+    private final BdgdAssetRepository assetRepository;
 
     @Async
     public void dispatch(UUID importId) {
@@ -40,6 +42,7 @@ public class BdgdEtlDispatcher {
             log.info("Despachando importacao {} para N8N com gdbPath={}", importId, gdbPath);
             n8nWebhookService.triggerProcessing(payload);
             repository.updateStatus(importId, BdgdImportStatus.CONCLUIDO, null);
+            assetRepository.evictCountCache();
             log.info("Importacao {} concluida com sucesso!", importId);
         } catch (Exception exception) {
             log.error("Falha ao despachar webhook N8N para importacao {}: {}", importId, exception.getMessage(), exception);

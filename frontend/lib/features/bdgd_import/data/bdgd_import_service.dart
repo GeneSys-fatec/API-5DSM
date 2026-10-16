@@ -94,39 +94,20 @@ class BdgdImportService {
     return null;
   }
 
-  Future<List<BdgdBase>> fetchBases() async {
-    final prefs = await SharedPreferences.getInstance();
-    var token = prefs.getString('auth_token');
-    if (token == null) {
-      token = await _attemptAutoLogin();
+  Future<List<BdgdBase>> fetchBases({String? regiao, String? distribuidora}) async {
+    final query = <String, String>{};
+    if (regiao != null && regiao.trim().isNotEmpty) {
+      query['regiao'] = regiao.trim();
     }
-    if (token == null) {
-      return kMockBases;
+    if (distribuidora != null && distribuidora.trim().isNotEmpty) {
+      query['distribuidora'] = distribuidora.trim();
     }
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases')
+        .replace(queryParameters: query.isEmpty ? null : query);
 
     try {
-      var response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        token = await _attemptAutoLogin();
-        if (token != null) {
-          response = await http.get(
-            Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-            },
-          ).timeout(const Duration(seconds: 8));
-        }
-      }
-
-      if (response.statusCode == 200) {
+      final response = await _authorizedRequest('GET', uri);
+      if (response != null && response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body) as List<dynamic>;
         return list
             .map((item) => BdgdBase.fromJson(item as Map<String, dynamic>))
@@ -135,6 +116,110 @@ class BdgdImportService {
     } catch (_) {}
 
     return kMockBases;
+  }
+
+  Future<List<String>> fetchRegions() async {
+    return _fetchStringList(Uri.parse('${ApiConfig.baseUrl}/api/bdgd/regions'));
+  }
+
+  Future<List<String>> fetchDistributors({String? regiao}) async {
+    final query = <String, String>{};
+    if (regiao != null && regiao.trim().isNotEmpty) {
+      query['regiao'] = regiao.trim();
+    }
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/distributors')
+        .replace(queryParameters: query.isEmpty ? null : query);
+    return _fetchStringList(uri);
+  }
+
+  Future<BdgdBase> updateBaseGroup({
+    required String id,
+    required String regiao,
+    required String distribuidora,
+  }) async {
+    http.Response? response;
+    try {
+      response = await _authorizedRequest(
+        'PATCH',
+        Uri.parse('${ApiConfig.baseUrl}/api/bdgd/$id'),
+        body: {'regiao': regiao, 'distribuidora': distribuidora},
+      );
+    } catch (_) {
+      throw const BdgdUploadException(
+        'Não foi possível conectar ao servidor para atualizar o grupo.',
+      );
+    }
+
+    if (response != null && response.statusCode == 200) {
+      return BdgdBase.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+
+    throw BdgdUploadException(_errorMessage(response));
+  }
+
+  String _errorMessage(http.Response? response) {
+    if (response == null) {
+      return 'Sessão expirada. Faça login novamente.';
+    }
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map<String, dynamic>) {
+        final message = body['message'] as String?;
+        if (message != null && message.isNotEmpty) {
+          return message;
+        }
+      }
+    } catch (_) {}
+    return 'Não foi possível atualizar a região/distribuidora da base.';
+  }
+
+  Future<List<String>> _fetchStringList(Uri uri) async {
+    try {
+      final response = await _authorizedRequest('GET', uri);
+      if (response != null && response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(response.body) as List<dynamic>;
+        return list.map((item) => item.toString()).toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  Future<http.Response?> _authorizedRequest(String method, Uri uri, {Object? body}) async {
+    final prefs = await SharedPreferences.getInstance();
+    var token = prefs.getString('auth_token');
+    if (token == null) {
+      token = await _attemptAutoLogin();
+    }
+    if (token == null) {
+      return null;
+    }
+
+    Future<http.Response> send(String value) {
+      final headers = <String, String>{
+        'Authorization': 'Bearer $value',
+        'Accept': 'application/json',
+        if (body != null) 'Content-Type': 'application/json',
+      };
+      switch (method) {
+        case 'PATCH':
+          return http
+              .patch(uri, headers: headers, body: jsonEncode(body ?? const <String, dynamic>{}))
+              .timeout(const Duration(seconds: 8));
+        default:
+          return http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
+      }
+    }
+
+    var response = await send(token);
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      final refreshed = await _attemptAutoLogin();
+      if (refreshed != null) {
+        response = await send(refreshed);
+      }
+    }
+    return response;
   }
 }
 
