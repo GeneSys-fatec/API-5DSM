@@ -36,6 +36,7 @@ public class BdgdIngestionService {
     private final BdgdEtlDispatcher dispatcher;
     private final BdgdIngestionProperties properties;
     private final BdgdAssetService assetService;
+    private final GenericAssetImportService genericAssetImportService;
 
     private record AtivosRegistrados(String distribuidoraNaImportacao, int quantidade, Instant calculadoEm) {
         boolean contagemExpirada() {
@@ -59,6 +60,12 @@ public class BdgdIngestionService {
         BdgdImportRecord record = new BdgdImportRecord(id, normalizedDistributor, normalizedRegion, data, safeName, key,
                 BdgdImportStatus.PROCESSANDO, null, Instant.now());
         repository.create(record);
+
+        if (genericAssetImportService.isSupportedTabularFormat(safeName)) {
+            genericAssetImportService.importTabularAssetsAsync(id, key, safeName, distribuidora, regiao);
+            return BdgdImportResponse.from(record);
+        }
+
         dispatcher.dispatch(id);
         return BdgdImportResponse.from(record);
     }

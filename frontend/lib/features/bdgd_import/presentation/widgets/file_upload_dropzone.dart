@@ -80,8 +80,8 @@ class FileUploadDropzone extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Arquivos .ZIP contendo SHP/DBF/SHX, GeoPackage (.GPKG), GeoJSON\n'
-                      'exportados do QGIS/ArcGIS ou dump tabular BDGD.',
+                      'Formatos suportados: BDGD (.zip), Planilhas (.csv, .xls, .xlsx) e JSON (.json).\n'
+                      'Layout mínimo: identificador, tipo_ativo, latitude e longitude.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                     ),
@@ -129,6 +129,17 @@ class _UploadedFileTile extends StatelessWidget {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+  IconData get _iconForExtension {
+    final ext = file.extension?.toLowerCase();
+    return switch (ext) {
+      'csv' => Icons.table_chart_rounded,
+      'xls' || 'xlsx' => Icons.grid_on_rounded,
+      'json' => Icons.data_object_rounded,
+      'zip' => Icons.folder_zip_rounded,
+      _ => Icons.insert_drive_file_rounded,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -147,7 +158,7 @@ class _UploadedFileTile extends StatelessWidget {
               color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.layers_rounded,
+            child: Icon(_iconForExtension,
                 color: AppColors.primary, size: 18),
           ),
           const SizedBox(width: 12),
