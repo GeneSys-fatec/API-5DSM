@@ -1,6 +1,8 @@
 package com.backend.tecsys.scenario.repository;
 
+import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.scenario.exception.ScenarioPersistenceException;
+import com.backend.tecsys.scenario.model.PropagationModelType;
 import com.backend.tecsys.scenario.model.Scenario;
 import com.backend.tecsys.scenario.model.ScenarioAssetCoverage;
 import com.backend.tecsys.scenario.model.ScenarioIndicator;
@@ -32,8 +34,35 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             VALUES (?,
                     COALESCE((SELECT id FROM app.usuario WHERE id = ?), (SELECT id FROM app.usuario LIMIT 1)),
                     COALESCE((SELECT id FROM app.distribuidora WHERE id = ?), (SELECT id FROM app.distribuidora LIMIT 1)),
-                    ?, ST_GeomFromText(?, 4326), ?, ?, ?, NULL, ?, now(), ?)
+                    ?, ST_GeomFromText(?, 4326), ?, ?, ?, ?, ?, now(), ?)
             """;
+
+    private static final String INSERT_RF_PARAMETER = """
+            INSERT INTO app.parametro_rf
+                (nome, modelo_propagacao, frequencia_mhz, potencia_dbm, altura_antena_m, raio_cobertura_m, criado_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+            """;
+
+    private static final String INSERT_RELATORIO_SNAPSHOT = """
+            INSERT INTO app.cenario_relatorio_snapshot (cenario_id, dados, criado_em)
+            VALUES (?, CAST(? AS jsonb), now())
+            """;
+
+    private static final String SELECT_SNAPSHOT_BY_SCENARIO = """
+            SELECT dados
+            FROM app.cenario_relatorio_snapshot
+            WHERE cenario_id = ?
+            ORDER BY criado_em DESC
+            LIMIT 1
+            """;
+
+    private static final String SELECT_RF_PARAMETER_BY_ID = """
+            SELECT modelo_propagacao, frequencia_mhz, potencia_dbm, altura_antena_m, raio_cobertura_m
+            FROM app.parametro_rf
+            WHERE id = ?
+            """;
+
 
     private static final String INSERT_SELECTED_GATEWAY = """
             INSERT INTO app.cenario_gateway_selecionado
@@ -57,6 +86,55 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             VALUES (?, ?, CAST(? AS jsonb), ?, ?, ?, ?)
             """;
 
+    private static final String SELECT_SCENARIO_BY_ID = """
+            SELECT id, nome, usuario_id, distribuidora_id, regiao_nome, ST_AsText(area_geom) as area_wkt,
+                   meta_cobertura_pct, max_gateways, custo_unitario_gateway, parametro_rf_id, status,
+                   tempo_processamento_ms, processado_em
+            FROM app.cenario
+            WHERE id = ?
+            """;
+
+    private static final String SELECT_SCENARIOS_BY_USER = """
+            SELECT id, nome, usuario_id, distribuidora_id, regiao_nome, ST_AsText(area_geom) as area_wkt,
+                   meta_cobertura_pct, max_gateways, custo_unitario_gateway, parametro_rf_id, status,
+                   tempo_processamento_ms, processado_em
+            FROM app.cenario
+            WHERE usuario_id = ?
+            ORDER BY processado_em DESC
+            """;
+
+    private static final String SELECT_SCENARIOS_BY_USER_REGION = """
+            SELECT id, nome, usuario_id, distribuidora_id, regiao_nome, ST_AsText(area_geom) as area_wkt,
+                   meta_cobertura_pct, max_gateways, custo_unitario_gateway, parametro_rf_id, status,
+                   tempo_processamento_ms, processado_em
+            FROM app.cenario
+            WHERE usuario_id = ? AND regiao_nome = ?
+            ORDER BY processado_em DESC
+            """;
+
+    private static final String SELECT_INDICATOR_BY_SCENARIO = """
+            SELECT pct_cobertura_total, pct_cobertura_por_tipo, qtd_gateways_utilizados,
+                   custo_total_estimado, tempo_processamento_ms, meta_atingida
+            FROM app.cenario_indicador
+            WHERE cenario_id = ?
+            """;
+
+    private static final String SELECT_GATEWAYS_BY_SCENARIO = """
+            SELECT candidato_gateway_id, ST_Y(geom_final) as lat, ST_X(geom_final) as lon, ajustado_manualmente
+            FROM app.cenario_gateway_selecionado
+            WHERE cenario_id = ?
+            """;
+
+    private static final String SELECT_COVERAGES_BY_SCENARIO = """
+            SELECT ativo_key, coberto, gateway_selecionado_id
+            FROM app.cenario_cobertura_ativo
+            WHERE cenario_id = ?
+            """;
+
+    private static final String DELETE_SCENARIO_BY_ID = """
+            DELETE FROM app.cenario WHERE id = ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -67,18 +145,326 @@ public class PostgresScenarioRepository implements IScenarioRepository {
     @Override
     public Scenario save(Scenario scenario) {
         try {
+            scenario.setRfParameterId(insertRfParameter(scenario));
             Long scenarioId = insertScenario(scenario);
             scenario.setId(scenarioId);
 
             Map<Long, Long> selectedGatewayIdByCandidate = insertSelectedGateways(scenarioId, scenario.getSelectedGateways());
             insertAssetCoverages(scenarioId, scenario.getAssetCoverages(), selectedGatewayIdByCandidate);
             insertIndicator(scenarioId, scenario.getIndicator());
+            insertRelatorioSnapshot(scenario);
 
             return scenario;
         } catch (ScenarioPersistenceException e) {
             throw e;
         } catch (Exception e) {
             throw new ScenarioPersistenceException("Falha ao persistir o cenário de simulação: " + e.getMessage(), e);
+        }
+    }
+
+    private Long insertRfParameter(Scenario scenario) {
+        RfParameter rf = scenario.getRfParameter();
+        Double coverageRadius = scenario.getCoverageRadiusMeters();
+        if (rf == null && coverageRadius == null) {
+            return null;
+        }
+
+        try {
+            return jdbcTemplate.queryForObject(INSERT_RF_PARAMETER, Long.class,
+                    scenario.getName() + " - RF",
+                    scenario.getPropagationModel() != null ? scenario.getPropagationModel().name() : null,
+                    rf != null ? rf.getFrequencyMhz() : null,
+                    rf != null ? rf.getTransmitPowerDbm() : null,
+                    rf != null ? rf.getAntennaHeightM() : null,
+                    coverageRadius,
+                    scenario.getUserId());
+        } catch (Exception e) {
+            // A coluna cenario.parametro_rf_id é opcional: sem RF válido, mantém NULL.
+            return null;
+        }
+    }
+
+    private void insertRelatorioSnapshot(Scenario scenario) {
+        try {
+            Map<String, Object> snapshot = new HashMap<>();
+            if (scenario.getPropagationModel() != null) {
+                snapshot.put("propagationModel", scenario.getPropagationModel().name());
+            }
+            if (scenario.getRfParameter() != null) {
+                snapshot.put("rfParameter", objectMapper.convertValue(scenario.getRfParameter(), Map.class));
+            }
+            if (scenario.getCoverageRadiusMeters() != null) {
+                snapshot.put("coverageRadiusMeters", scenario.getCoverageRadiusMeters());
+            }
+            if (scenario.getSelectedGateways() != null && !scenario.getSelectedGateways().isEmpty()) {
+                List<Map<String, Object>> gateways = new java.util.ArrayList<>();
+                for (ScenarioSelectedGateway gateway : scenario.getSelectedGateways()) {
+                    Map<String, Object> g = new HashMap<>();
+                    g.put("candidateId", gateway.getCandidateId());
+                    g.put("coverageRadiusMeters", gateway.getCoverageRadiusMeters());
+                    gateways.add(g);
+                }
+                snapshot.put("selectedGateways", gateways);
+            }
+
+            jdbcTemplate.update(INSERT_RELATORIO_SNAPSHOT,
+                    scenario.getId(),
+                    objectMapper.writeValueAsString(snapshot));
+        } catch (Exception ignored) {
+            // O snapshot é um dado complementar; falha não deve interromper a persistência do cenário.
+        }
+    }
+
+    @Override
+    public Scenario findById(Long id) {
+        try {
+            Scenario scenario = jdbcTemplate.query(SELECT_SCENARIO_BY_ID, rs -> {
+                if (!rs.next()) return null;
+                return mapRowToScenario(rs);
+            }, id);
+            if (scenario == null) return null;
+            loadScenarioDetails(scenario);
+            loadRfParameter(scenario);
+            loadRelatorioSnapshot(scenario);
+            applyScenarioCoverageRadius(scenario);
+            return scenario;
+        } catch (Exception e) {
+            throw new ScenarioPersistenceException("Falha ao buscar cenário: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public List<Scenario> findAllByUserId(Long userId) {
+        try {
+            List<Scenario> scenarios = jdbcTemplate.query(SELECT_SCENARIOS_BY_USER, (rs, rowNum) -> mapRowToScenario(rs), userId);
+            for (Scenario s : scenarios) {
+                loadScenarioIndicator(s);
+                loadRfParameter(s);
+            }
+            return scenarios;
+        } catch (Exception e) {
+            throw new ScenarioPersistenceException("Falha ao listar cenários: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public List<Scenario> findByUserIdAndRegionName(Long userId, String regionName) {
+        try {
+            List<Scenario> scenarios = jdbcTemplate.query(SELECT_SCENARIOS_BY_USER_REGION, (rs, rowNum) -> mapRowToScenario(rs), userId, regionName);
+            for (Scenario s : scenarios) {
+                loadScenarioIndicator(s);
+                loadRfParameter(s);
+            }
+            return scenarios;
+        } catch (Exception e) {
+            throw new ScenarioPersistenceException("Falha ao listar cenários por região: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        try {
+            jdbcTemplate.update(DELETE_SCENARIO_BY_ID, id);
+        } catch (Exception e) {
+            throw new ScenarioPersistenceException("Falha ao excluir cenário: " + e.getMessage(), e);
+        }
+    }
+
+    private Scenario mapRowToScenario(java.sql.ResultSet rs) throws java.sql.SQLException {
+        Scenario scenario = new Scenario();
+        scenario.setId(rs.getLong("id"));
+        scenario.setName(rs.getString("nome"));
+        scenario.setUserId(rs.getLong("usuario_id"));
+        scenario.setUtilityId(rs.getLong("distribuidora_id"));
+        scenario.setRegionName(rs.getString("regiao_nome"));
+        scenario.setAreaWkt(rs.getString("area_wkt"));
+        scenario.setCoverageTargetPct(rs.getDouble("meta_cobertura_pct"));
+        scenario.setMaxGateways(rs.getInt("max_gateways"));
+        scenario.setGatewayUnitCost(rs.getObject("custo_unitario_gateway") != null ? rs.getDouble("custo_unitario_gateway") : null);
+        scenario.setRfParameterId(rs.getObject("parametro_rf_id") != null ? rs.getLong("parametro_rf_id") : null);
+        scenario.setStatus(rs.getString("status"));
+        scenario.setProcessingTimeMs(rs.getObject("tempo_processamento_ms") != null ? rs.getInt("tempo_processamento_ms") : null);
+        scenario.setProcessedAt(rs.getObject("processado_em", java.time.Instant.class));
+        return scenario;
+    }
+
+    private void loadScenarioDetails(Scenario scenario) {
+        loadScenarioIndicator(scenario);
+        scenario.setSelectedGateways(loadSelectedGateways(scenario.getId()));
+        scenario.setAssetCoverages(loadAssetCoverages(scenario.getId()));
+    }
+
+    private void loadScenarioIndicator(Scenario scenario) {
+        try {
+            ScenarioIndicator indicator = jdbcTemplate.query(SELECT_INDICATOR_BY_SCENARIO, rs -> {
+                if (!rs.next()) return null;
+                ScenarioIndicator ind = ScenarioIndicator.builder()
+                        .scenarioId(scenario.getId())
+                        .totalCoveragePct(rs.getDouble("pct_cobertura_total"))
+                        .coveragePctByAssetType(parseJsonMap(rs.getString("pct_cobertura_por_tipo")))
+                        .usedGatewayCount(rs.getInt("qtd_gateways_utilizados"))
+                        .totalEstimatedCost(rs.getObject("custo_total_estimado") != null ? rs.getDouble("custo_total_estimado") : null)
+                        .processingTimeMs(rs.getObject("tempo_processamento_ms") != null ? rs.getInt("tempo_processamento_ms") : null)
+                        .targetReached(rs.getBoolean("meta_atingida"))
+                        .build();
+                return ind;
+            }, scenario.getId());
+            scenario.setIndicator(indicator);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void loadRfParameter(Scenario scenario) {
+        if (scenario.getRfParameterId() == null) {
+            return;
+        }
+        try {
+            jdbcTemplate.query(SELECT_RF_PARAMETER_BY_ID, rs -> {
+                if (!rs.next()) return null;
+                String modelo = rs.getString("modelo_propagacao");
+                if (modelo != null && !modelo.isBlank()) {
+                    try {
+                        scenario.setPropagationModel(PropagationModelType.fromValue(modelo));
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                RfParameter snapshotRf = loadSnapshotRfParameter(scenario.getId());
+                RfParameter rf = snapshotRf != null ? snapshotRf : RfParameter.defaults();
+
+                if (rs.getObject("frequencia_mhz") != null) {
+                    rf.setFrequencyMhz(rs.getDouble("frequencia_mhz"));
+                }
+                if (rs.getObject("potencia_dbm") != null) {
+                    rf.setTransmitPowerDbm(rs.getDouble("potencia_dbm"));
+                }
+                if (rs.getObject("altura_antena_m") != null) {
+                    rf.setAntennaHeightM(rs.getDouble("altura_antena_m"));
+                }
+                scenario.setRfParameter(rf);
+
+                if (rs.getObject("raio_cobertura_m") != null) {
+                    scenario.setCoverageRadiusMeters(rs.getDouble("raio_cobertura_m"));
+                }
+                return scenario;
+            }, scenario.getRfParameterId());
+        } catch (Exception ignored) {
+        }
+    }
+
+    private RfParameter loadSnapshotRfParameter(Long scenarioId) {
+        try {
+            return jdbcTemplate.query(SELECT_SNAPSHOT_BY_SCENARIO, rs -> {
+                if (!rs.next()) return null;
+                return parseSnapshotRf(rs.getString("dados"));
+            }, scenarioId);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private RfParameter parseSnapshotRf(String json) {
+        try {
+            Map<String, Object> snapshot = objectMapper.readValue(json, Map.class);
+            Object rfNode = snapshot.get("rfParameter");
+            if (rfNode == null) {
+                return null;
+            }
+            return objectMapper.convertValue(rfNode, RfParameter.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void loadRelatorioSnapshot(Scenario scenario) {
+        try {
+            String json = jdbcTemplate.query(SELECT_SNAPSHOT_BY_SCENARIO, rs -> {
+                if (!rs.next()) return null;
+                return rs.getString("dados");
+            }, scenario.getId());
+            if (json == null || json.isBlank()) {
+                return;
+            }
+
+            Map<String, Object> snapshot = objectMapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            if (scenario.getRfParameter() == null && snapshot.containsKey("rfParameter")) {
+                scenario.setRfParameter(objectMapper.convertValue(snapshot.get("rfParameter"), RfParameter.class));
+            }
+            if (snapshot.get("coverageRadiusMeters") instanceof Number radius
+                    && scenario.getCoverageRadiusMeters() == null) {
+                scenario.setCoverageRadiusMeters(radius.doubleValue());
+            }
+            if (snapshot.get("selectedGateways") instanceof List<?> gateways) {
+                Map<Long, Double> radiusByCandidate = new HashMap<>();
+                for (Object o : gateways) {
+                    if (o instanceof Map<?, ?> g
+                            && g.get("candidateId") instanceof Number cid
+                            && g.get("coverageRadiusMeters") instanceof Number r) {
+                        radiusByCandidate.put(cid.longValue(), r.doubleValue());
+                    }
+                }
+                if (scenario.getSelectedGateways() != null) {
+                    for (ScenarioSelectedGateway gateway : scenario.getSelectedGateways()) {
+                        Double radius = radiusByCandidate.get(gateway.getCandidateId());
+                        if (radius != null) {
+                            gateway.setCoverageRadiusMeters(radius);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyScenarioCoverageRadius(Scenario scenario) {
+        if (scenario.getCoverageRadiusMeters() == null || scenario.getSelectedGateways() == null) {
+            return;
+        }
+        for (ScenarioSelectedGateway gateway : scenario.getSelectedGateways()) {
+            if (gateway.getCoverageRadiusMeters() <= 0) {
+                gateway.setCoverageRadiusMeters(scenario.getCoverageRadiusMeters());
+            }
+        }
+    }
+
+    private List<ScenarioSelectedGateway> loadSelectedGateways(Long scenarioId) {
+        try {
+            return jdbcTemplate.query(SELECT_GATEWAYS_BY_SCENARIO, (rs, rowNum) -> {
+                Long candidateId = rs.getLong("candidato_gateway_id");
+                double lat = rs.getDouble("lat");
+                double lon = rs.getDouble("lon");
+                boolean manuallyAdjusted = rs.getBoolean("ajustado_manualmente");
+                return ScenarioSelectedGateway.builder()
+                        .candidateId(candidateId)
+                        .coordinate(new com.backend.tecsys.radio.model.RfCoordinate(lat, lon))
+                        .manuallyAdjusted(manuallyAdjusted)
+                        .build();
+            }, scenarioId);
+        } catch (Exception e) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    private List<ScenarioAssetCoverage> loadAssetCoverages(Long scenarioId) {
+        try {
+            return jdbcTemplate.query(SELECT_COVERAGES_BY_SCENARIO, (rs, rowNum) -> {
+                ScenarioAssetCoverage c = new ScenarioAssetCoverage();
+                c.setAssetKey(rs.getString("ativo_key"));
+                c.setCovered(rs.getBoolean("coberto"));
+                c.setSelectedGatewayId(rs.getObject("gateway_selecionado_id") != null ? rs.getLong("gateway_selecionado_id") : null);
+                return c;
+            }, scenarioId);
+        } catch (Exception e) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    private Map<String, Double> parseJsonMap(String json) {
+        try {
+            return objectMapper.readValue(json != null ? json : "{}", new com.fasterxml.jackson.core.type.TypeReference<Map<String, Double>>() {});
+        } catch (Exception e) {
+            return new java.util.HashMap<>();
         }
     }
 
@@ -91,7 +477,7 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             statement.setLong(2, scenario.getUserId());
             statement.setLong(3, scenario.getUtilityId());
             statement.setString(4, scenario.getRegionName());
-            statement.setString(5, buildAreaWkt(scenario.getSelectedGateways()));
+            statement.setString(5, buildAreaWkt(scenario));
             statement.setBigDecimal(6, BigDecimal.valueOf(scenario.getCoverageTargetPct()));
             statement.setInt(7, scenario.getMaxGateways());
             if (scenario.getGatewayUnitCost() != null) {
@@ -99,11 +485,16 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             } else {
                 statement.setNull(8, Types.NUMERIC);
             }
-            statement.setString(9, scenario.getStatus());
-            if (scenario.getProcessingTimeMs() != null) {
-                statement.setInt(10, scenario.getProcessingTimeMs());
+            if (scenario.getRfParameterId() != null) {
+                statement.setLong(9, scenario.getRfParameterId());
             } else {
-                statement.setNull(10, Types.INTEGER);
+                statement.setNull(9, Types.BIGINT);
+            }
+            statement.setString(10, scenario.getStatus());
+            if (scenario.getProcessingTimeMs() != null) {
+                statement.setInt(11, scenario.getProcessingTimeMs());
+            } else {
+                statement.setNull(11, Types.INTEGER);
             }
             return statement;
         }, keyHolder);
@@ -214,6 +605,13 @@ public class PostgresScenarioRepository implements IScenarioRepository {
         } catch (Exception e) {
             return "{}";
         }
+    }
+
+    private String buildAreaWkt(Scenario scenario) {
+        if (scenario.getAreaWkt() != null && !scenario.getAreaWkt().isBlank()) {
+            return scenario.getAreaWkt();
+        }
+        return buildAreaWkt(scenario.getSelectedGateways());
     }
 
     private String buildAreaWkt(List<ScenarioSelectedGateway> selectedGateways) {
