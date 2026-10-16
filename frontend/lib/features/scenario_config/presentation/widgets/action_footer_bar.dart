@@ -107,6 +107,8 @@ class ActionFooterBar extends StatelessWidget {
       ),
     );
 
+    final isCompact = isMobile || MediaQuery.sizeOf(context).width < 700;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -114,7 +116,7 @@ class ActionFooterBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: isMobile
+      child: isCompact
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

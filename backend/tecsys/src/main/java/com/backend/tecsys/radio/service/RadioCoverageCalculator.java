@@ -4,6 +4,8 @@ import com.backend.tecsys.radio.model.PropagationInput;
 import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.radio.model.TerrainProfile;
 import com.backend.tecsys.radio.repository.TerrainProfileProvider;
+import com.backend.tecsys.radio.service.TerrainLineOfSightAnalyzer.TerrainEvaluation;
+import com.backend.tecsys.radio.exception.UnavailableTerrainDataException;
 import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
 import com.backend.tecsys.scenario.model.GatewayCoverage;
@@ -23,14 +25,20 @@ public class RadioCoverageCalculator {
     private final LinkBudgetCalculator linkBudgetCalculator;
     private final TerrainProfileProvider terrainProfileProvider;
     private final RfCoverageRadiusCalculator rfCoverageRadiusCalculator;
+    private final FreeSpacePathLossModel freeSpacePathLossModel;
+    private final TerrainLineOfSightAnalyzer terrainAnalyzer;
 
     public RadioCoverageCalculator(
             LinkBudgetCalculator linkBudgetCalculator,
             TerrainProfileProvider terrainProfileProvider,
-            RfCoverageRadiusCalculator rfCoverageRadiusCalculator) {
+            RfCoverageRadiusCalculator rfCoverageRadiusCalculator,
+            FreeSpacePathLossModel freeSpacePathLossModel,
+            TerrainLineOfSightAnalyzer terrainAnalyzer) {
         this.linkBudgetCalculator = linkBudgetCalculator;
         this.terrainProfileProvider = terrainProfileProvider;
         this.rfCoverageRadiusCalculator = rfCoverageRadiusCalculator;
+        this.freeSpacePathLossModel = freeSpacePathLossModel;
+        this.terrainAnalyzer = terrainAnalyzer;
     }
 
     public GatewayCoverage calculateCoverage(
@@ -42,6 +50,8 @@ public class RadioCoverageCalculator {
         double coverageRadiusMeters = rfCoverageRadiusCalculator.calculateRadiusMeters(rfParameter, propagationModel);
         Map<String, Double> receivedPowerByAssetKey = new LinkedHashMap<>();
         Set<String> coveredAssetKeys = new LinkedHashSet<>();
+        Set<String> shadowedAssetKeys = new LinkedHashSet<>();
+        List<Asset> coveredAssets = new java.util.ArrayList<>();
 
         for (Asset asset : assets) {
             double distanceM = Math.max(
@@ -64,12 +74,24 @@ public class RadioCoverageCalculator {
                     rfParameter.getDeviceHeightM(),
                     terrainProfile);
 
-            double propagationLossDb = propagationModel.calculatePropagationLossDb(input);
+            TerrainEvaluation terrain = terrainAnalyzer.evaluate(input);
+            if (terrain.shadowed()) {
+                shadowedAssetKeys.add(asset.getAssetKey());
+                continue;
+            }
+
+            double propagationLossDb;
+            try {
+                propagationLossDb = propagationModel.calculatePropagationLossDb(input);
+            } catch (UnavailableTerrainDataException unavailableTerrainData) {
+                propagationLossDb = freeSpacePathLossModel.calculatePropagationLossDb(input);
+            }
             double receivedPowerDbm = linkBudgetCalculator.receivedPowerDbm(rfParameter, propagationLossDb);
 
             if (linkBudgetCalculator.isCovered(receivedPowerDbm, rfParameter)) {
                 receivedPowerByAssetKey.put(asset.getAssetKey(), receivedPowerDbm);
                 coveredAssetKeys.add(asset.getAssetKey());
+                coveredAssets.add(asset);
             }
         }
 
@@ -78,7 +100,52 @@ public class RadioCoverageCalculator {
                 .coverageRadiusMeters(coverageRadiusMeters)
                 .receivedPowerDbmByAssetKey(receivedPowerByAssetKey)
                 .coveredAssetKeys(coveredAssetKeys)
+                .shadowedAssetKeys(shadowedAssetKeys)
+                .coverageGeometryGeoJson(coverageGeometry(candidate, coveredAssets))
                 .build();
+    }
+
+    private String coverageGeometry(GatewayCandidate candidate, List<Asset> assets) {
+        if (assets.size() < 3) {
+            return null;
+        }
+        List<double[]> points = assets.stream()
+                .map(asset -> new double[]{asset.getCoordinate().longitude(), asset.getCoordinate().latitude()})
+                .sorted((left, right) -> Double.compare(left[0], right[0]))
+                .toList();
+        List<double[]> hull = new java.util.ArrayList<>();
+        for (double[] point : points) {
+            while (hull.size() >= 2 && cross(hull.get(hull.size() - 2), hull.get(hull.size() - 1), point) <= 0) {
+                hull.remove(hull.size() - 1);
+            }
+            hull.add(point);
+        }
+        int lowerSize = hull.size();
+        for (int index = points.size() - 2; index >= 0; index--) {
+            double[] point = points.get(index);
+            while (hull.size() > lowerSize && cross(hull.get(hull.size() - 2), hull.get(hull.size() - 1), point) <= 0) {
+                hull.remove(hull.size() - 1);
+            }
+            hull.add(point);
+        }
+        if (hull.size() <= 3) {
+            return null;
+        }
+        hull.remove(hull.size() - 1);
+        StringBuilder json = new StringBuilder("{\"type\":\"Polygon\",\"coordinates\":[[");
+        for (int index = 0; index <= hull.size(); index++) {
+            double[] point = hull.get(index % hull.size());
+            if (index > 0) {
+                json.append(',');
+            }
+            json.append('[').append(point[0]).append(',').append(point[1]).append(']');
+        }
+        return json.append("]]}").toString();
+    }
+
+    private double cross(double[] origin, double[] first, double[] second) {
+        return (first[0] - origin[0]) * (second[1] - origin[1])
+                - (first[1] - origin[1]) * (second[0] - origin[0]);
     }
 
     public double calculateCoverageRadius(RfParameter rfParameter, PropagationModel propagationModel) {

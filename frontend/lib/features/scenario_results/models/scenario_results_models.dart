@@ -12,6 +12,8 @@ class GatewayPoint {
   final int linkedAssets;
   final double avgFadeMarginDb;
   final double coverageRadiusMeters;
+  final String? coverageGeometryGeoJson;
+  final List<String> shadowedAssetKeys;
 
   const GatewayPoint({
     required this.id,
@@ -23,6 +25,8 @@ class GatewayPoint {
     required this.linkedAssets,
     required this.avgFadeMarginDb,
     required this.coverageRadiusMeters,
+    this.coverageGeometryGeoJson,
+    this.shadowedAssetKeys = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -36,6 +40,8 @@ class GatewayPoint {
       'linkedAssets': linkedAssets,
       'avgFadeMarginDb': avgFadeMarginDb,
       'coverageRadiusMeters': coverageRadiusMeters,
+      'coverageGeometryGeoJson': coverageGeometryGeoJson,
+      'shadowedAssetKeys': shadowedAssetKeys,
     };
   }
 
@@ -49,7 +55,12 @@ class GatewayPoint {
       txPowerDbm: (map['txPowerDbm'] as num?)?.toDouble() ?? 21.0,
       linkedAssets: (map['linkedAssets'] as num?)?.toInt() ?? 0,
       avgFadeMarginDb: (map['avgFadeMarginDb'] as num?)?.toDouble() ?? 14.0,
-      coverageRadiusMeters: (map['coverageRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      coverageRadiusMeters:
+          (map['coverageRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      coverageGeometryGeoJson: map['coverageGeometryGeoJson'] as String?,
+      shadowedAssetKeys: List<String>.from(
+        map['shadowedAssetKeys'] as List? ?? const [],
+      ),
     );
   }
 }
@@ -122,7 +133,8 @@ class ScenarioResults {
       coveragePercent: (map['coveragePercent'] as num?)?.toDouble() ?? 0.0,
       connectedAssets: (map['connectedAssets'] as num?)?.toInt() ?? 0,
       totalAssets: (map['totalAssets'] as num?)?.toInt() ?? 0,
-      implementationCost: (map['implementationCost'] as num?)?.toDouble() ?? 0.0,
+      implementationCost:
+          (map['implementationCost'] as num?)?.toDouble() ?? 0.0,
       avgRssiDbm: (map['avgRssiDbm'] as num?)?.toDouble() ?? -120.0,
       gateways: rawGateways
           .map((g) => GatewayPoint.fromMap(g as Map<String, dynamic>))
@@ -177,7 +189,8 @@ class SimulationScenario {
       region: map['region'] as String? ?? '',
       centerLat: (map['centerLat'] as num?)?.toDouble() ?? 0.0,
       centerLng: (map['centerLng'] as num?)?.toDouble() ?? 0.0,
-      searchRadiusMeters: (map['searchRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      searchRadiusMeters:
+          (map['searchRadiusMeters'] as num?)?.toDouble() ?? 0.0,
       executedAt: map['executedAt'] != null
           ? DateTime.tryParse(map['executedAt'] as String) ?? DateTime.now()
           : DateTime.now(),

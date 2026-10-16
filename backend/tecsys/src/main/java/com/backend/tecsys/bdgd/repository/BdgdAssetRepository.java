@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -71,21 +72,26 @@ public class BdgdAssetRepository {
     private volatile java.util.Set<String> cachedTables = null;
 
     private java.util.Set<String> getExistingTables() {
-        if (cachedTables == null) {
+        // Captura snapshot local para evitar race condition com tableExists() que
+        // pode zerar cachedTables fora do bloco synchronized.
+        java.util.Set<String> snapshot = cachedTables;
+        if (snapshot == null) {
             synchronized (this) {
-                if (cachedTables == null) {
+                snapshot = cachedTables;
+                if (snapshot == null) {
                     try {
-                        cachedTables = new java.util.HashSet<>(jdbc.queryForList(
+                        snapshot = new java.util.HashSet<>(jdbc.queryForList(
                             "SELECT table_name FROM information_schema.tables WHERE table_schema = 'bdgd'",
                             String.class
                         ));
                     } catch (Exception e) {
-                        cachedTables = java.util.Collections.emptySet();
+                        snapshot = java.util.Collections.emptySet();
                     }
+                    cachedTables = snapshot;
                 }
             }
         }
-        return cachedTables;
+        return snapshot;
     }
 
     public int countAssetsByDistribuidora(String distribuidora, List<String> tableNames) {
@@ -129,6 +135,30 @@ public class BdgdAssetRepository {
         return total;
     }
 
+    public int countAssetsByImportId(UUID importId, List<String> tableNames) {
+        List<String> existingTables = tableNames.stream()
+                .map(String::toLowerCase)
+                .filter(getExistingTables()::contains)
+                .toList();
+        if (existingTables.isEmpty()) {
+            return 0;
+        }
+
+        String union = existingTables.stream()
+                .map(table -> "SELECT COUNT(*) AS asset_count FROM bdgd." + table + " WHERE importacao_id = ?")
+                .collect(java.util.stream.Collectors.joining(" UNION ALL "));
+        Object[] parameters = java.util.Collections.nCopies(existingTables.size(), importId.toString()).toArray();
+        try {
+            Integer total = jdbc.queryForObject(
+                    "SELECT COALESCE(SUM(asset_count), 0) FROM (" + union + ") counts",
+                    Integer.class, parameters);
+            return total == null ? 0 : total;
+        } catch (org.springframework.jdbc.BadSqlGrammarException ignored) {
+            // Tabelas criadas antes do vínculo por importação não têm dados confiáveis para este card.
+            return 0;
+        }
+    }
+
     private void cacheCount(String cacheKey, int total) {
         if (countCache.size() >= MAX_COUNT_CACHE_ENTRIES) {
             countCache.values().removeIf(CachedCount::expirado);
@@ -144,6 +174,14 @@ public class BdgdAssetRepository {
     }
 
     private boolean tableExists(String tableName) {
-        return getExistingTables().contains(tableName.toLowerCase());
+        String t = tableName.toLowerCase();
+        if (getExistingTables().contains(t)) {
+            return true;
+        }
+        // Cache miss: invalida sob synchronized e recarrega uma vez.
+        synchronized (this) {
+            cachedTables = null;
+        }
+        return getExistingTables().contains(t);
     }
 }

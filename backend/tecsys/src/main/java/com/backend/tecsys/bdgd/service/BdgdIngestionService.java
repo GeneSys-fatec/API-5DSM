@@ -52,11 +52,12 @@ public class BdgdIngestionService {
         if (data == null) {
             throw new InvalidBdgdUploadException("Data e obrigatoria");
         }
-        UUID id = UUID.randomUUID();
         String safeName = file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
-        String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), normalizedDistributor, data, id, safeName);
+        LocalDate referenceDate = BdgdReferenceDateParser.parseOrDefault(safeName, data);
+        UUID id = UUID.randomUUID();
+        String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), normalizedDistributor, referenceDate, id, safeName);
         storage.store(file, key);
-        BdgdImportRecord record = new BdgdImportRecord(id, normalizedDistributor, normalizedRegion, data, safeName, key,
+        BdgdImportRecord record = new BdgdImportRecord(id, normalizedDistributor, normalizedRegion, referenceDate, safeName, key,
                 BdgdImportStatus.PROCESSANDO, null, Instant.now());
         repository.create(record);
         dispatcher.dispatch(id);
@@ -71,6 +72,10 @@ public class BdgdIngestionService {
         return repository.findByFilters(groupValidator.normalize(regiao), groupValidator.normalize(distribuidora)).stream()
                 .map(this::toSummary)
                 .toList();
+    }
+
+    public List<BdgdBaseSummaryResponse> listAllBases() {
+        return listAllBases(null, null);
     }
 
     public BdgdBaseSummaryResponse updateGroup(UUID id, String regiao, String distribuidora) {
@@ -113,11 +118,14 @@ public class BdgdIngestionService {
         if (registrados != null && !registrados.contagemExpirada()) {
             return registrados.quantidade();
         }
-        String distribuidora = (registrados != null)
-                ? registrados.distribuidoraNaImportacao()
-                : record.distribuidora();
-        int quantidade = assetService.countAssetsByDistribuidora(distribuidora);
-        registrarAtivos(record.id(), distribuidora, quantidade);
+        int quantidade = assetService.countAssetsByImportId(record.id());
+        if (quantidade == 0) {
+            String distribuidora = (registrados != null)
+                    ? registrados.distribuidoraNaImportacao()
+                    : record.distribuidora();
+            quantidade = assetService.countAssetsByDistribuidora(distribuidora);
+        }
+        registrarAtivos(record.id(), record.distribuidora(), quantidade);
         return quantidade;
     }
 

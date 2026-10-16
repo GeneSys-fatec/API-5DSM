@@ -68,6 +68,7 @@ def ddl_for_layer(layer_name: str, pg_schema: str) -> list[str]:
         f"    tipo_ativo     TEXT NOT NULL,\n"
         f"    distribuidora  TEXT NOT NULL,\n"
         f"    regiao         TEXT NOT NULL,\n"
+        f"    importacao_id  TEXT,\n"
         f"    asset_key      TEXT NOT NULL,\n"
         f"{geometry_column}\n"
         f");"
@@ -99,6 +100,10 @@ def ensure_asset_table(engine: sa.Engine, layer_name: str, pg_schema: str) -> No
             logger.debug("Executando DDL para '%s.%s':\n%s", pg_schema, spec.table_name, statement)
             conn.execute(text(statement))
             logger.debug("DDL executado com sucesso para '%s.%s'.", pg_schema, spec.table_name)
+        conn.execute(text(
+            f"ALTER TABLE {pg_schema}.{spec.table_name} "
+            "ADD COLUMN IF NOT EXISTS importacao_id TEXT"
+        ))
 
         if spec.geometry_type == "Geometry":
             conn.execute(text(
