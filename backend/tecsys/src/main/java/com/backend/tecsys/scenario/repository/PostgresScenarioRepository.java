@@ -284,7 +284,8 @@ public class PostgresScenarioRepository implements IScenarioRepository {
         scenario.setRfParameterId(rs.getObject("parametro_rf_id") != null ? rs.getLong("parametro_rf_id") : null);
         scenario.setStatus(rs.getString("status"));
         scenario.setProcessingTimeMs(rs.getObject("tempo_processamento_ms") != null ? rs.getInt("tempo_processamento_ms") : null);
-        scenario.setProcessedAt(rs.getObject("processado_em", java.time.Instant.class));
+        java.sql.Timestamp processadoEm = rs.getTimestamp("processado_em");
+        scenario.setProcessedAt(processadoEm != null ? processadoEm.toInstant() : null);
         return scenario;
     }
 
