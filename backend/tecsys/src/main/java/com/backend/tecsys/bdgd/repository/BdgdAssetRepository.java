@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +58,16 @@ public class BdgdAssetRepository {
       return jdbc.queryForList(sql, distribuidora, distribuidora, regiao, regiao, limit, offset);
     }
 
-    private final Map<String, Integer> countCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Duration COUNT_CACHE_TTL = Duration.ofSeconds(30);
+    private static final int MAX_COUNT_CACHE_ENTRIES = 256;
+
+    private record CachedCount(int quantidade, Instant calculadoEm) {
+        boolean expirado() {
+            return Duration.between(calculadoEm, Instant.now()).compareTo(COUNT_CACHE_TTL) >= 0;
+        }
+    }
+
+    private final Map<String, CachedCount> countCache = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile java.util.Set<String> cachedTables = null;
 
     private java.util.Set<String> getExistingTables() {
@@ -78,9 +89,10 @@ public class BdgdAssetRepository {
     }
 
     public int countAssetsByDistribuidora(String distribuidora, List<String> tableNames) {
-        String cacheKey = distribuidora == null ? "__ALL__" : distribuidora.toLowerCase().trim();
-        if (countCache.containsKey(cacheKey)) {
-            return countCache.get(cacheKey);
+        String cacheKey = distribuidora == null ? "" : distribuidora.trim();
+        CachedCount cached = countCache.get(cacheKey);
+        if (cached != null && !cached.expirado()) {
+            return cached.quantidade();
         }
 
         int total = 0;
@@ -113,8 +125,22 @@ public class BdgdAssetRepository {
             }
         }
 
-        countCache.put(cacheKey, total);
+        cacheCount(cacheKey, total);
         return total;
+    }
+
+    private void cacheCount(String cacheKey, int total) {
+        if (countCache.size() >= MAX_COUNT_CACHE_ENTRIES) {
+            countCache.values().removeIf(CachedCount::expirado);
+            if (countCache.size() >= MAX_COUNT_CACHE_ENTRIES) {
+                countCache.clear();
+            }
+        }
+        countCache.put(cacheKey, new CachedCount(total, Instant.now()));
+    }
+
+    public void evictCountCache() {
+        countCache.clear();
     }
 
     private boolean tableExists(String tableName) {

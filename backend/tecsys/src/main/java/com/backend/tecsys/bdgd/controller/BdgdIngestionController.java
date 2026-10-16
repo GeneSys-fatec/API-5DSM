@@ -6,6 +6,7 @@ import com.backend.tecsys.bdgd.model.BdgdImportResponse;
 import com.backend.tecsys.bdgd.model.BdgdGeoJsonResponse;
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
 import com.backend.tecsys.bdgd.service.BdgdIngestionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -88,7 +89,7 @@ public class BdgdIngestionController {
     }
 
     @PatchMapping("/{id}")
-    public BdgdBaseSummaryResponse updateGroup(@PathVariable UUID id, @RequestBody BdgdGroupUpdateRequest request) {
+    public BdgdBaseSummaryResponse updateGroup(@PathVariable UUID id, @Valid @RequestBody BdgdGroupUpdateRequest request) {
         return ingestionService.updateGroup(id, request.regiao(), request.distribuidora());
     }
 }

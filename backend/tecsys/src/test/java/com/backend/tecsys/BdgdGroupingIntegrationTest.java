@@ -22,10 +22,12 @@ import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -44,6 +46,7 @@ class BdgdGroupingIntegrationTest {
     private static final String DIST_A1 = "Distribuidora Alfa 1";
     private static final String DIST_A2 = "Distribuidora Alfa 2";
     private static final String DIST_B1 = "Distribuidora Beta 1";
+    private static final String NUL = String.valueOf((char) 0);
 
     @Autowired
     private WebApplicationContext context;
@@ -132,6 +135,21 @@ class BdgdGroupingIntegrationTest {
     }
 
     @Test
+    void shouldMatchStoredGroupWhenFilteringWithUntrimmedValue() throws Exception {
+        mockMvc.perform(get("/api/bdgd/bases")
+                        .param("regiao", "  " + REGION_A + "  ")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)));
+
+        mockMvc.perform(get("/api/bdgd/distributors")
+                        .param("regiao", " " + REGION_B + " ")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", contains(DIST_B1)));
+    }
+
+    @Test
     void shouldMoveBaseToAnotherGroup() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of("regiao", REGION_B, "distribuidora", DIST_B1));
 
@@ -160,6 +178,62 @@ class BdgdGroupingIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldPersistGroupFieldsTrimmed() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                Map.of("regiao", "  " + REGION_B + "  ", "distribuidora", "  " + DIST_B1 + "  "));
+
+        mockMvc.perform(patch("/api/bdgd/" + distA1Id)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.regiao").value(REGION_B))
+                .andExpect(jsonPath("$.distribuidora").value(DIST_B1));
+
+        assertEquals(REGION_B, jdbc.queryForObject(
+                "SELECT regiao FROM bdgd_imports WHERE id = ?", String.class, distA1Id));
+    }
+
+    @Test
+    void shouldRejectGroupFieldsLongerThanColumnLimit() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                Map.of("regiao", REGION_B, "distribuidora", "D".repeat(121)));
+
+        mockMvc.perform(patch("/api/bdgd/" + distA1Id)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldRejectControlCharactersInGroupFields() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                Map.of("regiao", "Regiao" + NUL + "Invalida", "distribuidora", DIST_B1));
+
+        mockMvc.perform(patch("/api/bdgd/" + distA1Id)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldNotPersistGroupFieldsWhenValidationFails() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                Map.of("regiao", REGION_B, "distribuidora", "D".repeat(121)));
+
+        mockMvc.perform(patch("/api/bdgd/" + distA1Id)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+
+        assertEquals(DIST_A1, jdbc.queryForObject(
+                "SELECT distribuidora FROM bdgd_imports WHERE id = ?", String.class, distA1Id));
     }
 
     @Test
