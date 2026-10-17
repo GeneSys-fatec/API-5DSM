@@ -72,12 +72,15 @@ public class SimulationController {
         ScenarioIndicator indicator = outcome.indicator();
 
         List<SimulationResponse.SelectedGatewayResponse> selectedGateways = new ArrayList<>();
-        for (GatewayCandidate candidate : outcome.selectedGateways()) {
+        for (var coverage : outcome.selectedCoverages()) {
+            GatewayCandidate candidate = coverage.getCandidate();
             selectedGateways.add(SimulationResponse.SelectedGatewayResponse.builder()
                     .candidateId(candidate.getId())
                     .latitude(candidate.getCoordinate().latitude())
                     .longitude(candidate.getCoordinate().longitude())
                     .coverageRadiusMeters(outcome.coverageRadiusMeters())
+                    .coverageGeometryGeoJson(coverage.getCoverageGeometryGeoJson())
+                    .shadowedAssetKeys(new ArrayList<>(coverage.getShadowedAssetKeys()))
                     .build());
         }
 
