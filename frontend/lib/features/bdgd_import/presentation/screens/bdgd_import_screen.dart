@@ -84,8 +84,8 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: kAllowedExtensions,
-        withData: false, // Muito importante: não carregar na memória
-        withReadStream: true, // Importante: ler como fluxo de dados
+        withData: false,
+        withReadStream: true,
       );
 
       if (result == null) {
@@ -246,9 +246,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       print('1. Iniciando chamada do Service na Tela...');
       await _importService.upload(
         fileName: file.name,
-        fileStream: file.readStream, // Passando o stream
-        fileSize: file.size,         // Passando o tamanho
-        filePath: kIsWeb ? null : file.path, // Corrige o erro de path na Web
+        fileStream: file.readStream, 
+        fileSize: file.size,        
+        filePath: kIsWeb ? null : file.path, 
         distribuidora: _distribuidoraController.text.trim(),
         regiao: _regiaoController.text.trim(),
         data: _dataController.text.trim(),
@@ -423,6 +423,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       address: base.defaultAddress,
       radiusKm: 3.5,
       baseName: base.distribuidora,
+      bdgdImportId: base.id,
     );
     AreaDelimitationController.setSharedConfig(config);
     Navigator.of(context).pushReplacementNamed('/scenario');

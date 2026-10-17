@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'package:frontend/features/scenario_results/models/scenario_results_models.dart';
 
 class SearchAreaRequest {
+  final String importId;
   final double latitude;
   final double longitude;
   final double radius;
 
   const SearchAreaRequest({
+    required this.importId,
     required this.latitude,
     required this.longitude,
     required this.radius,
@@ -14,6 +16,7 @@ class SearchAreaRequest {
 
   Map<String, dynamic> toMap() {
     return {
+      'importId': importId,
       'latitude': latitude,
       'longitude': longitude,
       'radius': radius,
@@ -24,6 +27,7 @@ class SearchAreaRequest {
 
   factory SearchAreaRequest.fromMap(Map<String, dynamic> map) {
     return SearchAreaRequest(
+      importId: map['importId'] as String,
       latitude: (map['latitude'] as num).toDouble(),
       longitude: (map['longitude'] as num).toDouble(),
       radius: (map['radius'] as num).toDouble(),
@@ -64,11 +68,13 @@ class SearchAreaResponse {
   final List<AssetDto> candidates;
   final String validationStatus;
   final String message;
+  final Map<String, dynamic>? boundaryGeometry;
 
   const SearchAreaResponse({
     required this.candidates,
     required this.validationStatus,
     required this.message,
+    this.boundaryGeometry,
   });
 
   factory SearchAreaResponse.fromMap(Map<String, dynamic> map) {
@@ -79,6 +85,7 @@ class SearchAreaResponse {
           .toList(),
       validationStatus: map['validationStatus'] as String? ?? '',
       message: map['message'] as String? ?? '',
+      boundaryGeometry: map['boundaryGeometry'] as Map<String, dynamic>?,
     );
   }
 
@@ -152,6 +159,7 @@ class RfParameterRequest {
 }
 
 class SimulationRequest {
+  final String importId;
   final String name;
   final String regionName;
   final double coverageTargetPct;
@@ -165,6 +173,7 @@ class SimulationRequest {
   final RfParameterRequest rfParameter;
 
   const SimulationRequest({
+    required this.importId,
     required this.name,
     required this.regionName,
     required this.coverageTargetPct,
@@ -180,6 +189,7 @@ class SimulationRequest {
 
   Map<String, dynamic> toMap() {
     return {
+      'importId': importId,
       'name': name,
       'regionName': regionName,
       'coverageTargetPct': coverageTargetPct,

@@ -22,3 +22,5 @@ ETL/*.gdb/
 704245443-Manual-BDGD.txt
 .postman/
 postman/
+docker-compose.n8n.yml
+docker-compose.override.local.yml

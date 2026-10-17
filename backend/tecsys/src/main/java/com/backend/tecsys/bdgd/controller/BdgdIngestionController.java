@@ -1,6 +1,7 @@
 package com.backend.tecsys.bdgd.controller;
 
 import com.backend.tecsys.bdgd.model.BdgdBaseSummaryResponse;
+import com.backend.tecsys.bdgd.model.BdgdBoundsResponse;
 import com.backend.tecsys.bdgd.model.BdgdImportResponse;
 import com.backend.tecsys.bdgd.model.BdgdGeoJsonResponse;
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
@@ -72,5 +73,10 @@ public class BdgdIngestionController {
     @GetMapping("/{id}")
     public BdgdImportResponse findById(@PathVariable UUID id) {
         return ingestionService.find(id);
+    }
+
+    @GetMapping("/{id}/bounds")
+    public BdgdBoundsResponse bounds(@PathVariable UUID id) {
+        return assetService.findBoundsByImportId(id);
     }
 }

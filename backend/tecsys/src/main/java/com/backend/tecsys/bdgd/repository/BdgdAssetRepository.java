@@ -10,6 +10,10 @@ import java.util.Map;
 @Repository
 @RequiredArgsConstructor
 public class BdgdAssetRepository {
+
+    public static final List<String> ASSET_TABLES = List.of(
+            "poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat");
+
     private final JdbcTemplate jdbc;
 
     public List<Map<String, Object>> findFeatures(
@@ -54,6 +58,77 @@ public class BdgdAssetRepository {
             minLon, minLat, maxLon, maxLat, limit, offset);
       }
       return jdbc.queryForList(sql, distribuidora, distribuidora, regiao, regiao, limit, offset);
+    }
+
+    public Map<String, Object> findConvexHullByDistribuidora(String distribuidora, String regiao) {
+        AssetUnionQuery query = buildAssetUnionQuery(distribuidora, regiao);
+        if (query == null) {
+            return Map.of("geometry", null, "assetCount", 0);
+        }
+
+        String sql = """
+                SELECT COUNT(*) AS asset_count,
+                       ST_AsGeoJSON(ST_ConvexHull(ST_Collect(geometry))) AS hull_geojson
+                FROM (%s) AS assets
+                """.formatted(query.sql());
+
+        return jdbc.queryForMap(sql, query.params());
+    }
+
+    public Map<String, Object> findConvexHullContainsPoint(
+            String distribuidora, String regiao, double longitude, double latitude) {
+        AssetUnionQuery query = buildAssetUnionQuery(distribuidora, regiao);
+        if (query == null) {
+            Map<String, Object> empty = new java.util.HashMap<>();
+            empty.put("asset_count", 0);
+            empty.put("hull_geojson", null);
+            empty.put("point_contained", null);
+            return empty;
+        }
+
+        String sql = """
+                WITH hull AS (
+                    SELECT ST_ConvexHull(ST_Collect(geometry)) AS geom, COUNT(*) AS asset_count
+                    FROM (%s) AS assets
+                )
+                SELECT asset_count,
+                       ST_AsGeoJSON(geom) AS hull_geojson,
+                       CASE WHEN ST_GeometryType(geom) = 'ST_Polygon'
+                            THEN ST_Contains(geom, ST_SetSRID(ST_MakePoint(?, ?), 4326))
+                            ELSE NULL END AS point_contained
+                FROM hull
+                """.formatted(query.sql());
+
+        List<Object> params = new java.util.ArrayList<>(java.util.Arrays.asList(query.params()));
+        params.add(longitude);
+        params.add(latitude);
+
+        return jdbc.queryForMap(sql, params.toArray());
+    }
+
+    public AssetUnionQuery buildAssetUnionQuery(String distribuidora, String regiao) {
+        List<String> existingTables = existingAssetTables();
+        if (existingTables.isEmpty()) {
+            return null;
+        }
+
+        String sql = existingTables.stream()
+                .map(table -> "SELECT geometry FROM bdgd.%s WHERE distribuidora = ? AND regiao = ?".formatted(table))
+                .reduce((a, b) -> a + " UNION ALL " + b)
+                .orElseThrow();
+
+        Object[] params = existingTables.stream()
+                .flatMap(table -> java.util.stream.Stream.of((Object) distribuidora, regiao))
+                .toArray();
+
+        return new AssetUnionQuery(sql, params);
+    }
+
+    public List<String> existingAssetTables() {
+        return ASSET_TABLES.stream().filter(this::tableExists).toList();
+    }
+
+    public record AssetUnionQuery(String sql, Object[] params) {
     }
 
     private final Map<String, Integer> countCache = new java.util.concurrent.ConcurrentHashMap<>();
