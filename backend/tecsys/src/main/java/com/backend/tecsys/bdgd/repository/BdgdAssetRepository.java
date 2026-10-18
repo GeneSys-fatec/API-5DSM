@@ -17,6 +17,9 @@ public class BdgdAssetRepository {
     public static final List<String> ASSET_TABLES = List.of(
             "poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat");
 
+    private static final Duration COUNT_CACHE_TTL = Duration.ofSeconds(30);
+    private static final int MAX_COUNT_CACHE_ENTRIES = 256;
+
     private final JdbcTemplate jdbc;
 
     public List<Map<String, Object>> findFeatures(
@@ -66,7 +69,10 @@ public class BdgdAssetRepository {
     public Map<String, Object> findConvexHullByDistribuidora(String distribuidora, String regiao) {
         AssetUnionQuery query = buildAssetUnionQuery(distribuidora, regiao);
         if (query == null) {
-            return Map.of("geometry", null, "assetCount", 0);
+            Map<String, Object> empty = new java.util.HashMap<>();
+            empty.put("asset_count", 0);
+            empty.put("hull_geojson", null);
+            return empty;
         }
 
         String sql = """
@@ -116,7 +122,7 @@ public class BdgdAssetRepository {
         }
 
         String sql = existingTables.stream()
-                .map(table -> "SELECT geometry FROM bdgd.%s WHERE distribuidora = ? AND regiao = ?".formatted(table))
+                .map(table -> "SELECT asset_key, tipo_ativo, geometry FROM bdgd.%s WHERE distribuidora = ? AND regiao = ?".formatted(table))
                 .reduce((a, b) -> a + " UNION ALL " + b)
                 .orElseThrow();
 
@@ -134,7 +140,13 @@ public class BdgdAssetRepository {
     public record AssetUnionQuery(String sql, Object[] params) {
     }
 
-    private final Map<String, Integer> countCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private record CachedCount(int quantidade, Instant calculadoEm) {
+        boolean expirado() {
+            return Duration.between(calculadoEm, Instant.now()).compareTo(COUNT_CACHE_TTL) >= 0;
+        }
+    }
+
+    private final Map<String, CachedCount> countCache = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile java.util.Set<String> cachedTables = null;
 
     private java.util.Set<String> getExistingTables() {

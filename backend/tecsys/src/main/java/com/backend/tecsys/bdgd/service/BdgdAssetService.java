@@ -86,6 +86,10 @@ public class BdgdAssetService {
         return repository.countAssetsByDistribuidora(distribuidora, List.copyOf(TABLES.values()));
     }
 
+    public int countAssetsByImportId(UUID importId) {
+        return repository.countAssetsByImportId(importId, List.copyOf(TABLES.values()));
+    }
+
     public BdgdBoundsResponse findBoundsByImportId(UUID importId) {
         BdgdImportRecord record = importRepository.find(importId);
         Map<String, Object> result = repository.findConvexHullByDistribuidora(
