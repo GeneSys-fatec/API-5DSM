@@ -24,6 +24,8 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
   late final MapController _mapController;
   LatLng? _lastCenter;
 
+  List<LatLng>? _lastFittedBoundary;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +35,7 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
       widget.controller.config.centerLongitude,
     );
     widget.controller.addListener(_onControllerChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitBoundaryIfNeeded());
   }
 
   void _onControllerChange() {
@@ -46,6 +49,21 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
         _mapController.move(newCenter, _mapController.camera.zoom);
       } catch (_) {}
     }
+    _fitBoundaryIfNeeded();
+  }
+
+  void _fitBoundaryIfNeeded() {
+    final boundary = widget.controller.boundaryPolygon;
+    if (boundary == null || boundary.isEmpty || boundary == _lastFittedBoundary) {
+      return;
+    }
+    _lastFittedBoundary = boundary;
+    try {
+      final bounds = LatLngBounds.fromPoints(boundary);
+      _mapController.fitCamera(
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(40)),
+      );
+    } catch (_) {}
   }
 
   @override
@@ -100,6 +118,17 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
                 TileLayer(
                   urlTemplate: tileUrl,
                   userAgentPackageName: 'com.tecsys.api5dsm',
+                ),
+              if (widget.controller.boundaryPolygon != null)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: widget.controller.boundaryPolygon!,
+                      color: const Color(0xFFF97316).withValues(alpha: 0.08),
+                      borderColor: const Color(0xFFF97316),
+                      borderStrokeWidth: 2.0,
+                    ),
+                  ],
                 ),
               CircleLayer(
                 circles: [

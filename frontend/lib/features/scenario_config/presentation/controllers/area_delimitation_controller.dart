@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../data/services/area_delimitation_service.dart';
 import '../../data/services/scenario_storage_service.dart';
 import '../../domain/models/area_delimitation_model.dart';
@@ -46,6 +48,10 @@ class AreaDelimitationController extends ChangeNotifier {
   bool _isLoading = false;
   CandidateAsset? _selectedCandidate;
   String _activeMapLayer = 'vetor';
+  List<LatLng>? _boundaryPolygon;
+  String? _lastBoundaryImportId;
+  bool _pointOutOfBounds = false;
+  String? _areaDelimitationError;
 
   AreaDelimitationController({
     AreaDelimitationService? service,
@@ -62,6 +68,9 @@ class AreaDelimitationController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   CandidateAsset? get selectedCandidate => _selectedCandidate;
   String get activeMapLayer => _activeMapLayer;
+  List<LatLng>? get boundaryPolygon => _boundaryPolygon;
+  bool get pointOutOfBounds => _pointOutOfBounds;
+  String? get areaDelimitationError => _areaDelimitationError;
 
   double get radiusKm => _config.radiusKm;
   bool get isUnitKm => _config.isUnitKm;
@@ -100,6 +109,7 @@ class AreaDelimitationController extends ChangeNotifier {
     if (_sharedResult != null) {
       _result = _sharedResult;
       _config = _sharedConfig ?? _config;
+      await _refreshBoundaryIfNeeded();
       notifyListeners();
       return;
     }
@@ -110,35 +120,78 @@ class AreaDelimitationController extends ChangeNotifier {
       _result = cachedResult;
       _sharedConfig = cachedConfig;
       _sharedResult = cachedResult;
+      await _refreshBoundaryIfNeeded();
       notifyListeners();
       return;
     }
     await evaluateArea();
   }
 
+  Future<void> _refreshBoundaryIfNeeded() async {
+    final importId = _config.bdgdImportId;
+    if (importId == null || importId.isEmpty) {
+      _boundaryPolygon = null;
+      _lastBoundaryImportId = null;
+      return;
+    }
+    if (importId == _lastBoundaryImportId) {
+      return;
+    }
+    final rawCoordinates = await _service.fetchBdgdBounds(importId);
+    _lastBoundaryImportId = importId;
+    _boundaryPolygon = rawCoordinates
+        ?.map((pair) => LatLng(pair[1], pair[0]))
+        .toList();
+  }
+
+  LatLngBounds? get boundaryLatLngBounds {
+    if (_boundaryPolygon == null || _boundaryPolygon!.isEmpty) {
+      return null;
+    }
+    return LatLngBounds.fromPoints(_boundaryPolygon!);
+  }
+
   Future<void> evaluateArea() async {
     _isLoading = true;
+    _areaDelimitationError = null;
     notifyListeners();
 
     try {
+      await _refreshBoundaryIfNeeded();
       _result = await _service.evaluateArea(_config);
+      _pointOutOfBounds = false;
       _sharedConfig = _config;
       _sharedResult = _result;
       _storageService.saveAreaConfig(_config);
       if (_result != null) {
         _storageService.saveAreaResult(_result!);
       }
+    } on PointOutOfBoundsException {
+      _pointOutOfBounds = true;
+      _result = null;
+    } on AreaDelimitationException catch (e) {
+      _areaDelimitationError = e.message;
+      _result = null;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  void setCenterCoordinates(double lat, double lng) {
+  bool setCenterCoordinates(double lat, double lng) {
+    if (_boundaryPolygon != null &&
+        !isPointInsidePolygon(lat, lng, _boundaryPolygon!)) {
+      _pointOutOfBounds = true;
+      notifyListeners();
+      return false;
+    }
+
+    _pointOutOfBounds = false;
     _config = _config.copyWith(centerLatitude: lat, centerLongitude: lng);
     _sharedConfig = _config;
     _selectedCandidate = null;
     evaluateArea();
+    return true;
   }
 
   void applyConfig(AreaDelimitationConfig newConfig) {

@@ -194,13 +194,17 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
   @override
   Widget build(BuildContext context) {
     final defineClicking = widget.controller.defineClickingOnMap;
+    final pointOutOfBounds = widget.controller.pointOutOfBounds;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(
+          color: pointOutOfBounds ? AppColors.vermelhoErro : AppColors.cardBorder,
+          width: pointOutOfBounds ? 1.5 : 1.0,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -322,6 +326,7 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
                         centerLongitude: found.defaultLongitude,
                         address: found.defaultAddress,
                         baseName: found.distribuidora,
+                        bdgdImportId: found.id,
                       ),
                     );
                   },
@@ -446,6 +451,35 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
               ),
             ],
           ),
+          if (pointOutOfBounds) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.badgeRedLight,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.badgeRed.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.error_outline_rounded, size: 16, color: AppColors.vermelhoErro),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'O ponto informado esta fora da area de cobertura da BDGD selecionada. Escolha um ponto dentro do contorno destacado no mapa.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.vermelhoErro,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           InkWell(
             onTap: () => widget.controller.setDefineClickingOnMap(!defineClicking),
