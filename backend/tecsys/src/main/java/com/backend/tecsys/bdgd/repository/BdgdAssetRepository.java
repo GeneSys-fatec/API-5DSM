@@ -84,31 +84,18 @@ public class BdgdAssetRepository {
         }
 
         int total = 0;
-        try {
-            Integer ativoCount = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM bdgd.ativo WHERE (CAST(? AS text) IS NULL OR ativo_key ILIKE CAST(? AS text))",
-                    Integer.class,
-                    distribuidora, "%" + distribuidora + "%");
-            if (ativoCount != null && ativoCount > 0) {
-                total = ativoCount;
-            }
-        } catch (Exception ignored) {
-        }
-
-        if (total == 0) {
-            java.util.Set<String> existing = getExistingTables();
-            for (String tableName : tableNames) {
-                if (existing.contains(tableName.toLowerCase())) {
-                    try {
-                        Integer count = jdbc.queryForObject(
-                                "SELECT COUNT(*) FROM bdgd." + tableName + " WHERE (CAST(? AS text) IS NULL OR distribuidora = CAST(? AS text))",
-                                Integer.class,
-                                distribuidora, distribuidora);
-                        if (count != null) {
-                            total += count;
-                        }
-                    } catch (Exception ignored) {
+        java.util.Set<String> existing = getExistingTables();
+        for (String tableName : tableNames) {
+            if (existing.contains(tableName.toLowerCase())) {
+                try {
+                    Integer count = jdbc.queryForObject(
+                            "SELECT COUNT(*) FROM bdgd." + tableName + " WHERE (CAST(? AS text) IS NULL OR distribuidora = CAST(? AS text))",
+                            Integer.class,
+                            distribuidora, distribuidora);
+                    if (count != null) {
+                        total += count;
                     }
+                } catch (Exception ignored) {
                 }
             }
         }
@@ -117,7 +104,22 @@ public class BdgdAssetRepository {
         return total;
     }
 
+    public void invalidateCache() {
+        synchronized (this) {
+            this.cachedTables = null;
+        }
+        this.countCache.clear();
+    }
+
     private boolean tableExists(String tableName) {
-        return getExistingTables().contains(tableName.toLowerCase());
+        if (tableName == null) return false;
+        String lower = tableName.toLowerCase();
+        if (getExistingTables().contains(lower)) {
+            return true;
+        }
+        synchronized (this) {
+            cachedTables = null;
+        }
+        return getExistingTables().contains(lower);
     }
 }

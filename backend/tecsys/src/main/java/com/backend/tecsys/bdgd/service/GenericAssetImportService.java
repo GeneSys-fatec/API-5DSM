@@ -6,6 +6,7 @@ import com.backend.tecsys.bdgd.model.BdgdImportStatus;
 import com.backend.tecsys.bdgd.parser.CsvAssetParser;
 import com.backend.tecsys.bdgd.parser.ExcelAssetParser;
 import com.backend.tecsys.bdgd.parser.JsonAssetParser;
+import com.backend.tecsys.bdgd.repository.BdgdAssetRepository;
 import com.backend.tecsys.bdgd.repository.BdgdImportRepository;
 import com.backend.tecsys.infrastructure.persistence.BdgdInMemoryCache;
 import com.backend.tecsys.radio.model.RfCoordinate;
@@ -23,8 +24,10 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,6 +35,29 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GenericAssetImportService {
 
     private static final int BATCH_SIZE = 500;
+
+    private static final Map<String, String> LAYER_TABLE_MAP = Map.ofEntries(
+            Map.entry("POSTE", "poste"),
+            Map.entry("POST", "poste"),
+            Map.entry("TRAFO", "poste"),
+            Map.entry("TRANSFORMADOR", "poste"),
+            Map.entry("RELIGADOR", "poste"),
+            Map.entry("CHAVE", "poste"),
+            Map.entry("SUB", "sub"),
+            Map.entry("SUBESTACAO", "sub"),
+            Map.entry("SUBESTAÇÃO", "sub"),
+            Map.entry("SE", "sub"),
+            Map.entry("UCBT", "ucbt"),
+            Map.entry("UC_BT", "ucbt"),
+            Map.entry("UCMT", "ucmt"),
+            Map.entry("UC_MT", "ucmt"),
+            Map.entry("SSDBT", "ssdbt"),
+            Map.entry("SSD_BT", "ssdbt"),
+            Map.entry("SSDMT", "ssdmt"),
+            Map.entry("SSD_MT", "ssdmt"),
+            Map.entry("SSDAT", "ssdat"),
+            Map.entry("SSD_AT", "ssdat")
+    );
 
     private final CsvAssetParser csvAssetParser;
     private final ExcelAssetParser excelAssetParser;
@@ -41,6 +67,7 @@ public class GenericAssetImportService {
     private final JdbcTemplate jdbcTemplate;
     private final BdgdS3StorageService storage;
     private final PlatformTransactionManager transactionManager;
+    private final BdgdAssetRepository bdgdAssetRepository;
 
     public boolean isSupportedTabularFormat(String filename) {
         if (filename == null) {
@@ -48,6 +75,14 @@ public class GenericAssetImportService {
         }
         String lower = filename.toLowerCase(Locale.ROOT);
         return lower.endsWith(".csv") || lower.endsWith(".xls") || lower.endsWith(".xlsx") || lower.endsWith(".json");
+    }
+
+    public static String resolveTableName(String assetType) {
+        if (assetType == null) {
+            return "poste";
+        }
+        String norm = assetType.trim().toUpperCase(Locale.ROOT).replace("-", "_").replace(" ", "_");
+        return LAYER_TABLE_MAP.getOrDefault(norm, "poste");
     }
 
     @Async
@@ -78,7 +113,7 @@ public class GenericAssetImportService {
     }
 
     public int importTabularStream(InputStream inputStream, String filename, UUID importId, String distribuidora, String regiao) {
-        ensureAtivoTable();
+        ensureTables();
 
         String lower = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
         TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
@@ -117,6 +152,7 @@ public class GenericAssetImportService {
                 }
             });
 
+            bdgdAssetRepository.invalidateCache();
             importRepository.updateStatus(importId, BdgdImportStatus.CONCLUIDO, null);
             log.info("Importação {} concluída com {} ativos importados com sucesso.", importId, totalImported.get());
             return totalImported.get();
@@ -132,45 +168,61 @@ public class GenericAssetImportService {
         }
     }
 
-    private void ensureAtivoTable() {
+    private void ensureTables() {
         try {
             jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS bdgd");
-            jdbcTemplate.execute("""
-                    CREATE TABLE IF NOT EXISTS bdgd.ativo (
-                        id BIGSERIAL PRIMARY KEY,
-                        ativo_key VARCHAR(100) NOT NULL,
-                        tipo_ativo VARCHAR(50) NOT NULL,
-                        distribuidora VARCHAR(100) NOT NULL,
-                        distribuidora_id BIGINT,
-                        regiao VARCHAR(100),
-                        geom GEOMETRY(Point, 4326)
-                    )
-                    """);
-            jdbcTemplate.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_bdgd_ativo_dist_key ON bdgd.ativo (distribuidora, ativo_key)");
-            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bdgd_ativo_geom ON bdgd.ativo USING GIST (geom)");
+            List<String> tables = List.of("poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat");
+            for (String table : tables) {
+                String geomType = ("sub".equals(table) || table.startsWith("ssd")) ? "Geometry" : "Point";
+                jdbcTemplate.execute(String.format("""
+                        CREATE TABLE IF NOT EXISTS bdgd.%s (
+                            id BIGSERIAL PRIMARY KEY,
+                            tipo_ativo TEXT NOT NULL,
+                            distribuidora TEXT NOT NULL,
+                            regiao TEXT NOT NULL,
+                            asset_key TEXT NOT NULL,
+                            geometry GEOMETRY(%s, 4326) NOT NULL
+                        )
+                        """, table, geomType));
+                jdbcTemplate.execute(String.format(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_%s_asset_key ON bdgd.%s (asset_key)",
+                        table, table));
+                jdbcTemplate.execute(String.format(
+                        "CREATE INDEX IF NOT EXISTS idx_%s_geometry ON bdgd.%s USING GIST (geometry)",
+                        table, table));
+            }
         } catch (Exception e) {
-            log.warn("Não foi possível garantir tabela bdgd.ativo ou índices (PostGIS pode não estar disponível): {}", e.getMessage());
+            log.warn("Não foi possível garantir tabelas da BDGD ou índices (PostGIS pode não estar disponível): {}", e.getMessage());
         }
     }
 
     private void persistBatch(List<AssetFileRecord> records) {
-        String upsertSql = """
-                INSERT INTO bdgd.ativo (ativo_key, tipo_ativo, distribuidora, regiao, geom)
-                VALUES (?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326))
-                ON CONFLICT (distribuidora, ativo_key) DO UPDATE
-                SET tipo_ativo = EXCLUDED.tipo_ativo,
-                    regiao = EXCLUDED.regiao,
-                    geom = EXCLUDED.geom
-                """;
+        Map<String, List<AssetFileRecord>> byTable = records.stream()
+                .collect(Collectors.groupingBy(r -> resolveTableName(r.assetType())));
 
-        jdbcTemplate.batchUpdate(upsertSql, records, records.size(), (ps, r) -> {
-            ps.setString(1, r.assetKey());
-            ps.setString(2, r.assetType());
-            ps.setString(3, r.distribuidora());
-            ps.setString(4, r.regiao());
-            ps.setDouble(5, r.longitude());
-            ps.setDouble(6, r.latitude());
-        });
+        for (Map.Entry<String, List<AssetFileRecord>> entry : byTable.entrySet()) {
+            String table = entry.getKey();
+            List<AssetFileRecord> tableRecords = entry.getValue();
+
+            String upsertSql = String.format("""
+                    INSERT INTO bdgd.%s (tipo_ativo, distribuidora, regiao, asset_key, geometry)
+                    VALUES (?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326))
+                    ON CONFLICT (asset_key) DO UPDATE
+                    SET tipo_ativo = EXCLUDED.tipo_ativo,
+                        distribuidora = EXCLUDED.distribuidora,
+                        regiao = EXCLUDED.regiao,
+                        geometry = EXCLUDED.geometry
+                    """, table);
+
+            jdbcTemplate.batchUpdate(upsertSql, tableRecords, tableRecords.size(), (ps, r) -> {
+                ps.setString(1, r.assetType());
+                ps.setString(2, r.distribuidora());
+                ps.setString(3, r.regiao());
+                ps.setString(4, r.assetKey());
+                ps.setDouble(5, r.longitude());
+                ps.setDouble(6, r.latitude());
+            });
+        }
     }
 
     private void populateInMemoryCache(List<AssetFileRecord> records) {

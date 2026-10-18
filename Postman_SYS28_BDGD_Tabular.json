@@ -1,0 +1,226 @@
+{
+  "info": {
+    "name": "SYS-28: Importação de Dados Tabulares (CSV, XLS, JSON) e BDGD",
+    "_postman_id": "b3e34898-1144-42b7-a3f2-1f486b71329c",
+    "description": "Coleção de testes para validação dos endpoints da história SYS-28: templates de arquivo, upload assíncrono com validação de linha/campo e consulta nas camadas oficiais da BDGD.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Autenticação - Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.expect(jsonData.token).to.not.be.empty;",
+              "pm.environment.set(\"jwt_token\", jsonData.token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@tecsys.com\",\n  \"senha\": \"Admin@123\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/login",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "2. Baixar Template CSV",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/bdgd/template/csv",
+          "host": ["{{base_url}}"],
+          "path": ["api", "bdgd", "template", "csv"]
+        }
+      }
+    },
+    {
+      "name": "3. Baixar Template Excel (.xlsx)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/bdgd/template/xlsx",
+          "host": ["{{base_url}}"],
+          "path": ["api", "bdgd", "template", "xlsx"]
+        }
+      }
+    },
+    {
+      "name": "4. Baixar Template JSON",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/bdgd/template/json",
+          "host": ["{{base_url}}"],
+          "path": ["api", "bdgd", "template", "json"]
+        }
+      }
+    },
+    {
+      "name": "5. Upload de Arquivo Tabular Válido (CSV)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.expect(pm.response.code).to.equal(202);",
+              "pm.expect(jsonData.importId).to.not.be.empty;",
+              "pm.environment.set(\"last_import_id\", jsonData.importId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "distribuidora",
+              "value": "CPFL",
+              "type": "text"
+            },
+            {
+              "key": "regiao",
+              "value": "CAMPINAS",
+              "type": "text"
+            },
+            {
+              "key": "data",
+              "value": "2026-10-18",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/bdgd/upload",
+          "host": ["{{base_url}}"],
+          "path": ["api", "bdgd", "upload"]
+        }
+      }
+    },
+    {
+      "name": "6. Consultar Status da Importação por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/bdgd/{{last_import_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "bdgd", "{{last_import_id}}"]
+        }
+      }
+    },
+    {
+      "name": "7. Listar Todas as Bases Importadas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/bdgd/bases",
+          "host": ["{{base_url}}"],
+          "path": ["api", "bdgd", "bases"]
+        }
+      }
+    },
+    {
+      "name": "8. Consultar Ativos de Camada no Mapa (POSTE)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/bdgd/map?layer=POSTE&limit=100",
+          "host": ["{{base_url}}"],
+          "path": ["api", "bdgd", "map"],
+          "query": [
+            {
+              "key": "layer",
+              "value": "POSTE"
+            },
+            {
+              "key": "limit",
+              "value": "100"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "jwt_token",
+      "value": ""
+    },
+    {
+      "key": "last_import_id",
+      "value": ""
+    }
+  ]
+}
