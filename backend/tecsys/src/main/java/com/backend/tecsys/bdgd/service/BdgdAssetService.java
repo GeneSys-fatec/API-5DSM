@@ -8,18 +8,23 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class BdgdAssetService {
-    private static final Map<String, String> TABLES = Map.of(
-            "POSTE", "poste",
-            "SUB", "sub",
-            "UCBT", "ucbt",
-            "UCMT", "ucmt",
-            "SSDBT", "ssdbt",
-            "SSDMT", "ssdmt",
-            "SSDAT", "ssdat"
+        private static final Map<String, String> TABLES = Map.ofEntries(
+            Map.entry("POSTE", "poste"),
+            Map.entry("SUB", "sub"),
+            Map.entry("UCBT", "ucbt"),
+            Map.entry("UCMT", "ucmt"),
+            Map.entry("SSDBT", "ssdbt"),
+            Map.entry("SSDMT", "ssdmt"),
+            Map.entry("SSDAT", "ssdat"),
+            Map.entry("PONNOT", "ponnot"),
+            Map.entry("UNTRMT", "untrmt"),
+            Map.entry("UNREMT", "unremt"),
+            Map.entry("UNCRAT", "uncrat")
     );
     private static final int DEFAULT_LIMIT = 1000;
     private static final int MAX_LIMIT = 10000;
@@ -75,6 +80,11 @@ public class BdgdAssetService {
 
     public int countAssetsByDistribuidora(String distribuidora) {
         return repository.countAssetsByDistribuidora(distribuidora, List.copyOf(TABLES.values()));
+    }
+
+
+    public int countAssetsByImportId(UUID importId) {
+        return repository.countAssetsByImportId(importId, List.copyOf(TABLES.values()));
     }
 
     private String blankToNull(String value) {

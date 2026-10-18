@@ -25,11 +25,24 @@ public class PostgresAssetRepository implements IAssetRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
-    private final RowMapper<Asset> assetRowMapper = (rs, rowNum) -> Asset.builder()
-            .assetKey(rs.getString("asset_key"))
-            .assetType(rs.getString("tipo_ativo"))
-            .coordinate(new RfCoordinate(rs.getDouble("latitude"), rs.getDouble("longitude")))
-            .build();
+    private final RowMapper<Asset> assetRowMapper = (rs, rowNum) -> {
+        String key = null;
+        try {
+            key = rs.getString("asset_key");
+        } catch (Exception ignored) {
+        }
+        if (key == null) {
+            try {
+                key = rs.getString("ativo_key");
+            } catch (Exception ignored) {
+            }
+        }
+        return Asset.builder()
+                .assetKey(key)
+                .assetType(rs.getString("tipo_ativo"))
+                .coordinate(new RfCoordinate(rs.getDouble("latitude"), rs.getDouble("longitude")))
+                .build();
+    };
 
     public PostgresAssetRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -49,6 +62,10 @@ public class PostgresAssetRepository implements IAssetRepository {
         }
     }
 
+    private List<String> existingAssetTables() {
+        return getExistingAssetTables();
+    }
+
     @Override
     public List<Asset> findByUtilityId(Long utilityId) {
         List<String> tables = getExistingAssetTables();
@@ -64,7 +81,7 @@ public class PostgresAssetRepository implements IAssetRepository {
                     sql.append(" UNION ALL ");
                 }
                 sql.append(String.format("""
-                        SELECT asset_key, tipo_ativo,
+                        SELECT asset_key, asset_key AS ativo_key, tipo_ativo,
                                ST_Y(ST_Centroid(geometry)) AS latitude, ST_X(ST_Centroid(geometry)) AS longitude
                         FROM bdgd.%s
                         WHERE (CAST(? AS text) IS NULL OR distribuidora = CAST(? AS text))
@@ -89,28 +106,55 @@ public class PostgresAssetRepository implements IAssetRepository {
         }
 
         try {
-            StringBuilder sql = new StringBuilder();
-            List<Object> params = new ArrayList<>();
-            for (int i = 0; i < tables.size(); i++) {
-                if (i > 0) {
-                    sql.append(" UNION ALL ");
-                }
-                sql.append(String.format("""
-                        SELECT asset_key, tipo_ativo,
-                               ST_Y(ST_Centroid(geometry)) AS latitude, ST_X(ST_Centroid(geometry)) AS longitude
-                        FROM bdgd.%s
-                        WHERE ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)
-                        """, tables.get(i)));
-                params.add(longitude);
-                params.add(latitude);
-                params.add(radiusMeters);
-            }
-            sql.append(" ORDER BY asset_key LIMIT 5000");
-            return jdbcTemplate.query(sql.toString(), assetRowMapper, params.toArray());
+            return jdbcTemplate.query(buildRadiusQuery(false), assetRowMapper,
+                    radiusParameters(longitude, latitude, radiusMeters, false));
         } catch (Exception e) {
             throw new ScenarioPersistenceException(
                     "Falha ao obter os ativos no raio especificado.", e);
         }
+    }
+
+    private String buildRadiusQuery(boolean withEnvelope) {
+        List<String> tables = getExistingAssetTables();
+        if (tables.isEmpty()) {
+            return "SELECT NULL::text AS asset_key, NULL::text AS ativo_key, NULL::text AS tipo_ativo, "
+                    + "NULL::double precision AS latitude, NULL::double precision AS longitude WHERE FALSE";
+        }
+
+        String union = tables.stream()
+                .map(table -> "SELECT asset_key, asset_key AS ativo_key, tipo_ativo, geometry "
+                        + "FROM bdgd." + table
+                        + " WHERE " + (withEnvelope
+                        ? "geometry && ST_MakeEnvelope(?, ?, ?, ?, 4326) AND " : "")
+                        + "ST_DWithin(geometry::geography, "
+                        + "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)")
+                .collect(java.util.stream.Collectors.joining(" UNION ALL "));
+        return "SELECT asset_key, ativo_key, tipo_ativo, ST_Y(ST_Centroid(geometry)) AS latitude, "
+                + "ST_X(ST_Centroid(geometry)) AS longitude FROM (" + union + ") assets "
+                + "ORDER BY asset_key" + (withEnvelope ? "" : " LIMIT 5000");
+    }
+
+    private Object[] radiusParameters(
+            double longitude, double latitude, double radiusMeters, boolean withEnvelope) {
+        List<Object> parameters = new java.util.ArrayList<>();
+        int count = getExistingAssetTables().size();
+        for (int ignored = 0; ignored < count; ignored++) {
+            if (withEnvelope) {
+                double deltaLatitude = radiusMeters / METERS_PER_DEGREE_LATITUDE * ENVELOPE_SAFETY_FACTOR;
+                double metersPerDegreeLongitude = METERS_PER_DEGREE_LATITUDE * Math.cos(Math.toRadians(latitude));
+                double deltaLongitude = metersPerDegreeLongitude <= 0
+                        ? 180.0
+                        : radiusMeters / metersPerDegreeLongitude * ENVELOPE_SAFETY_FACTOR;
+                parameters.add(longitude - deltaLongitude);
+                parameters.add(latitude - deltaLatitude);
+                parameters.add(longitude + deltaLongitude);
+                parameters.add(latitude + deltaLatitude);
+            }
+            parameters.add(longitude);
+            parameters.add(latitude);
+            parameters.add(radiusMeters);
+        }
+        return parameters.toArray();
     }
 
     @Override
@@ -120,41 +164,11 @@ public class PostgresAssetRepository implements IAssetRepository {
             return Collections.emptyList();
         }
 
-        double deltaLatitude = radiusMeters / METERS_PER_DEGREE_LATITUDE * ENVELOPE_SAFETY_FACTOR;
-        double metersPerDegreeLongitude = METERS_PER_DEGREE_LATITUDE * Math.cos(Math.toRadians(latitude));
-        double deltaLongitude = metersPerDegreeLongitude <= 0
-                ? 180.0
-                : radiusMeters / metersPerDegreeLongitude * ENVELOPE_SAFETY_FACTOR;
-
-        double minLon = longitude - deltaLongitude;
-        double minLat = latitude - deltaLatitude;
-        double maxLon = longitude + deltaLongitude;
-        double maxLat = latitude + deltaLatitude;
-
         try {
-            StringBuilder sql = new StringBuilder();
-            List<Object> params = new ArrayList<>();
-            for (int i = 0; i < tables.size(); i++) {
-                if (i > 0) {
-                    sql.append(" UNION ALL ");
-                }
-                sql.append(String.format("""
-                        SELECT asset_key, tipo_ativo,
-                               ST_Y(ST_Centroid(geometry)) AS latitude, ST_X(ST_Centroid(geometry)) AS longitude
-                        FROM bdgd.%s
-                        WHERE geometry && ST_MakeEnvelope(?, ?, ?, ?, 4326)
-                          AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)
-                        """, tables.get(i)));
-                params.add(minLon);
-                params.add(minLat);
-                params.add(maxLon);
-                params.add(maxLat);
-                params.add(longitude);
-                params.add(latitude);
-                params.add(radiusMeters);
-            }
-            sql.append(" ORDER BY asset_key");
-            return jdbcTemplate.query(sql.toString(), assetRowMapper, params.toArray());
+            return jdbcTemplate.query(
+                    buildRadiusQuery(true),
+                    assetRowMapper,
+                    radiusParameters(longitude, latitude, radiusMeters, true));
         } catch (Exception e) {
             throw new ScenarioPersistenceException(
                     "Falha ao obter os ativos da área de busca.", e);

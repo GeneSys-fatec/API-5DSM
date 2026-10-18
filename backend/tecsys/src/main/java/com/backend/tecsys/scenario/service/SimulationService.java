@@ -143,6 +143,7 @@ public class SimulationService {
                 command.propagationModel(),
                 command.rfParameter(),
                 selectedCandidates,
+                selection.selectedCoverages(),
                 coveredAssetKeysResult,
                 uncoveredAssetKeysResult,
                 indicator,
@@ -298,6 +299,7 @@ public class SimulationService {
             PropagationModelType propagationModel,
             RfParameter rfParameter,
             List<GatewayCandidate> selectedGateways,
+            List<GatewayCoverage> selectedCoverages,
             List<String> coveredAssetKeys,
             List<String> uncoveredAssetKeys,
             ScenarioIndicator indicator,
@@ -312,7 +314,7 @@ public class SimulationService {
                 List<String> coveredAssetKeys,
                 List<String> uncoveredAssetKeys,
                 ScenarioIndicator indicator) {
-            this(scenarioId, status, propagationModel, rfParameter, selectedGateways,
+                this(scenarioId, status, propagationModel, rfParameter, selectedGateways, List.of(),
                     coveredAssetKeys, uncoveredAssetKeys, indicator, 0.0);
         }
     }
