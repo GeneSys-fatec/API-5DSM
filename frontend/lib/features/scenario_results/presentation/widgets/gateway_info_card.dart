@@ -115,21 +115,25 @@ class GatewayInfoCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryLight,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  gateway.posteId,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.primaryDark,
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    gateway.posteId,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primaryDark,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -407,6 +411,14 @@ class GatewayInfoCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (gateway.shadowedAssetKeys.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  _ParamTile(
+                    icon: Icons.cloud_outlined,
+                    label: 'Ativos em Sombra',
+                    value: '${gateway.shadowedAssetKeys.length}',
+                  ),
+                ],
                 if (gateway.coverageRadiusMeters > 0) ...[
                   const SizedBox(height: 6),
                   Container(

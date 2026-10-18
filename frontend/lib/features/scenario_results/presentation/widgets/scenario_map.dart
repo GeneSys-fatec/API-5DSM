@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -22,7 +23,9 @@ LatLngBounds? computeScenarioViewBounds(SimulationScenario scenario) {
     final metersPerDegreeLng =
         metersPerDegreeLat * math.cos(lat * math.pi / 180.0);
     final dLat = radiusMeters / metersPerDegreeLat;
-    final dLng = metersPerDegreeLng <= 0 ? 180.0 : radiusMeters / metersPerDegreeLng;
+    final dLng = metersPerDegreeLng <= 0
+        ? 180.0
+        : radiusMeters / metersPerDegreeLng;
     minLat = math.min(minLat, lat - dLat);
     maxLat = math.max(maxLat, lat + dLat);
     minLng = math.min(minLng, lng - dLng);
@@ -89,7 +92,10 @@ class _ScenarioMapState extends State<ScenarioMap> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.of(context).pop(),
             ),
-            title: const Text('Mapa de Cobertura', style: TextStyle(fontSize: 20)),
+            title: const Text(
+              'Mapa de Cobertura',
+              style: TextStyle(fontSize: 20),
+            ),
           ),
           body: Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
@@ -111,6 +117,7 @@ class _ScenarioMapState extends State<ScenarioMap> {
     final searchRadius = widget.scenario.searchRadiusMeters;
     final hasSearchArea = searchRadius > 0;
     final viewBounds = computeScenarioViewBounds(widget.scenario);
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,7 +125,9 @@ class _ScenarioMapState extends State<ScenarioMap> {
         MapLayerToggleBar(
           activeLayers: _activeLayers,
           onToggle: _toggleLayer,
-          hiddenLayers: hasSearchArea ? const {} : const {MapLayerType.searchArea},
+          hiddenLayers: hasSearchArea
+              ? const {}
+              : const {MapLayerType.searchArea},
         ),
         const SizedBox(height: 10),
         Expanded(
@@ -144,7 +153,8 @@ class _ScenarioMapState extends State<ScenarioMap> {
                   children: [
                     if (widget.enableTiles)
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.tecsys.api5dsm',
                       ),
                     if (hasSearchArea &&
@@ -156,27 +166,15 @@ class _ScenarioMapState extends State<ScenarioMap> {
                             radius: searchRadius,
                             useRadiusInMeter: true,
                             color: Colors.deepOrange.withValues(alpha: 0.05),
-                            borderColor: Colors.deepOrange.withValues(alpha: 0.85),
+                            borderColor: Colors.deepOrange.withValues(
+                              alpha: 0.85,
+                            ),
                             borderStrokeWidth: 2,
                           ),
                         ],
                       ),
                     if (_activeLayers.contains(MapLayerType.coverage))
-                      CircleLayer(
-                        circles: gateways
-                            .map(
-                              (gw) => CircleMarker(
-                                point: LatLng(gw.lat, gw.lng),
-                                radius: gw.coverageRadiusMeters,
-                                useRadiusInMeter: true,
-                                color: AppColors.primaryDark.withOpacity(0.08),
-                                borderColor:
-                                    AppColors.primaryDark.withOpacity(0.4),
-                                borderStrokeWidth: 1.5,
-                              ),
-                            )
-                            .toList(),
-                      ),
+                      _buildCoverageLayer(gateways),
                     if (_activeLayers.contains(MapLayerType.gateways))
                       MarkerLayer(
                         markers: gateways
@@ -217,33 +215,80 @@ class _ScenarioMapState extends State<ScenarioMap> {
                     ),
                   ],
                 ),
-                if (hasSearchArea && _activeLayers.contains(MapLayerType.searchArea))
+                if (hasSearchArea &&
+                    _activeLayers.contains(MapLayerType.searchArea))
                   Positioned(
                     right: 8,
                     bottom: 24,
                     child: _SearchAreaLegend(radiusMeters: searchRadius),
                   ),
-                if (_selectedGateway != null)
-                  Positioned(
-                    left: MediaQuery.sizeOf(context).width < 600 ? 12 : 16,
-                    right: MediaQuery.sizeOf(context).width < 600 ? 12 : null,
-                    bottom: 12,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.sizeOf(context).width < 600
-                            ? double.infinity
-                            : 360,
-                        maxHeight: MediaQuery.sizeOf(context).width < 600
-                            ? 400
-                            : 480,
-                      ),
-                      child: GatewayInfoCard(
-                        gateway: _selectedGateway!,
-                        defaultMunicipio: widget.scenario.region,
-                        onClose: () => setState(() => _selectedGateway = null),
-                      ),
+                Positioned(
+                  left: isMobile ? 12 : 16,
+                  right: isMobile ? 12 : null,
+                  bottom: 12,
+                  child: IgnorePointer(
+                    ignoring: _selectedGateway == null,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      reverseDuration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.linear,
+                      switchOutCurve: Curves.linear,
+                      transitionBuilder: (child, animation) {
+                        final fadeAnimation = CurvedAnimation(
+                          parent: animation,
+                          curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
+                          reverseCurve: const Interval(0.25, 1.0, curve: Curves.easeIn),
+                        );
+                        final scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutBack,
+                            reverseCurve: Curves.easeInCubic,
+                          ),
+                        );
+                        final slideAnimation = Tween<Offset>(
+                          begin: Offset(0.0, isMobile ? 0.08 : 0.05),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                            reverseCurve: Curves.easeInCubic,
+                          ),
+                        );
+
+                        return FadeTransition(
+                          opacity: fadeAnimation,
+                          child: ScaleTransition(
+                            scale: scaleAnimation,
+                            alignment: isMobile
+                                ? Alignment.bottomCenter
+                                : Alignment.bottomLeft,
+                            child: SlideTransition(
+                              position: slideAnimation,
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                      child: _selectedGateway == null
+                          ? const SizedBox.shrink(key: ValueKey('empty_gateway'))
+                          : ConstrainedBox(
+                              key: ValueKey('gateway_${_selectedGateway!.id}'),
+                              constraints: BoxConstraints(
+                                maxWidth: isMobile ? double.infinity : 360,
+                                maxHeight: isMobile ? 400 : 480,
+                              ),
+                              child: GatewayInfoCard(
+                                gateway: _selectedGateway!,
+                                defaultMunicipio: widget.scenario.region,
+                                onClose: () =>
+                                    setState(() => _selectedGateway = null),
+                              ),
+                            ),
                     ),
                   ),
+                ),
                 if (!widget.isFullScreen)
                   Positioned(
                     right: 8,
@@ -257,6 +302,58 @@ class _ScenarioMapState extends State<ScenarioMap> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildCoverageLayer(List<GatewayPoint> gateways) {
+    final polygons = <Polygon>[];
+    final circles = <CircleMarker>[];
+    for (final gateway in gateways) {
+      final geometry = gateway.coverageGeometryGeoJson;
+      if (geometry != null) {
+        try {
+          final decoded = jsonDecode(geometry) as Map<String, dynamic>;
+          final rings = decoded['coordinates'] as List<dynamic>;
+          final points = (rings.first as List<dynamic>)
+              .map((point) => point as List<dynamic>)
+              .map(
+                (point) => LatLng(
+                  (point[1] as num).toDouble(),
+                  (point[0] as num).toDouble(),
+                ),
+              )
+              .toList();
+          if (points.length >= 3) {
+            polygons.add(
+              Polygon(
+                points: points,
+                color: AppColors.primaryDark.withOpacity(0.10),
+                borderColor: AppColors.primaryDark.withOpacity(0.55),
+                borderStrokeWidth: 1.5,
+              ),
+            );
+            continue;
+          }
+        } catch (_) {
+          // A malformed optional geometry falls back to the legacy radius.
+        }
+      }
+      circles.add(
+        CircleMarker(
+          point: LatLng(gateway.lat, gateway.lng),
+          radius: gateway.coverageRadiusMeters,
+          useRadiusInMeter: true,
+          color: AppColors.primaryDark.withOpacity(0.08),
+          borderColor: AppColors.primaryDark.withOpacity(0.4),
+          borderStrokeWidth: 1.5,
+        ),
+      );
+    }
+    return Stack(
+      children: [
+        if (polygons.isNotEmpty) PolygonLayer(polygons: polygons),
+        if (circles.isNotEmpty) CircleLayer(circles: circles),
       ],
     );
   }
