@@ -71,5 +71,11 @@ public class SimulationResponse {
 
         @Schema(description = "Raio estimado de cobertura em metros.", example = "1850.5")
         private double coverageRadiusMeters;
+
+        @Schema(description = "Geometria GeoJSON da cobertura efetiva, quando calculada com relevo.")
+        private String coverageGeometryGeoJson;
+
+        @Schema(description = "Ativos bloqueados por obstrução de relevo.")
+        private List<String> shadowedAssetKeys;
     }
 }

@@ -12,6 +12,8 @@ class BasesSection extends StatelessWidget {
   final VoidCallback? onRefresh;
   final String? error;
   final ValueChanged<BdgdBase>? onSelectBase;
+  final ValueChanged<BdgdBase>? onEditBase;
+  final String? emptyMessage;
 
   const BasesSection({
     super.key,
@@ -20,6 +22,8 @@ class BasesSection extends StatelessWidget {
     this.onRefresh,
     this.error,
     this.onSelectBase,
+    this.onEditBase,
+    this.emptyMessage,
   });
 
   int get totalAtivos => bases.fold(0, (sum, b) => sum + b.ativosMapeados);
@@ -126,30 +130,123 @@ class BasesSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(Icons.folder_open_rounded, size: 40, color: AppColors.textMuted),
-                    SizedBox(height: 8),
+                    const Icon(Icons.folder_open_rounded, size: 40, color: AppColors.textMuted),
+                    const SizedBox(height: 8),
                     Text(
-                      'Nenhuma base importada ainda.',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Envie um arquivo .zip acima para salvar na pasta uploads e iniciar o processamento.',
+                      emptyMessage ?? 'Nenhuma base importada ainda.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      emptyMessage != null
+                          ? 'Ajuste ou limpe os filtros de região e distribuidora para ver mais resultados.'
+                          : 'Envie um arquivo .zip acima para salvar na pasta uploads e iniciar o processamento.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                     ),
                   ],
                 ),
               )
             else
-              useTable
-                  ? BasesTable(bases: bases, onSelectBase: onSelectBase)
-                  : BaseCardsList(bases: bases, onSelectBase: onSelectBase),
+              _buildGroupedBases(useTable),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildGroupedBases(bool useTable) {
+    final regionGroups = groupBasesByRegionAndDistributor(bases);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final region in regionGroups) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.public_rounded, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    region.region,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final distributor in region.distributors) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 24, bottom: 6),
+              child: Text(
+                '${distributor.distributor} · ${distributor.bases.length} base(s)',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 12, bottom: 16),
+              child: useTable
+                  ? BasesTable(bases: distributor.bases, onSelectBase: onSelectBase, onEditBase: onEditBase)
+                  : BaseCardsList(bases: distributor.bases, onSelectBase: onSelectBase, onEditBase: onEditBase),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class BdgdRegionGroup {
+  final String region;
+  final List<BdgdDistributorGroup> distributors;
+
+  const BdgdRegionGroup({required this.region, required this.distributors});
+}
+
+class BdgdDistributorGroup {
+  final String distributor;
+  final List<BdgdBase> bases;
+
+  const BdgdDistributorGroup({required this.distributor, required this.bases});
+}
+
+List<BdgdRegionGroup> groupBasesByRegionAndDistributor(List<BdgdBase> bases) {
+  final byRegion = <String, Map<String, List<BdgdBase>>>{};
+  for (final base in bases) {
+    final region = (base.regiao ?? '').trim();
+    final regionKey = region.isEmpty ? 'Região não informada' : region;
+    final distributorKey = base.distribuidora.trim();
+    byRegion
+        .putIfAbsent(regionKey, () => <String, List<BdgdBase>>{})
+        .putIfAbsent(distributorKey, () => <BdgdBase>[])
+        .add(base);
+  }
+
+  final regions = byRegion.keys.toList()..sort();
+  return regions.map((region) {
+    final distributors = byRegion[region]!.keys.toList()..sort();
+    return BdgdRegionGroup(
+      region: region,
+      distributors: distributors
+          .map(
+            (distributor) => BdgdDistributorGroup(
+              distributor: distributor,
+              bases: byRegion[region]![distributor]!,
+            ),
+          )
+          .toList(),
+    );
+  }).toList();
 }

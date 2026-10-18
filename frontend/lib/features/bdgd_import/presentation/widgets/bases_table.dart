@@ -6,14 +6,15 @@ import '../../models/bdgd_base.dart';
 class BasesTable extends StatelessWidget {
   final List<BdgdBase> bases;
   final ValueChanged<BdgdBase>? onSelectBase;
-  const BasesTable({super.key, required this.bases, this.onSelectBase});
+  final ValueChanged<BdgdBase>? onEditBase;
+  const BasesTable({super.key, required this.bases, this.onSelectBase, this.onEditBase});
 
   static const _flexDistribuidora = 3;
   static const _flexVersao = 2;
   static const _flexStatus = 2;
   static const _flexAtivos = 2;
   static const _flexProjecao = 2;
-  static const _flexAcao = 2;
+  static const _flexAcao = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -142,30 +143,43 @@ class BasesTable extends StatelessWidget {
                   ),
                   Expanded(
                     flex: _flexAcao,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: ElevatedButton.icon(
-                        onPressed: (b.status == 'concluido' || b.status == 'concluído')
-                            ? () => onSelectBase?.call(b)
-                            : null,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                        label: const Text(
-                          'Simular',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: AppColors.border,
-                          disabledForegroundColor: AppColors.textMuted,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: (b.status == 'concluido' || b.status == 'concluído')
+                              ? () => onSelectBase?.call(b)
+                              : null,
+                          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                          label: const Text(
+                            'Simular',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: AppColors.border,
+                            disabledForegroundColor: AppColors.textMuted,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                           ),
                         ),
-                      ),
+                        if (onEditBase != null && b.id != null) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            tooltip: 'Editar região/distribuidora',
+                            onPressed: () => onEditBase?.call(b),
+                            icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.primary),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

@@ -1,3 +1,5 @@
+ETL/*.gdb
+ETL/.etl_state.json
 .kiro
 .vscode
 
