@@ -13,11 +13,7 @@ class SearchAreaRequest {
   });
 
   Map<String, dynamic> toMap() {
-    return {
-      'latitude': latitude,
-      'longitude': longitude,
-      'radius': radius,
-    };
+    return {'latitude': latitude, 'longitude': longitude, 'radius': radius};
   }
 
   String toJson() => json.encode(toMap());
@@ -187,7 +183,9 @@ class SimulationRequest {
       'gatewayCandidates': gatewayCandidates.map((e) => e.toMap()).toList(),
       'propagationModel': propagationModel,
       if (gatewayUnitCost != null) 'gatewayUnitCost': gatewayUnitCost,
-      if (searchCenterLatitude != null && searchCenterLongitude != null && searchRadiusMeters != null) ...{
+      if (searchCenterLatitude != null &&
+          searchCenterLongitude != null &&
+          searchRadiusMeters != null) ...{
         'searchCenterLatitude': searchCenterLatitude,
         'searchCenterLongitude': searchCenterLongitude,
         'searchRadiusMeters': searchRadiusMeters,
@@ -212,6 +210,8 @@ class SelectedGatewayResponse {
   final double coverageRadiusMeters;
   final String? address;
   final String? municipio;
+  final String? coverageGeometryGeoJson;
+  final List<String> shadowedAssetKeys;
 
   const SelectedGatewayResponse({
     required this.candidateId,
@@ -220,6 +220,8 @@ class SelectedGatewayResponse {
     required this.coverageRadiusMeters,
     this.address,
     this.municipio,
+    this.coverageGeometryGeoJson,
+    this.shadowedAssetKeys = const [],
   });
 
   factory SelectedGatewayResponse.fromMap(Map<String, dynamic> map) {
@@ -230,6 +232,10 @@ class SelectedGatewayResponse {
       coverageRadiusMeters: (map['coverageRadiusMeters'] as num).toDouble(),
       address: map['address'] as String? ?? map['endereco'] as String?,
       municipio: map['municipio'] as String? ?? map['cidade'] as String?,
+      coverageGeometryGeoJson: map['coverageGeometryGeoJson'] as String?,
+      shadowedAssetKeys: List<String>.from(
+        map['shadowedAssetKeys'] as List? ?? const [],
+      ),
     );
   }
 }
@@ -267,21 +273,27 @@ class SimulationResponse {
 
   factory SimulationResponse.fromMap(Map<String, dynamic> map) {
     final gatewaysList = map['selectedGateways'] as List<dynamic>? ?? [];
+    final coverageByType = map['coveragePctByAssetType'] as Map? ?? const {};
     return SimulationResponse(
       scenarioId: (map['scenarioId'] as num).toInt(),
       status: map['status'] as String,
       propagationModel: map['propagationModel'] as String,
       rfParameter: Map<String, dynamic>.from(map['rfParameter'] as Map),
       selectedGateways: gatewaysList
-          .map((e) => SelectedGatewayResponse.fromMap(e as Map<String, dynamic>))
+          .map(
+            (e) => SelectedGatewayResponse.fromMap(e as Map<String, dynamic>),
+          )
           .toList(),
       totalCoveragePct: (map['totalCoveragePct'] as num).toDouble(),
-      coveragePctByAssetType:
-          Map<String, double>.from(map['coveragePctByAssetType'] as Map),
-      coveredAssetKeys:
-          List<String>.from(map['coveredAssetKeys'] as List? ?? []),
-      uncoveredAssetKeys:
-          List<String>.from(map['uncoveredAssetKeys'] as List? ?? []),
+      coveragePctByAssetType: coverageByType.map(
+        (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+      ),
+      coveredAssetKeys: List<String>.from(
+        map['coveredAssetKeys'] as List? ?? [],
+      ),
+      uncoveredAssetKeys: List<String>.from(
+        map['uncoveredAssetKeys'] as List? ?? [],
+      ),
       usedGatewayCount: (map['usedGatewayCount'] as num).toInt(),
       totalEstimatedCost: (map['totalEstimatedCost'] as num).toDouble(),
       processingTimeMs: (map['processingTimeMs'] as num).toInt(),
@@ -298,43 +310,60 @@ class SimulationResponse {
     required String regionName,
     double searchRadiusMeters = 0.0,
   }) {
+    double rfNumber(String key, double fallback) {
+      final value = rfParameter[key];
+      return value is num ? value.toDouble() : fallback;
+    }
+
     final gateways = selectedGateways.map((gw) {
       final candidateIndex = gw.candidateId - 1;
-      final assetKey = candidateIndex >= 0 && candidateIndex < coveredAssetKeys.length
+      final assetKey =
+          candidateIndex >= 0 && candidateIndex < coveredAssetKeys.length
           ? coveredAssetKeys[candidateIndex]
           : 'GW-${gw.candidateId}';
-      
+
       return GatewayPoint(
         id: 'GW-${gw.candidateId}',
         posteId: assetKey,
         lat: gw.latitude,
         lng: gw.longitude,
-        antennaHeight: rfParameter['antennaHeightM'] as double? ?? 6.0,
-        txPowerDbm: rfParameter['transmitPowerDbm'] as double? ?? 21.0,
+        antennaHeight: rfNumber('antennaHeightM', 6.0),
+        txPowerDbm: rfNumber('transmitPowerDbm', 21.0),
         linkedAssets: selectedGateways.isEmpty
             ? 0
             : (coveredAssetKeys.length / selectedGateways.length).round(),
-        avgFadeMarginDb: rfParameter['systemLossDb'] as double? ?? 14.0,
+        avgFadeMarginDb: rfNumber('systemLossDb', 14.0),
         coverageRadiusMeters: gw.coverageRadiusMeters,
         address: gw.address,
         municipio: gw.municipio ?? (regionName.isNotEmpty ? regionName : null),
+        coverageGeometryGeoJson: gw.coverageGeometryGeoJson,
+        shadowedAssetKeys: gw.shadowedAssetKeys,
       );
     }).toList();
 
     final totalAssets = coveredAssetKeys.length + uncoveredAssetKeys.length;
-    
+
     return SimulationScenario(
       id: scenarioId.toString(),
-      code: 'SIM-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+      code:
+          'SIM-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
       region: regionName,
-      centerLat: double.tryParse(centerLat) ?? (selectedGateways.isNotEmpty ? selectedGateways.first.latitude : -22.9068),
-      centerLng: double.tryParse(centerLng) ?? (selectedGateways.isNotEmpty ? selectedGateways.first.longitude : -47.0616),
+      centerLat:
+          double.tryParse(centerLat) ??
+          (selectedGateways.isNotEmpty
+              ? selectedGateways.first.latitude
+              : -22.9068),
+      centerLng:
+          double.tryParse(centerLng) ??
+          (selectedGateways.isNotEmpty
+              ? selectedGateways.first.longitude
+              : -47.0616),
       searchRadiusMeters: searchRadiusMeters,
       executedAt: DateTime.now(),
       parameters: ScenarioParameters(
         feederName: regionName,
         gatewayCount: usedGatewayCount,
-        txPowerDbm: rfParameter['transmitPowerDbm'] as double? ?? 21.0,
+        txPowerDbm: rfNumber('transmitPowerDbm', 21.0),
         propagationModel: propagationModel,
       ),
       results: ScenarioResults(
@@ -342,7 +371,8 @@ class SimulationResponse {
         connectedAssets: coveredAssetKeys.length,
         totalAssets: totalAssets,
         implementationCost: totalEstimatedCost,
-        avgRssiDbm: (rfParameter['receiverSensitivityDbm'] as double? ?? -120.0).roundToDouble(),
+        avgRssiDbm: (rfParameter['receiverSensitivityDbm'] as double? ?? -120.0)
+            .roundToDouble(),
         gateways: gateways,
       ),
     );
