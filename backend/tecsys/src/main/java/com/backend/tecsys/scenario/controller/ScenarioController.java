@@ -48,6 +48,7 @@ public class ScenarioController {
 
         User user = authenticatedUser(authentication);
         SimulationService.SimulationCommand command = new SimulationService.SimulationCommand(
+                request.getImportId(),
                 request.getName(),
                 request.getRegionName(),
                 request.getCoverageTargetPct(),
