@@ -1,8 +1,10 @@
 package com.backend.tecsys.scenario.service;
 
+import com.backend.tecsys.bdgd.service.BdgdAssetService;
 import com.backend.tecsys.scenario.dto.AssetDto;
 import com.backend.tecsys.scenario.dto.SearchAreaRequest;
 import com.backend.tecsys.scenario.dto.SearchAreaResponse;
+import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
 import com.backend.tecsys.scenario.model.Asset;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import java.util.stream.Collectors;
 public class SearchAreaService {
 
     private final com.backend.tecsys.scenario.repository.IAssetRepository assetRepository;
+    private final BdgdAssetService bdgdAssetService;
 
     @Value("${search.area.radius.min:100.0}")
     private Double minRadius;
@@ -22,20 +25,30 @@ public class SearchAreaService {
     private Double maxRadius;
 
     public SearchAreaService(
-            com.backend.tecsys.scenario.repository.IAssetRepository assetRepository) {
+            com.backend.tecsys.scenario.repository.IAssetRepository assetRepository,
+            BdgdAssetService bdgdAssetService) {
         this.assetRepository = assetRepository;
+        this.bdgdAssetService = bdgdAssetService;
     }
 
     public SearchAreaResponse processSearchArea(SearchAreaRequest request) {
         if (request.getRadius() < minRadius || request.getRadius() > maxRadius) {
-            throw new IllegalArgumentException("O raio informado (" + request.getRadius() + 
+            throw new IllegalArgumentException("O raio informado (" + request.getRadius() +
                     "m) deve estar entre " + minRadius + "m e " + maxRadius + "m.");
+        }
+
+        BdgdAssetService.BoundaryCheck boundaryCheck = bdgdAssetService.checkPointWithinImportBounds(
+                request.getImportId(), request.getLongitude(), request.getLatitude());
+
+        if (boundaryCheck.hasBoundary() && !boundaryCheck.isPointInside()) {
+            throw new PointOutOfBoundsException(
+                    "O ponto central informado esta fora da area de cobertura da BDGD selecionada.");
         }
 
         List<AssetDto> candidates = new java.util.ArrayList<>();
         try {
             List<Asset> dbAssets = assetRepository.findWithinRadius(
-                    request.getLatitude(), request.getLongitude(), request.getRadius());
+                    request.getImportId(), request.getLatitude(), request.getLongitude(), request.getRadius());
             if (dbAssets != null && !dbAssets.isEmpty()) {
                 candidates = dbAssets.stream().map(this::mapToDto).collect(Collectors.toList());
             }
@@ -55,6 +68,7 @@ public class SearchAreaService {
                 .candidates(candidates)
                 .validationStatus(validationStatus)
                 .message(message)
+                .boundaryGeometry(boundaryCheck.geometry())
                 .build();
     }
 

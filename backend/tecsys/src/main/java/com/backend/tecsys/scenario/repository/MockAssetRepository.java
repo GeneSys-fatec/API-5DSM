@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 @Profile("mock")
@@ -23,7 +24,7 @@ public class MockAssetRepository implements IAssetRepository {
     private static final String[] ASSET_TYPES = {"POSTE", "UCBT", "UCMT", "SSDMT", "SUB"};
 
     @Override
-    public List<Asset> findByUtilityId(Long utilityId) {
+    public List<Asset> findByImportId(UUID importId) {
         List<Asset> assets = new ArrayList<>();
 
         for (int index = 0; index < ASSET_COUNT; index++) {
@@ -36,7 +37,6 @@ public class MockAssetRepository implements IAssetRepository {
             assets.add(Asset.builder()
                     .assetKey("ASSET-" + (index + 1))
                     .assetType(ASSET_TYPES[index % ASSET_TYPES.length])
-                    .utilityId(utilityId)
                     .coordinate(new RfCoordinate(latitude, longitude))
                     .build());
         }
@@ -51,7 +51,6 @@ public class MockAssetRepository implements IAssetRepository {
             assets.add(Asset.builder()
                     .assetKey("ASSET-CAMPINAS-" + (index + 1))
                     .assetType(ASSET_TYPES[index % ASSET_TYPES.length])
-                    .utilityId(utilityId)
                     .coordinate(new RfCoordinate(latitude, longitude))
                     .build());
         }
@@ -60,8 +59,8 @@ public class MockAssetRepository implements IAssetRepository {
     }
 
     @Override
-    public List<Asset> findWithinRadius(double latitude, double longitude, double radiusMeters) {
-        List<Asset> all = findByUtilityId(1L);
+    public List<Asset> findWithinRadius(UUID importId, double latitude, double longitude, double radiusMeters) {
+        List<Asset> all = findByImportId(importId);
         List<Asset> result = new ArrayList<>();
         for (Asset a : all) {
             double dLat = Math.toRadians(a.getCoordinate().latitude() - latitude);
@@ -78,7 +77,7 @@ public class MockAssetRepository implements IAssetRepository {
     }
 
     @Override
-    public List<Asset> findAllWithinRadius(double latitude, double longitude, double radiusMeters) {
-        return findWithinRadius(latitude, longitude, radiusMeters);
+    public List<Asset> findAllWithinRadius(UUID importId, double latitude, double longitude, double radiusMeters) {
+        return findWithinRadius(importId, latitude, longitude, radiusMeters);
     }
 }

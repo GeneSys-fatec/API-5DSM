@@ -171,7 +171,29 @@ public class PostgresAssetRepository implements IAssetRepository {
                     radiusParameters(longitude, latitude, radiusMeters, true));
         } catch (Exception e) {
             throw new ScenarioPersistenceException(
-                    "Falha ao obter os ativos da área de busca.", e);
+                    "Falha ao obter os ativos da area de busca.", e);
         }
+    }
+
+    private String selectAssetsSql(String unionSql) {
+        return "SELECT asset_key, tipo_ativo, ST_Y(ST_Centroid(geometry)) AS latitude, "
+                + "ST_X(ST_Centroid(geometry)) AS longitude FROM (" + unionSql + ") assets";
+    }
+
+    private String wrapWithRadiusFilter(String unionSql) {
+        return "SELECT asset_key, tipo_ativo, latitude, longitude FROM (" + selectAssetsSql(unionSql)
+                + ") assets WHERE ST_DWithin("
+                + "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography, "
+                + "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?) "
+                + "ORDER BY asset_key LIMIT 5000";
+    }
+
+    private String wrapWithEnvelopeAndRadiusFilter(String unionSql) {
+        return "SELECT asset_key, tipo_ativo, latitude, longitude FROM (" + selectAssetsSql(unionSql)
+                + ") assets WHERE ST_MakePoint(longitude, latitude) && ST_MakeEnvelope(?, ?, ?, ?, 4326) "
+                + "AND ST_DWithin("
+                + "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography, "
+                + "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?) "
+                + "ORDER BY asset_key";
     }
 }

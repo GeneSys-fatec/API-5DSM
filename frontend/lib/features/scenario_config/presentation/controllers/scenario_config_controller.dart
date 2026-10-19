@@ -269,6 +269,11 @@ class ScenarioConfigController extends ChangeNotifier {
         throw SimulationException('Nenhum candidato a gateway disponível. Configure a área na Etapa 1.');
       }
 
+      final bdgdImportId = AreaDelimitationController.sharedConfig?.bdgdImportId;
+      if (bdgdImportId == null || bdgdImportId.isEmpty) {
+        throw SimulationException('Nenhuma base BDGD selecionada. Volte à Etapa 1 e selecione uma base.');
+      }
+
       final request = _buildSimulationRequest(model, candidates);
       final response = await _simulationService.runSimulationWithAuth(request);
 
@@ -338,6 +343,7 @@ class ScenarioConfigController extends ChangeNotifier {
     };
 
     return SimulationRequest(
+      importId: AreaDelimitationController.sharedConfig?.bdgdImportId ?? '',
       name: 'Cenário ${DateTime.now().toString().substring(0, 16)}',
       regionName: AreaDelimitationController.sharedConfig?.address ?? 'Região não definida',
       coverageTargetPct: model.minCoveragePercent,

@@ -272,6 +272,9 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       AreaDelimitationController.resetSharedState();
+      AreaDelimitationController.setSharedConfig(
+        const AreaDelimitationConfig(bdgdImportId: 'import-test-1'),
+      );
       final areaController = AreaDelimitationController(service: MockAreaDelimitationService());
       await areaController.init();
 
