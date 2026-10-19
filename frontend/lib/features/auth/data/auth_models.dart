@@ -52,16 +52,19 @@ class RegisterRequest {
 
 class LoginResult {
   final String token;
+  final String? refreshToken;
   final UserData user;
 
   const LoginResult({
     required this.token,
+    this.refreshToken,
     required this.user,
   });
 
   factory LoginResult.fromJson(Map<String, dynamic> json) {
     return LoginResult(
       token: json['token'] as String,
+      refreshToken: json['refreshToken'] as String?,
       user: UserData.fromJson(json['user'] as Map<String, dynamic>),
     );
   }
