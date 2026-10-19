@@ -19,6 +19,11 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
   late final TextEditingController _lngCtrl;
   List<BdgdBase> _bases = [];
   BdgdBase? _selectedBase;
+  List<String> _regions = [];
+  List<String> _distributors = [];
+  String? _selectedRegion;
+  String? _selectedDistributor;
+  final BdgdImportService _importService = BdgdImportService();
 
   @override
   void initState() {
@@ -28,24 +33,69 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
     _latCtrl = TextEditingController(text: cfg.centerLatitude.toStringAsFixed(4));
     _lngCtrl = TextEditingController(text: cfg.centerLongitude.toStringAsFixed(4));
     widget.controller.addListener(_onControllerChange);
+    _loadFilterOptions();
     _loadBases();
   }
 
+  Future<void> _loadFilterOptions() async {
+    final regions = await _importService.fetchRegions();
+    final distributors = await _importService.fetchDistributors(regiao: _selectedRegion);
+    if (!mounted) return;
+    setState(() {
+      _regions = regions;
+      _distributors = distributors;
+      if (_selectedRegion != null && !_regions.contains(_selectedRegion)) {
+        _selectedRegion = null;
+      }
+      if (_selectedDistributor != null && !_distributors.contains(_selectedDistributor)) {
+        _selectedDistributor = null;
+      }
+    });
+  }
+
+  Future<void> _onRegionChanged(String? value) async {
+    setState(() {
+      _selectedRegion = value;
+      _selectedDistributor = null;
+    });
+    await _loadFilterOptions();
+    await _loadBases();
+  }
+
+  Future<void> _onDistributorChanged(String? value) async {
+    setState(() {
+      _selectedDistributor = value;
+    });
+    await _loadBases();
+  }
+
+  String _baseKey(BdgdBase base) => base.id ?? base.distribuidora;
+
   Future<void> _loadBases() async {
     try {
-      final bases = await BdgdImportService().fetchBases();
+      final bases = await _importService.fetchBases(
+        regiao: _selectedRegion,
+        distribuidora: _selectedDistributor,
+      );
       if (!mounted) return;
       setState(() {
         _bases = bases;
-        if (_selectedBase == null && _bases.isNotEmpty) {
-          final cfgBase = widget.controller.config.baseName.toLowerCase();
-          try {
-            _selectedBase = _bases.firstWhere(
-              (b) => b.distribuidora.toLowerCase().contains(cfgBase) ||
-                     cfgBase.contains(b.distribuidora.toLowerCase()),
-            );
-          } catch (_) {
-            _selectedBase = _bases.first;
+        final currentKey = _selectedBase != null ? _baseKey(_selectedBase!) : null;
+        final stillPresent =
+            currentKey != null && _bases.any((b) => _baseKey(b) == currentKey);
+        if (!stillPresent) {
+          if (_bases.isEmpty) {
+            _selectedBase = null;
+          } else {
+            final cfgBase = widget.controller.config.baseName.toLowerCase();
+            try {
+              _selectedBase = _bases.firstWhere(
+                (b) => b.distribuidora.toLowerCase().contains(cfgBase) ||
+                       cfgBase.contains(b.distribuidora.toLowerCase()),
+              );
+            } catch (_) {
+              _selectedBase = _bases.first;
+            }
           }
         }
       });
@@ -84,16 +134,77 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
     }
   }
 
+  Widget _filterSelector({
+    required String label,
+    required String? value,
+    required String hint,
+    required List<String> items,
+    required ValueChanged<String?>? onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSecondary,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: AppColors.inputBackground,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.inputBorder),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: (value != null && items.contains(value)) ? value : null,
+              hint: Text(
+                hint,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem<String>(
+                      value: item,
+                      child: Text(
+                        item,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final defineClicking = widget.controller.defineClickingOnMap;
+    final pointOutOfBounds = widget.controller.pointOutOfBounds;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(
+          color: pointOutOfBounds ? AppColors.vermelhoErro : AppColors.cardBorder,
+          width: pointOutOfBounds ? 1.5 : 1.0,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -133,6 +244,32 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
               ),
             ],
           ),
+          if (_regions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _filterSelector(
+                    label: 'REGIÃO',
+                    value: _selectedRegion,
+                    hint: 'Todas as regiões',
+                    items: _regions,
+                    onChanged: _onRegionChanged,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _filterSelector(
+                    label: 'DISTRIBUIDORA',
+                    value: _selectedDistributor,
+                    hint: 'Todas as distribuidoras',
+                    items: _distributors,
+                    onChanged: _onDistributorChanged,
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (_bases.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Text(
@@ -168,7 +305,7 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
                     return DropdownMenuItem<String>(
                       value: itemKey,
                       child: Text(
-                        '${b.distribuidora} (${b.ativosMapeados} pts)',
+                        '${b.displayName} (${b.ativosMapeados} pts)',
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
@@ -189,6 +326,7 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
                         centerLongitude: found.defaultLongitude,
                         address: found.defaultAddress,
                         baseName: found.distribuidora,
+                        bdgdImportId: found.id,
                       ),
                     );
                   },
@@ -313,6 +451,35 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
               ),
             ],
           ),
+          if (pointOutOfBounds) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.badgeRedLight,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.badgeRed.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.error_outline_rounded, size: 16, color: AppColors.vermelhoErro),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'O ponto informado esta fora da area de cobertura da BDGD selecionada. Escolha um ponto dentro do contorno destacado no mapa.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.vermelhoErro,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           InkWell(
             onTap: () => widget.controller.setDefineClickingOnMap(!defineClicking),

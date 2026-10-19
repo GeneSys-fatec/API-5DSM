@@ -8,11 +8,16 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class SearchAreaRequest {
+
+    @NotNull(message = "O identificador da importacao BDGD e obrigatorio")
+    private UUID importId;
 
     @NotNull(message = "A latitude do ponto central é obrigatória")
     @Min(value = -90, message = "A latitude deve ser no mínimo -90")
