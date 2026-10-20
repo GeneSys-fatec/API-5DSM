@@ -370,7 +370,7 @@ class BdgdImportService {
     } on BdgdUploadException {
       rethrow; // já formatada — propaga diretamente
     } on TimeoutException {
-      throw const BdgdUploadException('Tempo limite excedido (10 s). Verifique se o servidor está acessível.');
+      throw const BdgdUploadException('Tempo limite excedido (60 s). Verifique se o servidor está acessível.');
     } catch (e) {
       throw BdgdUploadException('Falha de conexão: ${e.runtimeType}');
     }
@@ -464,9 +464,9 @@ class BdgdImportService {
         case 'PATCH':
           return http
               .patch(uri, headers: headers, body: jsonEncode(body ?? const <String, dynamic>{}))
-              .timeout(const Duration(seconds: 8));
+              .timeout(const Duration(seconds: 60));
         default:
-          return http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
+          return http.get(uri, headers: headers).timeout(const Duration(seconds: 60));
       }
     }
 

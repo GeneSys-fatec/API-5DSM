@@ -16,16 +16,37 @@ import psycopg2
 logger = logging.getLogger(__name__)
 
 
+_TRANSIENT_SUFFIXES = (".lock",)
+
+
+def _hash_file_into(hasher, path: Path, chunk_size: int) -> None:
+    with open(path, "rb") as f:
+        while chunk := f.read(chunk_size):
+            hasher.update(chunk)
+
+
 def compute_file_sha256(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
-    """Computes SHA-256 hash of a file reading in 1MB chunks."""
+    """Computes SHA-256 hash of a file (or of a directory such as an extracted .gdb).
+
+    For directories, every file below it is hashed in sorted order together with its
+    relative path, skipping transient lock files created by GDAL.
+    """
     path_obj = Path(file_path).resolve()
     if not path_obj.exists():
         raise FileNotFoundError(f"Arquivo para cálculo de hash não encontrado: {file_path}")
 
     hasher = hashlib.sha256()
-    with open(path_obj, "rb") as f:
-        while chunk := f.read(chunk_size):
-            hasher.update(chunk)
+    if path_obj.is_dir():
+        files = sorted(
+            p for p in path_obj.rglob("*")
+            if p.is_file() and not p.name.endswith(_TRANSIENT_SUFFIXES)
+        )
+        for p in files:
+            hasher.update(p.relative_to(path_obj).as_posix().encode("utf-8"))
+            hasher.update(b"\0")
+            _hash_file_into(hasher, p, chunk_size)
+    else:
+        _hash_file_into(hasher, path_obj, chunk_size)
 
     digest = hasher.hexdigest()
     logger.debug("SHA-256 calculado para %s: %s", path_obj.name, digest)

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
@@ -26,7 +27,7 @@ class AreaDelimitationService {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 401 || response.statusCode == 403) {
         token = await _attemptAutoLogin();
@@ -37,7 +38,7 @@ class AreaDelimitationService {
               'Authorization': 'Bearer $token',
               'Accept': 'application/json',
             },
-          ).timeout(const Duration(seconds: 10));
+          ).timeout(const Duration(seconds: 60));
         }
       }
 
@@ -102,11 +103,16 @@ class AreaDelimitationService {
         rethrow;
       } on AreaDelimitationException {
         rethrow;
-      } catch (e) {
-        candidates = _generateMockCandidates(config);
-        counts = _countCandidatesByType(candidates);
-        intersectsBoundary = config.radiusKm >= 3.0;
-        boundaryOverlapPct = intersectsBoundary ? 12.0 : 0.0;
+      } on TimeoutException {
+        throw const AreaDelimitationException(
+          'Tempo limite excedido ao buscar os ativos da BDGD. '
+          'O servidor ou o banco pode estar lento; tente novamente.',
+        );
+      } catch (_) {
+        throw const AreaDelimitationException(
+          'Não foi possível obter os ativos da BDGD. '
+          'Verifique se o servidor está acessível e tente novamente.',
+        );
       }
     } else {
       candidates = [];
@@ -181,7 +187,7 @@ class AreaDelimitationService {
         'Accept': 'application/json',
       },
       body: request.toJson(),
-    ).timeout(const Duration(seconds: 15));
+    ).timeout(const Duration(seconds: 90));
 
     if (response.statusCode == 401 || response.statusCode == 403) {
       token = await _attemptAutoLogin();
@@ -194,7 +200,7 @@ class AreaDelimitationService {
             'Accept': 'application/json',
           },
           body: request.toJson(),
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 90));
       }
     }
 
@@ -301,108 +307,6 @@ class AreaDelimitationService {
       counts[type] = candidates.where((c) => c.type == type).length;
     }
     return counts;
-  }
-
-  List<CandidateAsset> _generateMockCandidates(AreaDelimitationConfig config) {
-    final list = <CandidateAsset>[];
-    final centerLat = config.centerLatitude;
-    final centerLng = config.centerLongitude;
-    final radiusM = config.radiusMeters;
-
-    const metersPerDegreeLat = 111320.0;
-    final metersPerDegreeLng = 111320.0 * math.cos(centerLat * math.pi / 180.0);
-
-    final random = math.Random(42);
-
-    for (var i = 0; i < 2; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.1 + random.nextDouble() * 0.4;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'sub-$i',
-        assetKey: 'SUB-${(i + 1).toString().padLeft(2, '0')}',
-        type: CandidateAssetType.subestacao,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 69.0,
-        distanceMeters: distM,
-        poleHeightM: 25.0,
-        losVisada: '360Â° Livre',
-        bdgdId: '#1000${i + 1}',
-      ));
-    }
-
-    for (var i = 0; i < 88; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.1 + random.nextDouble() * 0.8;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'trafo-$i',
-        assetKey: 'TR-${(i + 1).toString().padLeft(2, '0')}',
-        type: CandidateAssetType.trafo,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 13.8,
-        distanceMeters: distM,
-        poleHeightM: 12.0,
-        losVisada: i % 2 == 0 ? '360Â° Livre' : '180Â° Parcial',
-        bdgdId: '#4489${(i + 10).toString().padLeft(2, '0')}',
-      ));
-    }
-
-    for (var i = 0; i < 24; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.1 + random.nextDouble() * 0.8;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'rel-$i',
-        assetKey: 'REL-${(i + 1).toString().padLeft(2, '0')}',
-        type: CandidateAssetType.religador,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 13.8,
-        distanceMeters: distM,
-        poleHeightM: 13.0,
-        losVisada: '360Â° Livre',
-        bdgdId: '#3301${(i + 1).toString().padLeft(2, '0')}',
-      ));
-    }
-
-    for (var i = 0; i < 342; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.05 + random.nextDouble() * 0.9;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'poste-$i',
-        assetKey: 'PST-${(i + 1).toString().padLeft(3, '0')}',
-        type: CandidateAssetType.poste,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 13.8,
-        distanceMeters: distM,
-        poleHeightM: 10.0 + (random.nextDouble() * 2),
-        losVisada: '360Â° Livre',
-        bdgdId: '#550${(i + 100).toString().padLeft(3, '0')}',
-      ));
-    }
-
-    return list;
   }
 }
 

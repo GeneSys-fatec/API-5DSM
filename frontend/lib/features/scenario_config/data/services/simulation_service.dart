@@ -19,7 +19,7 @@ class SimulationService {
         'Accept': 'application/json',
       },
       body: request.toJson(),
-    ).timeout(const Duration(seconds: 15));
+    ).timeout(const Duration(seconds: 120));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return SimulationResponse.fromMap(
