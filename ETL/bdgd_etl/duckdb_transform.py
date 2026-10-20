@@ -11,6 +11,8 @@ from typing import Any
 
 import duckdb
 
+from .duckdb_spatial import load_spatial
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,7 +21,7 @@ def inspect_parquet_schema(parquet_path: Path) -> dict[str, str]:
     norm_path = str(parquet_path).replace("\\", "/")
     con = duckdb.connect()
     try:
-        con.execute("INSTALL spatial; LOAD spatial;")
+        load_spatial(con)
         rows = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{norm_path}')").fetchall()
         return {r[0]: r[1] for r in rows}
     finally:
@@ -103,7 +105,7 @@ def transform_geoparquet_to_staging(
 
     con = duckdb.connect()
     try:
-        con.execute("INSTALL spatial; LOAD spatial;")
+        load_spatial(con)
 
         # Early exit if the Parquet file has 0 rows
         count_res = con.execute(f"SELECT count(*) FROM read_parquet('{norm_parquet}')").fetchone()
