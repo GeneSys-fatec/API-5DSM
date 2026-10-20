@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -357,5 +358,52 @@ public class AssetParsersTest {
                 csvParser.parse(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)), "CPFL", "SUDESTE")
         );
         assertTrue(ex.getMessage().contains("latitude"));
+    }
+
+    @Test
+    void shouldRecognizeGdbAndTabularZipEntries() {
+        assertTrue(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isGdbEntry("Chesp.gdb/a00000001.gdbtable"));
+        assertTrue(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isGdbEntry("base/subfolder.gdb/"));
+        assertTrue(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isGdbEntry("a00000001.gdbtable"));
+        assertTrue(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isGdbEntry("a00000001.gdbindexes"));
+
+        assertTrue(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isTabularEntry("ativos.csv"));
+        assertTrue(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isTabularEntry("subfolder/dados.xlsx"));
+        assertTrue(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isTabularEntry("assets.json"));
+        assertFalse(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isTabularEntry("__MACOSX/._ativos.csv"));
+        assertFalse(com.backend.tecsys.bdgd.service.BdgdUploadValidator.isTabularEntry("notes.txt"));
+    }
+
+    @Test
+    void shouldParseZipContainingCsvAndJson() throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(baos)) {
+            zos.putNextEntry(new java.util.zip.ZipEntry("poste.csv"));
+            String csv = "identificador,tipo_ativo,latitude,longitude\nPOS-Z1,POSTE,-23.55,-46.63\n";
+            zos.write(csv.getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+
+            zos.putNextEntry(new java.util.zip.ZipEntry("uc.json"));
+            String json = "[{\"identificador\":\"UC-Z1\",\"tipo_ativo\":\"UCBT\",\"latitude\":-23.56,\"longitude\":-46.64}]";
+            zos.write(json.getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+
+        try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new ByteArrayInputStream(baos.toByteArray()))) {
+            java.util.zip.ZipEntry entry;
+            List<AssetFileRecord> allRecords = new ArrayList<>();
+            while ((entry = zis.getNextEntry()) != null) {
+                byte[] bytes = zis.readAllBytes();
+                if (entry.getName().endsWith(".csv")) {
+                    csvParser.parseAndProcess(new ByteArrayInputStream(bytes), "ENEL", "SP", allRecords::add);
+                } else if (entry.getName().endsWith(".json")) {
+                    jsonParser.parseAndProcess(new ByteArrayInputStream(bytes), "ENEL", "SP", allRecords::add);
+                }
+                zis.closeEntry();
+            }
+            assertEquals(2, allRecords.size());
+            assertEquals("POS-Z1", allRecords.get(0).assetKey());
+            assertEquals("UC-Z1", allRecords.get(1).assetKey());
+        }
     }
 }

@@ -145,6 +145,31 @@ public class BdgdIngestionPostmanIntegrationTest {
     }
 
     @Test
+    @DisplayName("Postman 5b: POST /api/bdgd/upload com ZIP contendo CSV e JSON válidos deve retornar 202 com importId")
+    void shouldUploadValidZipWithTabularData() throws Exception {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(baos)) {
+            zos.putNextEntry(new java.util.zip.ZipEntry("ativos.csv"));
+            String csv = "identificador,tipo_ativo,latitude,longitude\nPOS-ZIP-1,POSTE,-23.55,-46.63\n";
+            zos.write(csv.getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "ativos_tabular.zip", "application/zip", baos.toByteArray());
+
+        mockMvc.perform(multipart("/api/bdgd/upload")
+                        .file(file)
+                        .param("distribuidora", "CPFL")
+                        .param("regiao", "CAMPINAS")
+                        .param("data", "2026-10-18")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.importId").isNotEmpty())
+                .andExpect(jsonPath("$.distribuidora").value("CPFL"));
+    }
+
+    @Test
     @DisplayName("Postman 6: POST /api/bdgd/upload com CSV com latitude inválida deve atualizar status para falhou com linha de erro")
     void shouldRejectInvalidCsvWithLineError() throws Exception {
         String invalidCsv = """

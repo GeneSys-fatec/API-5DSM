@@ -35,6 +35,18 @@ class BdgdImportService {
       throw BdgdUploadException('Sessão expirada. Faça login novamente.');
     }
 
+    // Mobile/Desktop: usa http.MultipartFile.fromPath
+    if (filePath != null && filePath.isNotEmpty) {
+      return _nativeUpload(
+        filePath: filePath,
+        fileName: fileName,
+        distribuidora: distribuidora,
+        regiao: regiao,
+        data: data,
+        token: token,
+      );
+    }
+
     // Flutter Web: usa upload chunked via dart:html XHR
     if (webFile != null) {
       return _chunkedWebUpload(
@@ -60,18 +72,6 @@ class BdgdImportService {
         data: data,
         token: token,
         onProgress: onProgress,
-      );
-    }
-
-    // Mobile/Desktop: usa http.MultipartFile.fromPath
-    if (filePath != null && filePath.isNotEmpty) {
-      return _nativeUpload(
-        filePath: filePath,
-        fileName: fileName,
-        distribuidora: distribuidora,
-        regiao: regiao,
-        data: data,
-        token: token,
       );
     }
 

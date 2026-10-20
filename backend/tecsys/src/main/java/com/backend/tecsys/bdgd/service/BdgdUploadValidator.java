@@ -35,6 +35,7 @@ public class BdgdUploadValidator {
                 throw new InvalidBdgdUploadException("Formato inválido: use .csv, .xls, .xlsx, .json, .gdb ou .zip");
             }
             boolean containsGdb = false;
+            boolean containsTabular = false;
             try (InputStream input = file.getInputStream(); ZipInputStream zip = new ZipInputStream(input)) {
                 ZipEntry entry;
                 byte[] buffer = new byte[8192];
@@ -42,21 +43,39 @@ public class BdgdUploadValidator {
                     if (isGdbEntry(entry.getName())) {
                         containsGdb = true;
                     }
+                    if (isTabularEntry(entry.getName())) {
+                        containsTabular = true;
+                    }
                     while (zip.read(buffer) != -1) {
                     }
                     zip.closeEntry();
                 }
             }
-            if (!containsGdb) {
-                throw new InvalidBdgdUploadException("O ZIP deve conter pelo menos um arquivo .gdb");
+            if (!containsGdb && !containsTabular) {
+                throw new InvalidBdgdUploadException("O ZIP deve conter uma pasta .gdb ou arquivos de dados (.csv, .xls, .xlsx, .json)");
             }
         } catch (IOException exception) {
             throw new InvalidBdgdUploadException("Arquivo corrompido ou ilegível");
         }
     }
 
-    private boolean isGdbEntry(String entryName) {
+    public static boolean isGdbEntry(String entryName) {
+        if (entryName == null) return false;
         String normalizedName = entryName.replace('\\', '/').toLowerCase(Locale.ROOT);
-        return normalizedName.matches(".*(^|/)[^/]+\\.gdb(/|$).*" );
+        return normalizedName.matches(".*(^|/)[^/]+\\.gdb(/|$).*")
+                || normalizedName.endsWith(".gdbtable")
+                || normalizedName.endsWith(".gdbindexes");
+    }
+
+    public static boolean isTabularEntry(String entryName) {
+        if (entryName == null) return false;
+        String normalizedName = entryName.replace('\\', '/').toLowerCase(Locale.ROOT);
+        if (normalizedName.contains("__macosx") || normalizedName.startsWith(".") || normalizedName.endsWith("/")) {
+            return false;
+        }
+        return normalizedName.endsWith(".csv")
+                || normalizedName.endsWith(".xls")
+                || normalizedName.endsWith(".xlsx")
+                || normalizedName.endsWith(".json");
     }
 }

@@ -62,8 +62,18 @@ public class BdgdIngestionService {
                 BdgdImportStatus.PROCESSANDO, null, Instant.now());
         repository.create(record);
 
-        if (genericAssetImportService.isSupportedTabularFormat(safeName)) {
-            genericAssetImportService.importTabularAssetsAsync(id, key, safeName, distribuidora, regiao);
+        boolean isTabular = genericAssetImportService.isSupportedTabularFormat(safeName);
+        boolean isTabularZip = false;
+        if (safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
+            try (java.io.InputStream checkIs = storage.openStream(key)) {
+                isTabularZip = genericAssetImportService.isZipContainingTabular(checkIs);
+            } catch (Exception e) {
+                log.warn("Erro ao verificar conteudo do ZIP {}: {}", safeName, e.getMessage());
+            }
+        }
+
+        if (isTabular || isTabularZip) {
+            genericAssetImportService.importTabularAssetsAsync(id, key, safeName, normalizedDistributor, normalizedRegion);
             return BdgdImportResponse.from(record);
         }
 

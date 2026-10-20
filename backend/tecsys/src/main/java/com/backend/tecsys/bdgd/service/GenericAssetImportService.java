@@ -20,6 +20,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @Slf4j
 @Service
@@ -75,6 +78,27 @@ public class GenericAssetImportService {
         }
         String lower = filename.toLowerCase(Locale.ROOT);
         return lower.endsWith(".csv") || lower.endsWith(".xls") || lower.endsWith(".xlsx") || lower.endsWith(".json");
+    }
+
+    public boolean isZipContainingTabular(InputStream inputStream) {
+        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
+            ZipEntry entry;
+            boolean hasGdb = false;
+            boolean hasTabular = false;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (BdgdUploadValidator.isGdbEntry(entry.getName())) {
+                    hasGdb = true;
+                }
+                if (BdgdUploadValidator.isTabularEntry(entry.getName())) {
+                    hasTabular = true;
+                }
+                zis.closeEntry();
+            }
+            return hasTabular && !hasGdb;
+        } catch (Exception e) {
+            log.warn("Erro ao inspecionar arquivo ZIP para ativos tabulares: {}", e.getMessage());
+            return false;
+        }
     }
 
     public static String resolveTableName(String assetType) {
@@ -134,14 +158,22 @@ public class GenericAssetImportService {
                     }
                 };
 
-                if (lower.endsWith(".csv")) {
-                    csvAssetParser.parseAndProcess(inputStream, distribuidora, regiao, consumer);
-                } else if (lower.endsWith(".xls") || lower.endsWith(".xlsx")) {
-                    excelAssetParser.parseAndProcess(inputStream, distribuidora, regiao, consumer);
-                } else if (lower.endsWith(".json")) {
-                    jsonAssetParser.parseAndProcess(inputStream, distribuidora, regiao, consumer);
-                } else {
-                    throw new InvalidBdgdUploadException("Formato de arquivo não suportado para importação tabular: " + filename);
+                try {
+                    if (lower.endsWith(".zip")) {
+                        importTabularZipStream(inputStream, distribuidora, regiao, consumer);
+                    } else if (lower.endsWith(".csv")) {
+                        csvAssetParser.parseAndProcess(inputStream, distribuidora, regiao, consumer);
+                    } else if (lower.endsWith(".xls") || lower.endsWith(".xlsx")) {
+                        excelAssetParser.parseAndProcess(inputStream, distribuidora, regiao, consumer);
+                    } else if (lower.endsWith(".json")) {
+                        jsonAssetParser.parseAndProcess(inputStream, distribuidora, regiao, consumer);
+                    } else {
+                        throw new InvalidBdgdUploadException("Formato de arquivo não suportado para importação tabular: " + filename);
+                    }
+                } catch (InvalidBdgdUploadException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InvalidBdgdUploadException("Falha ao processar arquivo tabular: " + e.getMessage());
                 }
 
                 if (!batch.isEmpty()) {
@@ -165,6 +197,51 @@ public class GenericAssetImportService {
             String errorMsg = "Erro na persistência: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
             importRepository.updateStatus(importId, BdgdImportStatus.FALHOU, errorMsg);
             throw new InvalidBdgdUploadException(errorMsg);
+        }
+    }
+
+    private void importTabularZipStream(
+            InputStream inputStream,
+            String distribuidora,
+            String regiao,
+            java.util.function.Consumer<AssetFileRecord> consumer) throws Exception {
+
+        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
+            ZipEntry entry;
+            boolean processedAny = false;
+
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName();
+                if (entry.isDirectory() || !BdgdUploadValidator.isTabularEntry(entryName)) {
+                    zis.closeEntry();
+                    continue;
+                }
+
+                String entryLower = entryName.toLowerCase(Locale.ROOT);
+                byte[] entryBytes = zis.readAllBytes();
+                if (entryBytes.length == 0) {
+                    zis.closeEntry();
+                    continue;
+                }
+
+                try (ByteArrayInputStream bais = new ByteArrayInputStream(entryBytes)) {
+                    if (entryLower.endsWith(".csv")) {
+                        csvAssetParser.parseAndProcess(bais, distribuidora, regiao, consumer);
+                        processedAny = true;
+                    } else if (entryLower.endsWith(".xls") || entryLower.endsWith(".xlsx")) {
+                        excelAssetParser.parseAndProcess(bais, distribuidora, regiao, consumer);
+                        processedAny = true;
+                    } else if (entryLower.endsWith(".json")) {
+                        jsonAssetParser.parseAndProcess(bais, distribuidora, regiao, consumer);
+                        processedAny = true;
+                    }
+                }
+                zis.closeEntry();
+            }
+
+            if (!processedAny) {
+                throw new InvalidBdgdUploadException("Nenhum arquivo tabular (.csv, .xls, .xlsx, .json) válido encontrado no ZIP.");
+            }
         }
     }
 

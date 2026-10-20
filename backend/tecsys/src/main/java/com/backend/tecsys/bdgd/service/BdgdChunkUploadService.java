@@ -35,7 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class BdgdChunkUploadService {
 
     /** Metadados de uma sessão de upload ativa. */
@@ -56,6 +55,21 @@ public class BdgdChunkUploadService {
     private final BdgdIngestionProperties properties;
     private final BdgdImportRepository repository;
     private final BdgdEtlDispatcher dispatcher;
+    private final BdgdS3StorageService storage;
+    private final GenericAssetImportService genericAssetImportService;
+
+    public BdgdChunkUploadService(
+            BdgdIngestionProperties properties,
+            BdgdImportRepository repository,
+            BdgdEtlDispatcher dispatcher,
+            BdgdS3StorageService storage,
+            GenericAssetImportService genericAssetImportService) {
+        this.properties = properties;
+        this.repository = repository;
+        this.dispatcher = dispatcher;
+        this.storage = storage;
+        this.genericAssetImportService = genericAssetImportService;
+    }
 
     /**
      * Inicializa uma sessão de upload.
@@ -160,6 +174,11 @@ public class BdgdChunkUploadService {
             Files.move(session.tempFile(), destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             log.info("Upload finalizado: {} → {}", uploadId, destination);
 
+            String safeName = session.fileName();
+            if (safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
+                storage.extractZip(destination, destination.getParent());
+            }
+
             // Criar registro e disparar ETL
             UUID id = UUID.randomUUID();
             BdgdImportRecord record = new BdgdImportRecord(
@@ -174,6 +193,23 @@ public class BdgdChunkUploadService {
                     Instant.now()
             );
             repository.create(record);
+
+            boolean isTabular = genericAssetImportService.isSupportedTabularFormat(safeName);
+            boolean isTabularZip = false;
+            if (safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
+                try (java.io.InputStream checkIs = storage.openStream(session.key())) {
+                    isTabularZip = genericAssetImportService.isZipContainingTabular(checkIs);
+                } catch (Exception e) {
+                    log.warn("Erro ao verificar conteudo do ZIP {}: {}", safeName, e.getMessage());
+                }
+            }
+
+            if (isTabular || isTabularZip) {
+                genericAssetImportService.importTabularAssetsAsync(id, session.key(), safeName, session.distribuidora(), session.regiao());
+                sessions.remove(uploadId);
+                return BdgdImportResponse.from(record);
+            }
+
             dispatcher.dispatch(id);
 
             sessions.remove(uploadId);

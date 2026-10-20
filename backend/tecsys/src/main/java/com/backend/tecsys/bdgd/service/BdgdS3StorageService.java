@@ -20,10 +20,14 @@ import java.util.zip.ZipInputStream;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class BdgdS3StorageService {
     private final BdgdIngestionProperties properties;
     private final S3Client s3;
+
+    public BdgdS3StorageService(BdgdIngestionProperties properties, S3Client s3) {
+        this.properties = properties;
+        this.s3 = s3;
+    }
 
     public String store(MultipartFile file, String key) {
         try {
@@ -51,13 +55,17 @@ public class BdgdS3StorageService {
         }
     }
 
-    private void extractZip(Path zipFilePath, Path targetDir) throws IOException {
+    public void extractZip(Path zipFilePath, Path targetDir) throws IOException {
         log.info("Extraindo arquivo ZIP {} para {}", zipFilePath, targetDir);
         try (InputStream fis = Files.newInputStream(zipFilePath);
              ZipInputStream zis = new ZipInputStream(fis)) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
-                Path resolvePath = targetDir.resolve(entry.getName()).normalize();
+                String safeEntryName = entry.getName().replace('\\', '/');
+                while (safeEntryName.startsWith("/")) {
+                    safeEntryName = safeEntryName.substring(1);
+                }
+                Path resolvePath = targetDir.resolve(safeEntryName).normalize();
                 if (!resolvePath.startsWith(targetDir)) {
                     throw new IOException("Tentativa de travessia de diretorio invalida no ZIP: " + entry.getName());
                 }
