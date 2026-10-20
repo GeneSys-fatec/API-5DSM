@@ -2,6 +2,7 @@ package com.backend.tecsys.bdgd.controller;
 
 import com.backend.tecsys.bdgd.model.BdgdBaseSummaryResponse;
 import com.backend.tecsys.bdgd.model.BdgdGroupUpdateRequest;
+import com.backend.tecsys.bdgd.model.BdgdImportOptionsResponse;
 import com.backend.tecsys.bdgd.model.BdgdImportResponse;
 import com.backend.tecsys.bdgd.model.BdgdGeoJsonResponse;
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.backend.tecsys.bdgd.service.BdgdExternalDataService;
 import java.util.UUID;
 
 @RestController
@@ -25,12 +27,18 @@ public class BdgdIngestionController {
 
     private final BdgdIngestionService ingestionService;
     private final BdgdAssetService assetService;
+    private final BdgdExternalDataService externalDataService;
 
     @GetMapping({"", "/bases"})
     public List<BdgdBaseSummaryResponse> listBases(
             @RequestParam(required = false) String regiao,
             @RequestParam(required = false) String distribuidora) {
         return ingestionService.listAllBases(regiao, distribuidora);
+    }
+
+    @GetMapping({"/options", "/import-options"})
+    public BdgdImportOptionsResponse getImportOptions() {
+        return externalDataService.getImportOptions();
     }
 
     @GetMapping("/regions")

@@ -12,6 +12,25 @@ import '../models/bdgd_base.dart';
 /// Tamanho de cada chunk: 10 MB (deve coincidir com bdgd.ingestion.chunk-size no backend).
 const int _kChunkSize = 10 * 1024 * 1024;
 
+const List<String> kDefaultRegions = [
+  'Centro-Oeste',
+  'Nordeste',
+  'Norte',
+  'Sudeste',
+  'Sul',
+];
+
+const List<String> kDefaultDistributors = [
+  'Celesc',
+  'CEMIG',
+  'Copel',
+  'CPFL Paulista',
+  'EDP SP',
+  'ENEL SP',
+  'Light',
+  'Neoenergia Elektro',
+];
+
 class BdgdImportService {
   /// Upload de arquivo grande via chunks de [_kChunkSize] bytes.
   ///
@@ -388,6 +407,27 @@ class BdgdImportService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/distributors')
         .replace(queryParameters: query.isEmpty ? null : query);
     return _fetchStringList(uri);
+  }
+
+  Future<({List<String> regions, List<String> distributors})> fetchImportOptions() async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/options');
+      final response = await _authorizedRequest('GET', uri);
+      if (response != null && response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body) as Map<String, dynamic>;
+        final rawRegions = (data['regioes'] ?? data['regions']) as List<dynamic>?;
+        final rawDistributors = (data['distribuidoras'] ?? data['distributors']) as List<dynamic>?;
+        return (
+          regions: rawRegions != null && rawRegions.isNotEmpty
+              ? rawRegions.map((e) => e.toString()).toList()
+              : kDefaultRegions,
+          distributors: rawDistributors != null && rawDistributors.isNotEmpty
+              ? rawDistributors.map((e) => e.toString()).toList()
+              : kDefaultDistributors,
+        );
+      }
+    } catch (_) {}
+    return (regions: kDefaultRegions, distributors: kDefaultDistributors);
   }
 
   Future<BdgdBase> updateBaseGroup({
