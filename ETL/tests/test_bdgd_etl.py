@@ -71,6 +71,40 @@ def test_sha256_computation(tmp_path: Path):
     assert digest == compute_file_sha256(sample_file)
 
 
+def _make_gdb_dir(root: Path) -> Path:
+    gdb = root / "sample.gdb"
+    gdb.mkdir()
+    (gdb / "a00000001.gdbtable").write_bytes(b"table-one")
+    (gdb / "a00000002.gdbtable").write_bytes(b"table-two")
+    return gdb
+
+
+def test_sha256_of_directory_is_stable_and_detects_changes(tmp_path: Path):
+    gdb = _make_gdb_dir(tmp_path)
+    digest = compute_file_sha256(gdb)
+    assert len(digest) == 64
+    assert digest == compute_file_sha256(gdb)
+
+    (gdb / "a00000002.gdbtable").write_bytes(b"table-two-changed")
+    assert compute_file_sha256(gdb) != digest
+
+
+def test_sha256_of_directory_ignores_lock_files(tmp_path: Path):
+    gdb = _make_gdb_dir(tmp_path)
+    digest = compute_file_sha256(gdb)
+
+    (gdb / "a00000001.gdbtable.lock").write_bytes(b"transient")
+    assert compute_file_sha256(gdb) == digest
+
+
+def test_sha256_of_directory_depends_on_file_names(tmp_path: Path):
+    gdb = _make_gdb_dir(tmp_path)
+    digest = compute_file_sha256(gdb)
+
+    (gdb / "a00000002.gdbtable").rename(gdb / "a00000003.gdbtable")
+    assert compute_file_sha256(gdb) != digest
+
+
 def test_memory_tracker():
     with MemoryTracker() as tracker:
         # Allocate some memory
