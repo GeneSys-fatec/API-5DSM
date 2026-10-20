@@ -89,7 +89,7 @@ class LoginController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _authService.clearSession();
+    await _authService.logout();
     _loginResult = null;
     notifyListeners();
   }
