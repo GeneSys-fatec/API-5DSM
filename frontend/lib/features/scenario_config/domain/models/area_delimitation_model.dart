@@ -1,4 +1,25 @@
 import 'dart:convert';
+import 'package:latlong2/latlong.dart';
+
+bool isPointInsidePolygon(double latitude, double longitude, List<LatLng> polygon) {
+  if (polygon.length < 3) {
+    return true;
+  }
+  bool inside = false;
+  for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    final latI = polygon[i].latitude;
+    final lngI = polygon[i].longitude;
+    final latJ = polygon[j].latitude;
+    final lngJ = polygon[j].longitude;
+
+    final intersects = (lngI > longitude) != (lngJ > longitude) &&
+        (latitude < (latJ - latI) * (longitude - lngI) / (lngJ - lngI) + latI);
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
 
 enum CandidateAssetType {
   poste,
@@ -134,6 +155,7 @@ class AreaDelimitationConfig {
   final bool defineClickingOnMap;
   final Set<CandidateAssetType> selectedAssetTypes;
   final String baseName;
+  final String? bdgdImportId;
 
   const AreaDelimitationConfig({
     this.centerLatitude = -22.9068,
@@ -149,6 +171,7 @@ class AreaDelimitationConfig {
       CandidateAssetType.subestacao,
     },
     this.baseName = 'ENERGISA (SUL / SE)',
+    this.bdgdImportId,
   });
 
   double get radiusMeters => radiusKm * 1000.0;
@@ -162,6 +185,7 @@ class AreaDelimitationConfig {
     bool? defineClickingOnMap,
     Set<CandidateAssetType>? selectedAssetTypes,
     String? baseName,
+    String? bdgdImportId,
   }) {
     return AreaDelimitationConfig(
       centerLatitude: centerLatitude ?? this.centerLatitude,
@@ -172,6 +196,7 @@ class AreaDelimitationConfig {
       defineClickingOnMap: defineClickingOnMap ?? this.defineClickingOnMap,
       selectedAssetTypes: selectedAssetTypes ?? this.selectedAssetTypes,
       baseName: baseName ?? this.baseName,
+      bdgdImportId: bdgdImportId ?? this.bdgdImportId,
     );
   }
 
@@ -185,6 +210,7 @@ class AreaDelimitationConfig {
       'defineClickingOnMap': defineClickingOnMap,
       'selectedAssetTypes': selectedAssetTypes.map((t) => t.name).toList(),
       'baseName': baseName,
+      'bdgdImportId': bdgdImportId,
     };
   }
 
@@ -213,6 +239,7 @@ class AreaDelimitationConfig {
       defineClickingOnMap: map['defineClickingOnMap'] as bool? ?? false,
       selectedAssetTypes: types,
       baseName: map['baseName'] as String? ?? 'ENERGISA (SUL / SE)',
+      bdgdImportId: map['bdgdImportId'] as String?,
     );
   }
 

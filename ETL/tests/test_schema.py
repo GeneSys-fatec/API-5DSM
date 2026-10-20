@@ -106,7 +106,9 @@ class TestDdlForLayerSub:
 
 class TestDdlForLayerAllLayers:
 
-    EXPECTED_COLUMNS = ["id", "tipo_ativo", "distribuidora", "regiao", "asset_key", "geometry"]
+    EXPECTED_COLUMNS = [
+        "id", "tipo_ativo", "distribuidora", "regiao", "importacao_id", "asset_key", "geometry"
+    ]
 
     @pytest.mark.parametrize("layer_name", list(schema.ASSET_TABLE_SPECS.keys()))
     def test_create_table_has_exactly_the_expected_columns(self, layer_name):

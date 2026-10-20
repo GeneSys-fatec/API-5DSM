@@ -1,6 +1,7 @@
 package com.backend.tecsys;
 
 import com.backend.tecsys.auth.dto.LoginRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.backend.tecsys.scenario.dto.SimulationRequest;
 import com.backend.tecsys.scenario.dto.GatewayCandidateRequest;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,8 +28,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("mock")
 class SimulationIntegrationTest {
 
+    private static final java.util.UUID TEST_IMPORT_ID = java.util.UUID.randomUUID();
+
     @Autowired
     private WebApplicationContext context;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -42,6 +48,15 @@ class SimulationIntegrationTest {
                 .apply(springSecurity())
                 .build();
         token = loginAsAdmin();
+        seedBdgdImport();
+    }
+
+    private void seedBdgdImport() {
+        jdbcTemplate.update("DELETE FROM bdgd_imports WHERE id = ?", TEST_IMPORT_ID.toString());
+        jdbcTemplate.update("INSERT INTO bdgd_imports "
+                + "(id, distribuidora, regiao, data_referencia, file_name, storage_key, status, created_at) "
+                + "VALUES (?, 'TESTE', 'TESTE', CURRENT_DATE, 'teste.gdb', 'teste-key', 'CONCLUIDO', CURRENT_TIMESTAMP)",
+                TEST_IMPORT_ID.toString());
     }
 
     @Test
@@ -226,6 +241,7 @@ class SimulationIntegrationTest {
 
     private SimulationRequest validRequest() {
         return SimulationRequest.builder()
+                .importId(TEST_IMPORT_ID)
                 .name("Cenário Centro")
                 .regionName("Centro")
                 .coverageTargetPct(90.0)

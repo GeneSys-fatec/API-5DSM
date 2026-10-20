@@ -1,10 +1,13 @@
 package com.backend.tecsys.bdgd.controller;
 
 import com.backend.tecsys.bdgd.model.BdgdBaseSummaryResponse;
+import com.backend.tecsys.bdgd.model.BdgdBoundsResponse;
 import com.backend.tecsys.bdgd.model.BdgdImportResponse;
+import com.backend.tecsys.bdgd.model.BdgdGroupUpdateRequest;
 import com.backend.tecsys.bdgd.model.BdgdGeoJsonResponse;
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
 import com.backend.tecsys.bdgd.service.BdgdIngestionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -25,8 +28,20 @@ public class BdgdIngestionController {
     private final BdgdAssetService assetService;
 
     @GetMapping({"", "/bases"})
-    public List<BdgdBaseSummaryResponse> listBases() {
-        return ingestionService.listAllBases();
+    public List<BdgdBaseSummaryResponse> listBases(
+            @RequestParam(required = false) String regiao,
+            @RequestParam(required = false) String distribuidora) {
+        return ingestionService.listAllBases(regiao, distribuidora);
+    }
+
+    @GetMapping("/regions")
+    public List<String> listRegions() {
+        return ingestionService.listRegions();
+    }
+
+    @GetMapping("/distributors")
+    public List<String> listDistributors(@RequestParam(required = false) String regiao) {
+        return ingestionService.listDistributors(regiao);
     }
 
     @GetMapping("/map")
@@ -72,5 +87,15 @@ public class BdgdIngestionController {
     @GetMapping("/{id}")
     public BdgdImportResponse findById(@PathVariable UUID id) {
         return ingestionService.find(id);
+    }
+
+    @PatchMapping("/{id}")
+    public BdgdBaseSummaryResponse updateGroup(@PathVariable UUID id, @Valid @RequestBody BdgdGroupUpdateRequest request) {
+        return ingestionService.updateGroup(id, request.regiao(), request.distribuidora());
+    }
+
+    @GetMapping("/{id}/bounds")
+    public BdgdBoundsResponse bounds(@PathVariable UUID id) {
+        return assetService.findBoundsByImportId(id);
     }
 }

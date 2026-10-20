@@ -1,5 +1,6 @@
 package com.backend.tecsys.scenario.service;
 
+import com.backend.tecsys.bdgd.service.BdgdAssetService;
 import com.backend.tecsys.radio.model.RfCoordinate;
 import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.radio.service.GeoDistanceCalculator;
@@ -32,6 +33,7 @@ public class SimulationService {
     private static final double MAX_DERIVED_UNIVERSE_RADIUS_M = 25_000.0;
 
     private final IAssetRepository assetRepository;
+    private final BdgdAssetService bdgdAssetService;
     private final PropagationModelRegistry propagationModelRegistry;
     private final RadioCoverageCalculator radioCoverageCalculator;
     private final GatewaySelectionService gatewaySelectionService;
@@ -41,6 +43,7 @@ public class SimulationService {
 
     public SimulationService(
             IAssetRepository assetRepository,
+            BdgdAssetService bdgdAssetService,
             PropagationModelRegistry propagationModelRegistry,
             RadioCoverageCalculator radioCoverageCalculator,
             GatewaySelectionService gatewaySelectionService,
@@ -48,6 +51,7 @@ public class SimulationService {
             CostCalculator costCalculator,
             IScenarioRepository scenarioRepository) {
         this.assetRepository = assetRepository;
+        this.bdgdAssetService = bdgdAssetService;
         this.propagationModelRegistry = propagationModelRegistry;
         this.radioCoverageCalculator = radioCoverageCalculator;
         this.gatewaySelectionService = gatewaySelectionService;
@@ -58,6 +62,7 @@ public class SimulationService {
 
     public SimulationOutcome simulate(SimulationCommand command, Long userId, Long utilityId) {
         validate(command);
+        validateCenterWithinBdgdBounds(command);
 
         long startedAt = System.currentTimeMillis();
 
@@ -143,6 +148,7 @@ public class SimulationService {
                 command.propagationModel(),
                 command.rfParameter(),
                 selectedCandidates,
+                selection.selectedCoverages(),
                 coveredAssetKeysResult,
                 uncoveredAssetKeysResult,
                 indicator,
@@ -175,12 +181,25 @@ public class SimulationService {
             radiusMeters = Math.min(farthestCandidateM + coverageRadiusM, MAX_DERIVED_UNIVERSE_RADIUS_M);
         }
 
-        List<Asset> assets = assetRepository.findAllWithinRadius(centerLatitude, centerLongitude, radiusMeters);
+        List<Asset> assets = assetRepository.findAllWithinRadius(
+                command.importId(), centerLatitude, centerLongitude, radiusMeters);
         if (assets == null || assets.isEmpty()) {
             throw new InvalidSimulationParameterException(
                     "Nenhum ativo encontrado na área de busca informada.");
         }
         return assets;
+    }
+
+    private void validateCenterWithinBdgdBounds(SimulationCommand command) {
+        if (!command.hasSearchArea()) {
+            return;
+        }
+        BdgdAssetService.BoundaryCheck boundaryCheck = bdgdAssetService.checkPointWithinImportBounds(
+                command.importId(), command.searchCenterLongitude(), command.searchCenterLatitude());
+        if (boundaryCheck.hasBoundary() && !boundaryCheck.isPointInside()) {
+            throw new com.backend.tecsys.scenario.exception.PointOutOfBoundsException(
+                    "O ponto central informado esta fora da area de cobertura da BDGD selecionada.");
+        }
     }
 
     private void validate(SimulationCommand command) {
@@ -273,6 +292,7 @@ public class SimulationService {
     }
 
     public record SimulationCommand(
+            java.util.UUID importId,
             String scenarioName,
             String regionName,
             double coverageTargetPct,
@@ -298,6 +318,7 @@ public class SimulationService {
             PropagationModelType propagationModel,
             RfParameter rfParameter,
             List<GatewayCandidate> selectedGateways,
+            List<GatewayCoverage> selectedCoverages,
             List<String> coveredAssetKeys,
             List<String> uncoveredAssetKeys,
             ScenarioIndicator indicator,
@@ -312,7 +333,7 @@ public class SimulationService {
                 List<String> coveredAssetKeys,
                 List<String> uncoveredAssetKeys,
                 ScenarioIndicator indicator) {
-            this(scenarioId, status, propagationModel, rfParameter, selectedGateways,
+                this(scenarioId, status, propagationModel, rfParameter, selectedGateways, List.of(),
                     coveredAssetKeys, uncoveredAssetKeys, indicator, 0.0);
         }
     }

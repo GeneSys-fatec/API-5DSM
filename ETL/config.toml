@@ -1,0 +1,56 @@
+# ==============================================================================
+# BDGD ETL Configuration File (TOML)
+# ==============================================================================
+
+[pipeline]
+# Path to BDGD .zip archive or extracted .gdb folder
+zip_path = "../uploads/bdgd/EDP/2026-09-18/39a899b4-f28c-438e-8f9e-57282d331266-EDP_SP_391_2024-12-31_V11_20250831-1845.gdb.zip"
+
+# Name of distribuidora and region for data lineage
+distribuidora = "EDP_SP"
+regiao = "SUDESTE"
+
+# Number of parallel workers for layer processing (multiprocessing)
+workers = 4
+
+# Force reprocess layers even if SHA-256 hash indicates unchanged
+force = false
+
+# Layers filter: empty list [] means discover and process ALL layers automatically
+# E.g. include_layers = ["UCBT", "UCMT", "POSTE", "SSDAT", "SSDMT"]
+include_layers = []
+
+# Layers to explicitly exclude
+exclude_layers = []
+
+[database]
+# Destination database type: "postgres" (recommended) or "mysql"
+type = "postgres"
+
+# Connection URL (supports env override via BDGD_DB_URL)
+url = "postgresql://postgres:123@localhost:5432/bdgd"
+
+# Target database schema
+schema = "bdgd"
+
+# Spatial projection settings
+target_srid = 4326
+source_srid_fallback = 4674
+
+[storage]
+# Custom temp directory for intermediate GeoParquet / staging files
+# If empty (""), uses system default temp directory
+temp_dir = ""
+
+# Automatically remove intermediate GeoParquet files after loading confirmed
+cleanup_temp = true
+
+# Keep temporary files if a layer fails (useful for debugging)
+keep_temp_on_error = false
+
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR
+level = "INFO"
+
+# Structured JSON logging format (true) or human-readable (false)
+structured_json = false

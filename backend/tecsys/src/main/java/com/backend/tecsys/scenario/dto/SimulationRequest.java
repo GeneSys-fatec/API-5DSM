@@ -21,6 +21,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -28,6 +29,10 @@ import java.util.List;
 @AllArgsConstructor
 @Schema(description = "Parâmetros de entrada da simulação de cobertura de ativos.")
 public class SimulationRequest {
+
+    @NotNull(message = "O identificador da importacao BDGD e obrigatorio.")
+    @Schema(description = "Id da importacao BDGD usada como universo de ativos.")
+    private UUID importId;
 
     @NotBlank(message = "O nome do cenário é obrigatório.")
     @Schema(description = "Nome do cenário de simulação.", example = "Cenário Centro")

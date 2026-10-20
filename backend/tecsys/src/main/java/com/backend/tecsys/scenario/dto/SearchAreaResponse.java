@@ -14,4 +14,5 @@ public class SearchAreaResponse {
     private List<AssetDto> candidates;
     private String validationStatus;
     private String message;
+    private Object boundaryGeometry;
 }

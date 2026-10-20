@@ -42,6 +42,7 @@ public class SimulationController {
         PropagationModelType propagationModel = PropagationModelType.fromValue(request.getPropagationModel());
 
         SimulationService.SimulationCommand command = new SimulationService.SimulationCommand(
+                request.getImportId(),
                 request.getName(),
                 request.getRegionName(),
                 request.getCoverageTargetPct(),
@@ -71,12 +72,15 @@ public class SimulationController {
         ScenarioIndicator indicator = outcome.indicator();
 
         List<SimulationResponse.SelectedGatewayResponse> selectedGateways = new ArrayList<>();
-        for (GatewayCandidate candidate : outcome.selectedGateways()) {
+        for (var coverage : outcome.selectedCoverages()) {
+            GatewayCandidate candidate = coverage.getCandidate();
             selectedGateways.add(SimulationResponse.SelectedGatewayResponse.builder()
                     .candidateId(candidate.getId())
                     .latitude(candidate.getCoordinate().latitude())
                     .longitude(candidate.getCoordinate().longitude())
                     .coverageRadiusMeters(outcome.coverageRadiusMeters())
+                    .coverageGeometryGeoJson(coverage.getCoverageGeometryGeoJson())
+                    .shadowedAssetKeys(new ArrayList<>(coverage.getShadowedAssetKeys()))
                     .build());
         }
 
