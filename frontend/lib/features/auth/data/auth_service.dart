@@ -7,6 +7,7 @@ import 'auth_models.dart';
 class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'auth_user';
+  static const String _refreshTokenKey = 'auth_refresh_token';
 
   Future<LoginResult> login(String email, String password) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/auth/login');
@@ -29,6 +30,9 @@ class AuthService {
       final result = LoginResult.fromJson(data);
 
       await _saveToken(result.token);
+      if (result.refreshToken != null) {
+        await _saveRefreshToken(result.refreshToken!);
+      }
       await _saveUser(result.user);
 
       return result;
@@ -140,6 +144,7 @@ class AuthService {
   Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_refreshTokenKey);
     await prefs.remove(_userKey);
   }
 
@@ -151,6 +156,40 @@ class AuthService {
   Future<void> _saveUser(UserData user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userKey, jsonEncode(user.toJson()));
+  }
+
+  Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
+  }
+
+  Future<void> _saveRefreshToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_refreshTokenKey, token);
+  }
+
+  Future<void> logout() async {
+    final token = await getToken();
+    final refreshToken = await getRefreshToken();
+
+    try {
+      if (token != null) {
+        await http
+            .post(
+              Uri.parse('${ApiConfig.baseUrl}/auth/logout'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({'refreshToken': refreshToken}),
+            )
+            .timeout(const Duration(seconds: 5));
+      }
+    } catch (_) {
+
+    } finally {
+      await clearSession();
+    }
   }
 }
 

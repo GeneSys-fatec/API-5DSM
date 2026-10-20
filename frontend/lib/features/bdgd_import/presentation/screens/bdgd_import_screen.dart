@@ -152,7 +152,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
         type: FileType.custom,
         allowedExtensions: kAllowedExtensions,
         withData: false,
-        withReadStream: true, // Lê como stream; não carrega tudo na RAM
+        withReadStream: true,
       );
 
       if (result == null) return;
@@ -316,7 +316,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     try {
       await _importService.upload(
         fileName: file.name,
-        fileStream: file.readStream, // stream chunked — não bufferiza
+        fileStream: file.readStream,
         fileSize: file.size,
         filePath: kIsWeb ? null : file.path,
         webFile: _webFile,
@@ -668,6 +668,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       address: base.defaultAddress,
       radiusKm: 3.5,
       baseName: base.distribuidora,
+      bdgdImportId: base.id,
     );
     AreaDelimitationController.setSharedConfig(config);
     Navigator.of(context).pushReplacementNamed('/scenario');

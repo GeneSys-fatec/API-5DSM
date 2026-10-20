@@ -42,6 +42,7 @@ public class SimulationController {
         PropagationModelType propagationModel = PropagationModelType.fromValue(request.getPropagationModel());
 
         SimulationService.SimulationCommand command = new SimulationService.SimulationCommand(
+                request.getImportId(),
                 request.getName(),
                 request.getRegionName(),
                 request.getCoverageTargetPct(),
