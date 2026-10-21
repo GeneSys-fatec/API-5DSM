@@ -28,7 +28,7 @@ public class N8nWebhookService {
    // 1. Forçar o HttpClient a usar HTTP/1.1
     private final HttpClient httpClient = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1) 
-            .connectTimeout(Duration.ofSeconds(10))
+            .connectTimeout(Duration.ofSeconds(1000))
             .build();
 
     public void triggerProcessing(N8nWebhookPayload payload) {

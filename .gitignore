@@ -26,3 +26,6 @@ ETL/*.gdb/
 postman/
 docker-compose.n8n.yml
 docker-compose.override.local.yml
+
+# Local Python venv used to run the ETL under n8n
+.n8n-python/
