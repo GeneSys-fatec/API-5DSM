@@ -86,6 +86,14 @@ public class BdgdAssetService {
         return repository.countAssetsByDistribuidora(distribuidora, List.copyOf(TABLES.values()));
     }
 
+    public Map<String, Integer> countAssetsGroupedByImportId() {
+        return repository.countAssetsGroupedByImportId(List.copyOf(TABLES.values()));
+    }
+
+    public Map<String, Integer> countAssetsGroupedByDistribuidora() {
+        return repository.countAssetsGroupedByDistribuidora(List.copyOf(TABLES.values()));
+    }
+
     public int countAssetsByImportId(UUID importId) {
         return repository.countAssetsByImportId(importId, List.copyOf(TABLES.values()));
     }
