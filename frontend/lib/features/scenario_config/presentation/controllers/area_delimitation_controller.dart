@@ -115,7 +115,9 @@ class AreaDelimitationController extends ChangeNotifier {
     }
     final cachedConfig = await _storageService.loadAreaConfig();
     final cachedResult = await _storageService.loadAreaResult();
-    if (cachedConfig != null && cachedResult != null) {
+    if (cachedConfig != null &&
+        cachedResult != null &&
+        !_containsLegacyMockCandidates(cachedResult)) {
       _config = cachedConfig;
       _result = cachedResult;
       _sharedConfig = cachedConfig;
@@ -125,6 +127,14 @@ class AreaDelimitationController extends ChangeNotifier {
       return;
     }
     await evaluateArea();
+  }
+
+  /// Versões antigas salvavam candidatos fictícios (ids `sub-0`, `trafo-1`, `rel-2`,
+  /// `poste-3`) quando a API falhava. Esses resultados não devem ser reaproveitados.
+  static final RegExp _legacyMockId = RegExp(r'^(sub|trafo|rel|poste)-\d+$');
+
+  bool _containsLegacyMockCandidates(AreaDelimitationResult result) {
+    return result.candidates.any((c) => _legacyMockId.hasMatch(c.id));
   }
 
   Future<void> _refreshBoundaryIfNeeded() async {

@@ -18,6 +18,7 @@ from typing import Any
 
 from .bulk_loader import create_bulk_loader
 from .config import ETLConfig
+from .duckdb_spatial import install_spatial_extension
 from .duckdb_transform import transform_geoparquet_to_staging
 from .gdal_vsi import discover_all_layers, filter_layers, resolve_vsi_path
 from .idempotency import IdempotencyManager, compute_file_sha256
@@ -250,6 +251,9 @@ def run_pipeline(cfg: ETLConfig) -> list[LayerMetrics]:
     # 7. Execute Tasks (Parallel or Sequential)
     workers = max(1, cfg.pipeline.workers)
     results: list[LayerMetrics] = []
+
+    # Install the DuckDB spatial extension once, before workers start racing on it.
+    install_spatial_extension()
 
     logger.info("Iniciando execução do pipeline com %d worker(s)...", workers)
 

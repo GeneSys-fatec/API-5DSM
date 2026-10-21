@@ -66,53 +66,86 @@ public class BdgdAssetRepository {
       return jdbc.queryForList(sql, distribuidora, distribuidora, regiao, regiao, limit, offset);
     }
 
-    public Map<String, Object> findConvexHullByDistribuidora(String distribuidora, String regiao) {
-        AssetUnionQuery query = buildAssetUnionQuery(distribuidora, regiao);
-        if (query == null) {
-            Map<String, Object> empty = new java.util.HashMap<>();
-            empty.put("asset_count", 0);
-            empty.put("hull_geojson", null);
-            return empty;
+    private static final Duration HULL_CACHE_TTL = Duration.ofMinutes(30);
+    private static final int MAX_HULL_CACHE_ENTRIES = 64;
+
+    private record CachedHull(int assetCount, String hullGeoJson, Instant calculadoEm) {
+        boolean expirado() {
+            return Duration.between(calculadoEm, Instant.now()).compareTo(HULL_CACHE_TTL) >= 0;
         }
+    }
 
-        String sql = """
-                SELECT COUNT(*) AS asset_count,
-                       ST_AsGeoJSON(ST_ConvexHull(ST_Collect(geometry))) AS hull_geojson
-                FROM (%s) AS assets
-                """.formatted(query.sql());
+    private final Map<String, CachedHull> hullCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Object> hullLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
-        return jdbc.queryForMap(sql, query.params());
+    /**
+     * O contorno (ConvexHull de todos os ativos da base) varre a base inteira e e caro.
+     * Calcula uma unica vez por distribuidora/regiao e reaproveita; requisicoes concorrentes
+     * para a mesma base aguardam o primeiro calculo em vez de dispararem varreduras paralelas.
+     */
+    private CachedHull hullFor(String distribuidora, String regiao) {
+        String key = distribuidora + "|" + regiao;
+        CachedHull cached = hullCache.get(key);
+        if (cached != null && !cached.expirado()) {
+            return cached;
+        }
+        synchronized (hullLocks.computeIfAbsent(key, k -> new Object())) {
+            cached = hullCache.get(key);
+            if (cached != null && !cached.expirado()) {
+                return cached;
+            }
+            AssetUnionQuery query = buildAssetUnionQuery(distribuidora, regiao);
+            CachedHull computed;
+            if (query == null) {
+                computed = new CachedHull(0, null, Instant.now());
+            } else {
+                Map<String, Object> row = jdbc.queryForMap("""
+                        SELECT COUNT(*) AS asset_count,
+                               ST_AsGeoJSON(ST_ConvexHull(ST_Collect(geometry))) AS hull_geojson
+                        FROM (%s) AS assets
+                        """.formatted(query.sql()), query.params());
+                computed = new CachedHull(
+                        ((Number) row.get("asset_count")).intValue(),
+                        (String) row.get("hull_geojson"),
+                        Instant.now());
+            }
+            if (hullCache.size() >= MAX_HULL_CACHE_ENTRIES) {
+                hullCache.values().removeIf(CachedHull::expirado);
+                if (hullCache.size() >= MAX_HULL_CACHE_ENTRIES) {
+                    hullCache.clear();
+                }
+            }
+            hullCache.put(key, computed);
+            return computed;
+        }
+    }
+
+    public Map<String, Object> findConvexHullByDistribuidora(String distribuidora, String regiao) {
+        CachedHull hull = hullFor(distribuidora, regiao);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("asset_count", hull.assetCount());
+        result.put("hull_geojson", hull.hullGeoJson());
+        return result;
     }
 
     public Map<String, Object> findConvexHullContainsPoint(
             String distribuidora, String regiao, double longitude, double latitude) {
-        AssetUnionQuery query = buildAssetUnionQuery(distribuidora, regiao);
-        if (query == null) {
-            Map<String, Object> empty = new java.util.HashMap<>();
-            empty.put("asset_count", 0);
-            empty.put("hull_geojson", null);
-            empty.put("point_contained", null);
-            return empty;
+        CachedHull hull = hullFor(distribuidora, regiao);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("asset_count", hull.assetCount());
+        result.put("hull_geojson", hull.hullGeoJson());
+        result.put("point_contained", null);
+        if (hull.hullGeoJson() != null) {
+            // Teste de contencao sobre o contorno ja calculado: nao revarre os ativos.
+            Boolean contained = jdbc.queryForObject("""
+                    SELECT CASE WHEN ST_GeometryType(h.geom) = 'ST_Polygon'
+                                THEN ST_Contains(h.geom, ST_SetSRID(ST_MakePoint(?, ?), 4326))
+                                ELSE NULL END
+                    FROM (SELECT ST_SetSRID(ST_GeomFromGeoJSON(?), 4326) AS geom) h
+                    """, Boolean.class, longitude, latitude, hull.hullGeoJson());
+            result.put("point_contained", contained);
         }
-
-        String sql = """
-                WITH hull AS (
-                    SELECT ST_ConvexHull(ST_Collect(geometry)) AS geom, COUNT(*) AS asset_count
-                    FROM (%s) AS assets
-                )
-                SELECT asset_count,
-                       ST_AsGeoJSON(geom) AS hull_geojson,
-                       CASE WHEN ST_GeometryType(geom) = 'ST_Polygon'
-                            THEN ST_Contains(geom, ST_SetSRID(ST_MakePoint(?, ?), 4326))
-                            ELSE NULL END AS point_contained
-                FROM hull
-                """.formatted(query.sql());
-
-        List<Object> params = new java.util.ArrayList<>(java.util.Arrays.asList(query.params()));
-        params.add(longitude);
-        params.add(latitude);
-
-        return jdbc.queryForMap(sql, params.toArray());
+        return result;
     }
 
     public AssetUnionQuery buildAssetUnionQuery(String distribuidora, String regiao) {
@@ -237,6 +270,41 @@ public class BdgdAssetRepository {
         }
     }
 
+    /**
+     * Conta ativos de todas as importacoes de uma vez (um GROUP BY por tabela),
+     * em vez de uma varredura completa por importacao.
+     */
+    public java.util.Map<String, Integer> countAssetsGroupedByImportId(List<String> tableNames) {
+        return countAssetsGrouped(tableNames, "importacao_id");
+    }
+
+    /** Contagem agrupada por distribuidora, usada como fallback para bases sem vinculo por importacao. */
+    public java.util.Map<String, Integer> countAssetsGroupedByDistribuidora(List<String> tableNames) {
+        return countAssetsGrouped(tableNames, "distribuidora");
+    }
+
+    private java.util.Map<String, Integer> countAssetsGrouped(List<String> tableNames, String column) {
+        java.util.Map<String, Integer> totals = new java.util.HashMap<>();
+        java.util.Set<String> existing = getExistingTables();
+        for (String tableName : tableNames) {
+            String table = tableName.toLowerCase();
+            if (!existing.contains(table)) {
+                continue;
+            }
+            try {
+                jdbc.query(
+                        "SELECT " + column + " AS grupo, COUNT(*) AS total FROM bdgd." + table
+                                + " WHERE " + column + " IS NOT NULL GROUP BY " + column,
+                        rs -> {
+                            totals.merge(rs.getString("grupo"), rs.getInt("total"), Integer::sum);
+                        });
+            } catch (org.springframework.dao.DataAccessException ignored) {
+                // Tabela sem a coluna (criada antes do vinculo por importacao): nao contribui.
+            }
+        }
+        return totals;
+    }
+
     private void cacheCount(String cacheKey, int total) {
         if (countCache.size() >= MAX_COUNT_CACHE_ENTRIES) {
             countCache.values().removeIf(CachedCount::expirado);
@@ -249,6 +317,7 @@ public class BdgdAssetRepository {
 
     public void evictCountCache() {
         countCache.clear();
+        hullCache.clear();
     }
 
     private boolean tableExists(String tableName) {

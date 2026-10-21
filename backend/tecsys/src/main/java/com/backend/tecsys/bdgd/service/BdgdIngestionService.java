@@ -69,9 +69,35 @@ public class BdgdIngestionService {
     }
 
     public List<BdgdBaseSummaryResponse> listAllBases(String regiao, String distribuidora) {
-        return repository.findByFilters(groupValidator.normalize(regiao), groupValidator.normalize(distribuidora)).stream()
-                .map(this::toSummary)
+        List<BdgdImportRecord> records =
+                repository.findByFilters(groupValidator.normalize(regiao), groupValidator.normalize(distribuidora));
+        ContagemEmLote contagens = new ContagemEmLote();
+        return records.stream()
+                .map(record -> toSummary(record, contagens))
                 .toList();
+    }
+
+    /**
+     * Agrega as contagens de todas as importacoes numa unica passada por tabela, carregada
+     * somente se alguma importacao precisar dela. Evita N varreduras completas por listagem.
+     */
+    private final class ContagemEmLote {
+        private Map<String, Integer> porImportacao;
+        private Map<String, Integer> porDistribuidora;
+
+        int porImportacao(UUID id) {
+            if (porImportacao == null) {
+                porImportacao = assetService.countAssetsGroupedByImportId();
+            }
+            return porImportacao.getOrDefault(id.toString(), 0);
+        }
+
+        int porDistribuidora(String distribuidora) {
+            if (porDistribuidora == null) {
+                porDistribuidora = assetService.countAssetsGroupedByDistribuidora();
+            }
+            return distribuidora == null ? 0 : porDistribuidora.getOrDefault(distribuidora, 0);
+        }
     }
 
     public List<BdgdBaseSummaryResponse> listAllBases() {
@@ -94,7 +120,11 @@ public class BdgdIngestionService {
     }
 
     private BdgdBaseSummaryResponse toSummary(BdgdImportRecord record) {
-        int ativos = contarAtivos(record);
+        return toSummary(record, null);
+    }
+
+    private BdgdBaseSummaryResponse toSummary(BdgdImportRecord record, ContagemEmLote contagens) {
+        int ativos = contarAtivos(record, contagens);
         String projecao = "SIRGAS 2000 / UTM 23S";
         return new BdgdBaseSummaryResponse(
                 record.id(),
@@ -110,7 +140,7 @@ public class BdgdIngestionService {
         );
     }
 
-    private int contarAtivos(BdgdImportRecord record) {
+    private int contarAtivos(BdgdImportRecord record, ContagemEmLote contagens) {
         if (record.status() != BdgdImportStatus.CONCLUIDO) {
             return 0;
         }
@@ -118,12 +148,16 @@ public class BdgdIngestionService {
         if (registrados != null && !registrados.contagemExpirada()) {
             return registrados.quantidade();
         }
-        int quantidade = assetService.countAssetsByImportId(record.id());
+        int quantidade = contagens != null
+                ? contagens.porImportacao(record.id())
+                : assetService.countAssetsByImportId(record.id());
         if (quantidade == 0) {
             String distribuidora = (registrados != null)
                     ? registrados.distribuidoraNaImportacao()
                     : record.distribuidora();
-            quantidade = assetService.countAssetsByDistribuidora(distribuidora);
+            quantidade = contagens != null
+                    ? contagens.porDistribuidora(distribuidora)
+                    : assetService.countAssetsByDistribuidora(distribuidora);
         }
         registrarAtivos(record.id(), record.distribuidora(), quantidade);
         return quantidade;
