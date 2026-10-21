@@ -107,6 +107,10 @@ public class SimulationService {
         double totalEstimatedCost = costCalculator.calculateTotalCost(
                 selectedGateways.size(), command.gatewayUnitCost());
 
+        double coverageRadiusMeters = selection.selectedCoverages().isEmpty()
+                ? radioCoverageCalculator.calculateCoverageRadius(command.rfParameter(), propagationModel)
+                : selection.selectedCoverages().get(0).getCoverageRadiusMeters();
+
         ScenarioIndicator indicator = scenarioIndicatorCalculator.calculate(
                 assets,
                 coveredAssetKeys,
@@ -126,6 +130,9 @@ public class SimulationService {
                 .propagationModel(command.propagationModel())
                 .status("concluido")
                 .processingTimeMs(processingTimeMs)
+                .areaWkt(buildSearchAreaWkt(command))
+                .rfParameter(command.rfParameter())
+                .coverageRadiusMeters(coverageRadiusMeters)
                 .selectedGateways(selectedGateways)
                 .assetCoverages(assetCoverages)
                 .indicator(indicator)
@@ -147,10 +154,6 @@ public class SimulationService {
         for (GatewayCoverage coverage : selection.selectedCoverages()) {
             selectedCandidates.add(coverage.getCandidate());
         }
-
-        double coverageRadiusMeters = selection.selectedCoverages().isEmpty()
-                ? radioCoverageCalculator.calculateCoverageRadius(command.rfParameter(), propagationModel)
-                : selection.selectedCoverages().get(0).getCoverageRadiusMeters();
 
         return new SimulationOutcome(
                 scenario.getId(),
@@ -174,6 +177,31 @@ public class SimulationService {
                                 asset.getCoordinate().latitude(),
                                 asset.getCoordinate().longitude()))
                         .toList());
+    }
+    
+    private String buildSearchAreaWkt(SimulationCommand command) {
+        if (!command.hasSearchArea()) {
+            return null;
+        }
+
+        final int points = 72;
+        double metersPerDegreeLat = 111_320.0;
+        double metersPerDegreeLon = 111_320.0 * Math.cos(Math.toRadians(command.searchCenterLatitude()));
+        double latDelta = command.searchRadiusMeters() / metersPerDegreeLat;
+        double lonDelta = command.searchRadiusMeters() / metersPerDegreeLon;
+
+        StringBuilder wkt = new StringBuilder("POLYGON((");
+        for (int i = 0; i <= points; i++) {
+            double angle = 2 * Math.PI * i / points;
+            double latitude = command.searchCenterLatitude() + latDelta * Math.sin(angle);
+            double longitude = command.searchCenterLongitude() + lonDelta * Math.cos(angle);
+            if (i > 0) {
+                wkt.append(", ");
+            }
+            wkt.append(longitude).append(' ').append(latitude);
+        }
+        wkt.append("))");
+        return wkt.toString();
     }
 
     private List<Asset> loadAssetUniverse(

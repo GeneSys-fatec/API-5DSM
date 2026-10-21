@@ -1,0 +1,48 @@
+{
+  "id": 1,
+  "name": "Cenário Centro",
+  "regionName": "Centro",
+  "areaWkt": "POLYGON((-47.15 -22.95, -47.05 -22.95, -47.05 -22.85, -47.15 -22.85, -47.15 -22.95))",
+  "coverageTargetPct": 90.0,
+  "maxGateways": 5,
+  "gatewayUnitCost": 1500.0,
+  "propagationModel": "OKUMURA_HATA_SUBURBAN",
+  "rfParameter": {
+    "frequencyMhz": 700.0,
+    "transmitPowerDbm": 21.0,
+    "receiverSensitivityDbm": -120.0,
+    "antennaHeightM": 6.0,
+    "deviceHeightM": 1.5,
+    "antennaGainDbi": 2.0,
+    "systemLossDb": 1.0
+  },
+  "status": "concluido",
+  "processingTimeMs": 42,
+  "processedAt": "2026-10-13T12:34:56Z",
+  "selectedGateways": [
+    {
+      "candidateId": 10,
+      "latitude": -22.9,
+      "longitude": -47.1,
+      "coverageRadiusMeters": 1850.5,
+      "manuallyAdjusted": false
+    },
+    {
+      "candidateId": 11,
+      "latitude": -22.88,
+      "longitude": -47.06,
+      "coverageRadiusMeters": 2400.0,
+      "manuallyAdjusted": true
+    }
+  ],
+  "indicator": {
+    "totalCoveragePct": 85.5,
+    "coveragePctByAssetType": {
+      "POSTE": 91.0,
+      "CABO": 88.4
+    },
+    "usedGatewayCount": 3,
+    "totalEstimatedCost": 4500.0,
+    "targetReached": false
+  }
+}

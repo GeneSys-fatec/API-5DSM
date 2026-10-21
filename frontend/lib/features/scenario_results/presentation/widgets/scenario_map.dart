@@ -46,12 +46,15 @@ class ScenarioMap extends StatefulWidget {
   final bool enableTiles;
   final GlobalKey? captureKey;
 
+  final bool showLayerToggleBar;
+
   const ScenarioMap({
     super.key,
     required this.scenario,
     this.isFullScreen = false,
     this.enableTiles = true,
     this.captureKey,
+    this.showLayerToggleBar = true,
   });
 
   @override
@@ -131,14 +134,14 @@ class _ScenarioMapState extends State<ScenarioMap> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        MapLayerToggleBar(
-          activeLayers: _activeLayers,
-          onToggle: _toggleLayer,
-          hiddenLayers: hasSearchArea
-              ? const {}
-              : const {MapLayerType.searchArea},
-        ),
-        const SizedBox(height: 10),
+        if (widget.showLayerToggleBar) ...[
+          MapLayerToggleBar(
+            activeLayers: _activeLayers,
+            onToggle: _toggleLayer,
+            hiddenLayers: hasSearchArea ? const {} : const {MapLayerType.searchArea},
+          ),
+          const SizedBox(height: 10),
+        ],
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
