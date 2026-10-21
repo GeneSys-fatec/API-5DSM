@@ -12,6 +12,8 @@ class GatewayPoint {
   final int linkedAssets;
   final double avgFadeMarginDb;
   final double coverageRadiusMeters;
+  final String? address;
+  final String? municipio;
   final String? coverageGeometryGeoJson;
   final List<String> shadowedAssetKeys;
 
@@ -25,6 +27,8 @@ class GatewayPoint {
     required this.linkedAssets,
     required this.avgFadeMarginDb,
     required this.coverageRadiusMeters,
+    this.address,
+    this.municipio,
     this.coverageGeometryGeoJson,
     this.shadowedAssetKeys = const [],
   });
@@ -40,6 +44,8 @@ class GatewayPoint {
       'linkedAssets': linkedAssets,
       'avgFadeMarginDb': avgFadeMarginDb,
       'coverageRadiusMeters': coverageRadiusMeters,
+      if (address != null) 'address': address,
+      if (municipio != null) 'municipio': municipio,
       'coverageGeometryGeoJson': coverageGeometryGeoJson,
       'shadowedAssetKeys': shadowedAssetKeys,
     };
@@ -57,6 +63,8 @@ class GatewayPoint {
       avgFadeMarginDb: (map['avgFadeMarginDb'] as num?)?.toDouble() ?? 14.0,
       coverageRadiusMeters:
           (map['coverageRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      address: map['address'] as String? ?? map['endereco'] as String?,
+      municipio: map['municipio'] as String? ?? map['cidade'] as String?,
       coverageGeometryGeoJson: map['coverageGeometryGeoJson'] as String?,
       shadowedAssetKeys: List<String>.from(
         map['shadowedAssetKeys'] as List? ?? const [],
