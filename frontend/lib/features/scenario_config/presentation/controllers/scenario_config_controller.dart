@@ -21,7 +21,7 @@ class ScenarioConfigController extends ChangeNotifier {
   final TextEditingController frequencyController = TextEditingController();
 
   String _selectedFrequencyPreset = '915 MHz';
-  String _selectedPropagationModel = 'Okumura-Hata Suburbano';
+  String _selectedPropagationModel = 'ITM (Longley-Rice Relevo)';
   double _minCoveragePercent = 95.0;
   double _fadeMarginDb = 14.0;
   bool _religadoresChecked = true;
@@ -215,11 +215,41 @@ class ScenarioConfigController extends ChangeNotifier {
     );
   }
 
-  void setFrequencyPreset(String preset, double defaultFrequency) {
+  void setFrequencyPreset(
+    String preset,
+    double defaultFrequency, {
+    double? defaultTxPower,
+    double? defaultRxSensitivity,
+    double? defaultGatewayHeight,
+    double? defaultDeviceHeight,
+  }) {
     _selectedFrequencyPreset = preset;
     frequencyController.text = defaultFrequency.toStringAsFixed(0);
+    if (defaultTxPower != null) {
+      txPowerController.text = defaultTxPower.toStringAsFixed(0);
+    }
+    if (defaultRxSensitivity != null) {
+      rxSensitivityController.text = defaultRxSensitivity.toStringAsFixed(0);
+    }
+    if (defaultGatewayHeight != null) {
+      gatewayHeightController.text = defaultGatewayHeight.toStringAsFixed(1);
+    }
+    if (defaultDeviceHeight != null) {
+      deviceHeightController.text = defaultDeviceHeight.toStringAsFixed(1);
+    }
     notifyListeners();
   }
+
+  double get currentTxPowerDbm =>
+      double.tryParse(txPowerController.text.trim()) ?? 21.0;
+
+  double get currentRxSensitivityDbm =>
+      double.tryParse(rxSensitivityController.text.trim()) ?? -120.0;
+
+  /// Orçamento máximo de perda de propagação (Link Budget) disponível
+  /// para superar perdas no espaço livre somadas à difração do relevo e obstruções.
+  double get maxPermissiblePathLossDb =>
+      currentTxPowerDbm - _fadeMarginDb - currentRxSensitivityDbm;
 
   void setPropagationModel(String model) {
     _selectedPropagationModel = model;
@@ -339,7 +369,9 @@ class ScenarioConfigController extends ChangeNotifier {
     final propagationModelMap = {
       'Okumura-Hata Suburbano': 'OKUMURA_HATA_SUBURBAN',
       '3GPP Rural Macro': 'THREE_GPP_RURAL_MACRO',
+      '3GPP TR 38.901 Rural Macro': 'THREE_GPP_RURAL_MACRO',
       'ITM Longley-Rice': 'ITM_LONGLEY_RICE',
+      'ITM (Longley-Rice Relevo)': 'ITM_LONGLEY_RICE',
     };
 
     return SimulationRequest(
@@ -349,7 +381,7 @@ class ScenarioConfigController extends ChangeNotifier {
       coverageTargetPct: model.minCoveragePercent,
       maxGateways: model.maxGateways,
       gatewayCandidates: gatewayCandidates,
-      propagationModel: propagationModelMap[model.propagationModel] ?? 'OKUMURA_HATA_SUBURBAN',
+      propagationModel: propagationModelMap[model.propagationModel] ?? 'ITM_LONGLEY_RICE',
       gatewayUnitCost: 1500.0,
       searchCenterLatitude: searchArea?.centerLatitude,
       searchCenterLongitude: searchArea?.centerLongitude,

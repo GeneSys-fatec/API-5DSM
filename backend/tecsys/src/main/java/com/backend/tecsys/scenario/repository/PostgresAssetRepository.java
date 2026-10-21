@@ -102,13 +102,15 @@ public class PostgresAssetRepository implements IAssetRepository {
         }
 
         private List<String> existingAssetTables() {
-        List<String> candidates = List.of("poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat");
-        return candidates.stream()
-            .filter(table -> Boolean.TRUE.equals(jdbcTemplate.queryForObject(
-                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-                    + "WHERE table_schema = 'bdgd' AND table_name = ?)",
-                Boolean.class, table)))
-            .toList();
+            List<String> candidates = List.of(
+                    "poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat",
+                    "ponnot", "untrmt", "unremt", "uncrat");
+            return candidates.stream()
+                .filter(table -> Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                        + "WHERE table_schema = 'bdgd' AND table_name = ?)",
+                    Boolean.class, table)))
+                .toList();
         }
 
     @Override

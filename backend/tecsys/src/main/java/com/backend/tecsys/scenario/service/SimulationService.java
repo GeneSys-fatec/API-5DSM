@@ -72,7 +72,11 @@ public class SimulationService {
                     "Nenhum candidato a gateway foi encontrado para a região informada.");
         }
 
-        PropagationModel propagationModel = propagationModelRegistry.resolve(command.propagationModel());
+        PropagationModelType effectiveModelType = command.propagationModel() != null
+                ? command.propagationModel()
+                : PropagationModelType.ITM_LONGLEY_RICE;
+        // Prioriza sempre o modelo ITM Longley-Rice para o cálculo de relevo
+        PropagationModel propagationModel = propagationModelRegistry.resolve(PropagationModelType.ITM_LONGLEY_RICE);
         List<Asset> assets = loadAssetUniverse(command, candidates, propagationModel);
 
         List<GatewayCoverage> individualCoverages = new ArrayList<>();
@@ -113,7 +117,7 @@ public class SimulationService {
                 .gatewayUnitCost(command.gatewayUnitCost() != null
                         ? command.gatewayUnitCost()
                         : MockCostCalculator.DEFAULT_GATEWAY_UNIT_COST)
-                .propagationModel(command.propagationModel())
+                .propagationModel(PropagationModelType.ITM_LONGLEY_RICE)
                 .status("concluido")
                 .processingTimeMs(processingTimeMs)
                 .selectedGateways(selectedGateways)
@@ -145,7 +149,7 @@ public class SimulationService {
         return new SimulationOutcome(
                 scenario.getId(),
                 scenario.getStatus(),
-                command.propagationModel(),
+                PropagationModelType.ITM_LONGLEY_RICE,
                 command.rfParameter(),
                 selectedCandidates,
                 selection.selectedCoverages(),

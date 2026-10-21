@@ -31,6 +31,8 @@ class RfParametersCard extends StatelessWidget {
           _buildFrequencySection(),
           const SizedBox(height: 24),
           _buildNumericInputsGrid(),
+          const SizedBox(height: 20),
+          _buildLinkBudgetTerrainSection(),
           const SizedBox(height: 24),
           _buildPropagationModelsSection(),
         ],
@@ -108,34 +110,50 @@ class RfParametersCard extends StatelessWidget {
                 _buildFrequencyCard(
                   title: '915 MHz',
                   subtitle: 'ISM / LoRaWAN',
-                  detail: 'Brasil Anatel\nRes. 680',
+                  detail: 'Brasil Anatel Res. 680',
                   preset: '915 MHz',
                   frequency: 915.0,
+                  txPowerDbm: 21.0,
+                  rxSensitivityDbm: -120.0,
+                  gatewayHeightM: 6.0,
+                  deviceHeightM: 5.0,
                   hasIndicator: true,
                   width: isWide ? (constraints.maxWidth - 36) / 4 : (constraints.maxWidth - 12) / 2,
                 ),
                 _buildFrequencyCard(
                   title: '433 MHz',
                   subtitle: 'VHF / Banda Estreita',
-                  detail: 'Penetração\nSevera',
+                  detail: 'Penetração Severa',
                   preset: '433 MHz',
                   frequency: 433.0,
+                  txPowerDbm: 27.0,
+                  rxSensitivityDbm: -118.0,
+                  gatewayHeightM: 8.0,
+                  deviceHeightM: 4.0,
                   width: isWide ? (constraints.maxWidth - 36) / 4 : (constraints.maxWidth - 12) / 2,
                 ),
                 _buildFrequencyCard(
                   title: '2.4 GHz',
                   subtitle: 'Wi-SUN Mesh',
-                  detail: 'Alta Vazão /\nCurto Alcance',
+                  detail: 'Alta Vazão / Curto Alcance',
                   preset: '2.4 GHz',
                   frequency: 2400.0,
+                  txPowerDbm: 20.0,
+                  rxSensitivityDbm: -95.0,
+                  gatewayHeightM: 6.0,
+                  deviceHeightM: 3.0,
                   width: isWide ? (constraints.maxWidth - 36) / 4 : (constraints.maxWidth - 12) / 2,
                 ),
                 _buildFrequencyCard(
                   title: 'ZigBee / 920M',
                   subtitle: 'IEEE 802.15.4g',
-                  detail: 'Smart Grid FAN\n ',
+                  detail: 'Smart Grid FAN',
                   preset: 'ZigBee / 920M',
                   frequency: 920.0,
+                  txPowerDbm: 14.0,
+                  rxSensitivityDbm: -100.0,
+                  gatewayHeightM: 6.0,
+                  deviceHeightM: 3.0,
                   width: isWide ? (constraints.maxWidth - 36) / 4 : (constraints.maxWidth - 12) / 2,
                 ),
               ],
@@ -152,13 +170,25 @@ class RfParametersCard extends StatelessWidget {
     required String detail,
     required String preset,
     required double frequency,
+    required double txPowerDbm,
+    required double rxSensitivityDbm,
+    required double gatewayHeightM,
+    required double deviceHeightM,
     required double width,
     bool hasIndicator = false,
   }) {
     final isSelected = controller.selectedFrequencyPreset == preset;
+    final pathLossBudget = txPowerDbm - rxSensitivityDbm;
 
     return InkWell(
-      onTap: () => controller.setFrequencyPreset(preset, frequency),
+      onTap: () => controller.setFrequencyPreset(
+        preset,
+        frequency,
+        defaultTxPower: txPowerDbm,
+        defaultRxSensitivity: rxSensitivityDbm,
+        defaultGatewayHeight: gatewayHeightM,
+        defaultDeviceHeight: deviceHeightM,
+      ),
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -215,9 +245,47 @@ class RfParametersCard extends StatelessWidget {
                 color: isSelected ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF334155),
               ),
             ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'TX ${txPowerDbm.toStringAsFixed(0)} dBm',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? Colors.white : AppColors.primaryPurple,
+                    ),
+                  ),
+                  Text(
+                    ' • ',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: isSelected ? Colors.white70 : AppColors.textMuted,
+                    ),
+                  ),
+                  Text(
+                    'RX ${rxSensitivityDbm.toStringAsFixed(0)} dBm',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? Colors.white : const Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
-              detail,
+              '$detail • Margem: ${pathLossBudget.toStringAsFixed(0)} dB',
               style: TextStyle(
                 fontSize: 10,
                 height: 1.3,
@@ -372,6 +440,137 @@ class RfParametersCard extends StatelessWidget {
     );
   }
 
+  Widget _buildLinkBudgetTerrainSection() {
+    final txPower = controller.currentTxPowerDbm;
+    final rxSens = controller.currentRxSensitivityDbm;
+    final margin = controller.fadeMarginDb;
+    final maxLoss = controller.maxPermissiblePathLossDb;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPurpleLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.landscape_rounded,
+                  color: AppColors.primaryPurple,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'ORÇAMENTO DE POTÊNCIA & COBERTURA COM RELEVO',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: maxLoss > 100 ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: maxLoss > 100 ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D),
+                  ),
+                ),
+                child: Text(
+                  'Perda Máx. Tolerada: ${maxLoss.toStringAsFixed(1)} dB',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: maxLoss > 100 ? const Color(0xFF166534) : const Color(0xFF92400E),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'A área de abrangência de cada gateway é calculada combinando a potência de transmissão configurada ($txPower dBm) com a sensibilidade dos medidores ($rxSens dBm) e a margem de desvanecimento (-$margin dB). O orçamento resultante (${maxLoss.toStringAsFixed(1)} dB) é confrontado com as perdas por espaço livre e atenuação de relevo (ITM Longley-Rice / SRTM 30m) para determinar o raio de alcance útil de cada nó.',
+            style: const TextStyle(
+              fontSize: 11.5,
+              height: 1.45,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _buildFormulaBadge(label: 'Potência TX', value: '+${txPower.toStringAsFixed(0)} dBm', color: AppColors.primaryPurple),
+              const Text('-', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textMuted)),
+              _buildFormulaBadge(label: 'Margem Desvanecimento', value: '${margin.toStringAsFixed(0)} dB', color: const Color(0xFF64748B)),
+              const Text('-', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textMuted)),
+              _buildFormulaBadge(label: 'Sensibilidade RX', value: '${rxSens.toStringAsFixed(0)} dBm', color: AppColors.primaryPurple),
+              const Text('=', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textMuted)),
+              _buildFormulaBadge(label: 'Orçamento Relevo', value: '${maxLoss.toStringAsFixed(1)} dB', color: const Color(0xFF0F766E), isHighlighted: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormulaBadge({
+    required String label,
+    required String value,
+    required Color color,
+    bool isHighlighted = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isHighlighted ? color.withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isHighlighted ? color : const Color(0xFFCBD5E1),
+          width: isHighlighted ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPropagationModelsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,37 +585,12 @@ class RfParametersCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 700;
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _buildModelCard(
-                  title: 'Okumura-Hata Suburbano',
-                  description:
-                      'Perfeito para cidades médias do interior paulista com média atenuação por árvores.',
-                  modelName: 'Okumura-Hata Suburbano',
-                  width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                ),
-                _buildModelCard(
-                  title: '3GPP TR 38.901 Rural Macro',
-                  description:
-                      'Ideal para ramais rurais longos e grandes distâncias inter-postes (>200m).',
-                  modelName: '3GPP TR 38.901 Rural Macro',
-                  width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                ),
-                _buildModelCard(
-                  title: 'ITM (Longley-Rice Relevo)',
-                  description:
-                      'Considera difração do terreno SRTM e clutter de vegetação densa.',
-                  modelName: 'ITM (Longley-Rice Relevo)',
-                  width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
-                ),
-              ],
-            );
-          },
+        _buildModelCard(
+          title: 'ITM (Longley-Rice Relevo)',
+          description:
+              'Modelo padrão adotado: considera relevo topográfico SRTM 30m, difração de gume de faca, obstruções de terreno e clutter.',
+          modelName: 'ITM (Longley-Rice Relevo)',
+          width: double.infinity,
         ),
       ],
     );

@@ -191,6 +191,26 @@ void main() {
       expect(controller.rxSensitivityError, isNull);
       expect(controller.isValid, isTrue);
     });
+
+    test('setFrequencyPreset atualiza frequencia, potencia TX e sensibilidade RX', () {
+      controller.setFrequencyPreset(
+        '433 MHz',
+        433.0,
+        defaultTxPower: 27.0,
+        defaultRxSensitivity: -118.0,
+        defaultGatewayHeight: 8.0,
+        defaultDeviceHeight: 4.0,
+      );
+
+      expect(controller.selectedFrequencyPreset, '433 MHz');
+      expect(controller.frequencyController.text, '433');
+      expect(controller.txPowerController.text, '27');
+      expect(controller.rxSensitivityController.text, '-118');
+      expect(controller.gatewayHeightController.text, '8.0');
+      expect(controller.deviceHeightController.text, '4.0');
+      // Link budget: 27 - 14 - (-118) = 131 dB
+      expect(controller.maxPermissiblePathLossDb, 131.0);
+    });
   });
 
   group('ScenarioConfigScreen Widget Tests', () {
@@ -215,7 +235,8 @@ void main() {
       expect(find.text('SENSIBILIDADE RX'), findsOneWidget);
       expect(find.text('ALTURA DO GATEWAY'), findsOneWidget);
       expect(find.text('ALTURA DO RECEPTOR'), findsOneWidget);
-      expect(find.text('Okumura-Hata Suburbano'), findsOneWidget);
+      expect(find.text('ITM (Longley-Rice Relevo)'), findsOneWidget);
+      expect(find.text('ORÇAMENTO DE POTÊNCIA & COBERTURA COM RELEVO'), findsOneWidget);
 
       expect(
         find.text('Metas de Cobertura e Restrições de Orçamento'),
