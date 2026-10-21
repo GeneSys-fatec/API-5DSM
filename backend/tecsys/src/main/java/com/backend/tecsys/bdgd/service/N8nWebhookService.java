@@ -17,9 +17,12 @@ import java.time.Duration;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class N8nWebhookService {
     private final BdgdIngestionProperties properties;
+
+    public N8nWebhookService(BdgdIngestionProperties properties) {
+        this.properties = properties;
+    }
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())

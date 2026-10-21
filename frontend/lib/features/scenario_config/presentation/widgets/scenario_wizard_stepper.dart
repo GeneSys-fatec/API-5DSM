@@ -40,7 +40,9 @@ class ScenarioWizardStepper extends StatelessWidget {
                     stepNumber: 1,
                     totalSteps: 2,
                     title: '1. Delimitação de Área',
-                    subtitle: currentStep == 1 ? 'ETAPA 1 DE 2' : 'ETAPA 1 (CONCLUÍDA)',
+                    subtitle: currentStep == 1
+                        ? 'ETAPA 1 DE 2'
+                        : 'ETAPA 1 (CONCLUÍDA)',
                     isActive: currentStep == 1,
                     isCompleted: currentStep > 1,
                     onTap: onStep1Tap,
@@ -48,14 +50,20 @@ class ScenarioWizardStepper extends StatelessWidget {
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                 ),
                 Expanded(
                   child: _StepBadge(
                     stepNumber: 2,
                     totalSteps: 2,
                     title: '2. Parâmetros de RF',
-                    subtitle: currentStep == 2 ? 'ETAPA 2 DE 2' : 'ETAPA 2 (PRÓXIMA)',
+                    subtitle: currentStep == 2
+                        ? 'ETAPA 2 DE 2'
+                        : 'ETAPA 2 (PRÓXIMA)',
                     isActive: currentStep == 2,
                     isCompleted: false,
                     onTap: onStep2Tap,
@@ -77,7 +85,7 @@ class ScenarioWizardStepper extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final showPills = constraints.maxWidth >= 1050;
+          final showPills = constraints.maxWidth >= 900;
           return Row(
             children: [
               Flexible(
@@ -85,7 +93,9 @@ class ScenarioWizardStepper extends StatelessWidget {
                   stepNumber: 1,
                   totalSteps: 2,
                   title: '1. Delimitação de Área & Candidatos',
-                  subtitle: currentStep == 1 ? 'ETAPA 1 DE 2' : 'ETAPA 1 (CONCLUÍDA)',
+                  subtitle: currentStep == 1
+                      ? 'ETAPA 1 DE 2'
+                      : 'ETAPA 1 (CONCLUÍDA)',
                   isActive: currentStep == 1,
                   isCompleted: currentStep > 1,
                   onTap: onStep1Tap,
@@ -93,14 +103,20 @@ class ScenarioWizardStepper extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textMuted,
+                  size: 20,
+                ),
               ),
               Flexible(
                 child: _StepBadge(
                   stepNumber: 2,
                   totalSteps: 2,
                   title: '2. Parâmetros de RF e Otimização',
-                  subtitle: currentStep == 2 ? 'ETAPA 2 DE 2' : 'ETAPA 2 (PRÓXIMA)',
+                  subtitle: currentStep == 2
+                      ? 'ETAPA 2 DE 2'
+                      : 'ETAPA 2 (PRÓXIMA)',
                   isActive: currentStep == 2,
                   isCompleted: false,
                   onTap: onStep2Tap,
@@ -109,7 +125,9 @@ class ScenarioWizardStepper extends StatelessWidget {
               if (showPills && showSystemPills) ...[
                 const SizedBox(width: 16),
                 const Spacer(),
-                _SystemContextPills(baseName: baseName ?? 'ENERGISA (SUL / SE)'),
+                _SystemContextPills(
+                  baseName: baseName ?? 'ENERGISA (SUL / SE)',
+                ),
               ],
             ],
           );
@@ -143,20 +161,20 @@ class _StepBadge extends StatelessWidget {
     final bg = isActive
         ? AppColors.primaryPurple
         : isCompleted
-            ? AppColors.primaryPurpleLight
-            : AppColors.backgroundLight;
+        ? AppColors.primaryPurpleLight
+        : AppColors.backgroundLight;
 
     final textColor = isActive
         ? Colors.white
         : isCompleted
-            ? AppColors.primaryDark
-            : AppColors.textSecondary;
+        ? AppColors.primaryDark
+        : AppColors.textSecondary;
 
     final subTextColor = isActive
         ? Colors.white.withValues(alpha: 0.85)
         : isCompleted
-            ? AppColors.primaryPurple
-            : AppColors.textMuted;
+        ? AppColors.primaryPurple
+        : AppColors.textMuted;
 
     return Material(
       color: Colors.transparent,
@@ -172,8 +190,8 @@ class _StepBadge extends StatelessWidget {
               color: isActive
                   ? AppColors.primaryPurple
                   : isCompleted
-                      ? AppColors.primaryPurpleLight
-                      : AppColors.cardBorder,
+                  ? AppColors.primaryPurpleLight
+                  : AppColors.cardBorder,
             ),
           ),
           child: Row(
@@ -187,21 +205,21 @@ class _StepBadge extends StatelessWidget {
                   color: isActive
                       ? Colors.white.withValues(alpha: 0.2)
                       : isCompleted
-                          ? AppColors.primaryPurple
-                          : Colors.grey.shade300,
+                      ? AppColors.primaryPurple
+                      : Colors.grey.shade300,
                 ),
                 child: Icon(
                   isCompleted
                       ? Icons.check_rounded
                       : isActive
-                          ? Icons.adjust_rounded
-                          : Icons.cell_tower_rounded,
+                      ? Icons.adjust_rounded
+                      : Icons.cell_tower_rounded,
                   size: 16,
                   color: isActive
                       ? Colors.white
                       : isCompleted
-                          ? Colors.white
-                          : AppColors.textMuted,
+                      ? Colors.white
+                      : AppColors.textMuted,
                 ),
               ),
               const SizedBox(width: 10),
@@ -255,31 +273,27 @@ class _SystemContextPills extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.layers_rounded, color: AppColors.primaryPurple, size: 16),
+            const Icon(
+              Icons.layers_rounded,
+              color: AppColors.primaryPurple,
+              size: 16,
+            ),
             const SizedBox(width: 6),
             RichText(
               text: TextSpan(
-                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textPrimary,
+                ),
                 children: [
-                  const TextSpan(text: 'Base: ', style: TextStyle(color: AppColors.textSecondary)),
-                  TextSpan(text: baseName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 16),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.explore_outlined, color: AppColors.warning, size: 16),
-            const SizedBox(width: 6),
-            RichText(
-              text: const TextSpan(
-                style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
-                children: [
-                  TextSpan(text: 'Datum: ', style: TextStyle(color: AppColors.textSecondary)),
-                  TextSpan(text: 'SIRGAS 2000 / UTM 23S', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const TextSpan(
+                    text: 'Base: ',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  TextSpan(
+                    text: baseName,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ],
               ),
             ),
