@@ -64,10 +64,6 @@ class BaseCardsList extends StatelessWidget {
                       '${b.versaoBase} · ${b.ativosMapeados > 0 ? '${formatThousands(b.ativosMapeados)} pts' : (b.status == 'processando' ? 'Em processamento...' : '0 pts')}',
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
-                    Text(
-                      b.projecao,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                    ),
                     const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,

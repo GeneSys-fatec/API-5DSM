@@ -9,11 +9,10 @@ class BasesTable extends StatelessWidget {
   final ValueChanged<BdgdBase>? onEditBase;
   const BasesTable({super.key, required this.bases, this.onSelectBase, this.onEditBase});
 
-  static const _flexDistribuidora = 3;
-  static const _flexVersao = 2;
+  static const _flexDistribuidora = 4;
+  static const _flexVersao = 3;
   static const _flexStatus = 2;
   static const _flexAtivos = 2;
-  static const _flexProjecao = 2;
   static const _flexAcao = 3;
 
   @override
@@ -43,11 +42,6 @@ class BasesTable extends StatelessWidget {
               Expanded(
                 flex: _flexAtivos,
                 child: Text('ATIVOS MAPEADOS',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-              ),
-              Expanded(
-                flex: _flexProjecao,
-                child: Text('PROJEÇÃO / DATUM',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
               ),
               Expanded(
@@ -132,13 +126,6 @@ class BasesTable extends StatelessWidget {
                         fontWeight: b.ativosMapeados > 0 ? FontWeight.w600 : FontWeight.normal,
                         color: b.ativosMapeados > 0 ? AppColors.textPrimary : AppColors.textMuted,
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: _flexProjecao,
-                    child: Text(
-                      b.projecao,
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
                   ),
                   Expanded(
