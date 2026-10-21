@@ -5,6 +5,7 @@ import com.backend.tecsys.bdgd.repository.BdgdAssetRepository;
 import com.backend.tecsys.bdgd.repository.BdgdImportRepository;
 import com.backend.tecsys.scenario.exception.ScenarioPersistenceException;
 import com.backend.tecsys.scenario.model.Asset;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import com.backend.tecsys.radio.model.RfCoordinate;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -152,6 +153,44 @@ public class PostgresAssetRepository implements IAssetRepository {
             throw new ScenarioPersistenceException(
                     "Falha ao obter os ativos da area de busca.", e);
         }
+    }
+
+    @Override
+    public List<Asset> findWithinPolygon(UUID importId, List<PolygonPoint> polygonPoints) {
+        BdgdImportRecord record = importRepository.find(importId);
+        BdgdAssetRepository.AssetUnionQuery query = requireUnionQuery(record);
+        String sql = wrapWithPolygonFilter(query.sql());
+
+        List<Object> params = new ArrayList<>(List.of(query.params()));
+        params.add(buildPolygonWkt(polygonPoints));
+
+        try {
+            return jdbcTemplate.query(sql, assetRowMapper, params.toArray());
+        } catch (Exception e) {
+            throw new ScenarioPersistenceException(
+                    "Falha ao obter os ativos dentro do polígono informado.", e);
+        }
+    }
+
+    private String wrapWithPolygonFilter(String unionSql) {
+        return "SELECT asset_key, tipo_ativo, latitude, longitude FROM (" + selectAssetsSql(unionSql)
+                + ") assets WHERE ST_Contains("
+                + "ST_SetSRID(ST_GeomFromText(?), 4326), "
+                + "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)) "
+                + "ORDER BY asset_key LIMIT 5000";
+    }
+
+    private String buildPolygonWkt(List<PolygonPoint> polygonPoints) {
+        List<PolygonPoint> ring = new ArrayList<>(polygonPoints);
+        PolygonPoint first = ring.get(0);
+        PolygonPoint last = ring.get(ring.size() - 1);
+        if (!first.equals(last)) {
+            ring.add(first);
+        }
+        String coordinates = ring.stream()
+                .map(p -> p.longitude() + " " + p.latitude())
+                .collect(java.util.stream.Collectors.joining(", "));
+        return "POLYGON((" + coordinates + "))";
     }
 
     private BdgdAssetRepository.AssetUnionQuery requireUnionQuery(BdgdImportRecord record) {

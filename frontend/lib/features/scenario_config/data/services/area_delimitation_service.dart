@@ -164,12 +164,19 @@ class AreaDelimitationService {
       throw AreaDelimitationException('Selecione uma base BDGD importada antes de delimitar a Ã¡rea.');
     }
 
-    final request = SearchAreaRequest(
-      importId: config.bdgdImportId!,
-      latitude: config.centerLatitude,
-      longitude: config.centerLongitude,
-      radius: config.radiusMeters,
-    );
+    final request = config.useDrawnPolygon && config.drawnPolygonPoints.length >= 3
+        ? SearchAreaRequest(
+            importId: config.bdgdImportId!,
+            latitude: config.centerLatitude,
+            longitude: config.centerLongitude,
+            polygonPoints: config.drawnPolygonPoints,
+          )
+        : SearchAreaRequest(
+            importId: config.bdgdImportId!,
+            latitude: config.centerLatitude,
+            longitude: config.centerLongitude,
+            radius: config.radiusMeters,
+          );
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenario/search-area');
 

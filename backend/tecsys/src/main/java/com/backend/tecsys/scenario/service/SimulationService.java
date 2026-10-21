@@ -11,6 +11,7 @@ import com.backend.tecsys.scenario.exception.InvalidGatewayCandidateException;
 import com.backend.tecsys.scenario.exception.InvalidSimulationParameterException;
 import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import com.backend.tecsys.scenario.model.GatewayCoverage;
 import com.backend.tecsys.scenario.model.PropagationModelType;
 import com.backend.tecsys.scenario.model.Scenario;
@@ -160,37 +161,54 @@ public class SimulationService {
             List<GatewayCandidate> candidates,
             PropagationModel propagationModel) {
 
-        double centerLatitude;
-        double centerLongitude;
-        double radiusMeters;
+        List<Asset> assets;
 
-        if (command.hasSearchArea()) {
-            centerLatitude = command.searchCenterLatitude();
-            centerLongitude = command.searchCenterLongitude();
-            radiusMeters = command.searchRadiusMeters();
+        if (command.hasSearchPolygon()) {
+            assets = assetRepository.findWithinPolygon(command.importId(), command.searchPolygonPoints());
         } else {
-            centerLatitude = candidates.stream().mapToDouble(c -> c.getCoordinate().latitude()).average().orElse(0.0);
-            centerLongitude = candidates.stream().mapToDouble(c -> c.getCoordinate().longitude()).average().orElse(0.0);
-            RfCoordinate center = new RfCoordinate(centerLatitude, centerLongitude);
-            double farthestCandidateM = candidates.stream()
-                    .mapToDouble(c -> GeoDistanceCalculator.distanceMeters(center, c.getCoordinate()))
-                    .max()
-                    .orElse(0.0);
-            double coverageRadiusM = radioCoverageCalculator.calculateCoverageRadius(
-                    command.rfParameter(), propagationModel);
-            radiusMeters = Math.min(farthestCandidateM + coverageRadiusM, MAX_DERIVED_UNIVERSE_RADIUS_M);
+            double centerLatitude;
+            double centerLongitude;
+            double radiusMeters;
+
+            if (command.hasSearchArea()) {
+                centerLatitude = command.searchCenterLatitude();
+                centerLongitude = command.searchCenterLongitude();
+                radiusMeters = command.searchRadiusMeters();
+            } else {
+                centerLatitude = candidates.stream().mapToDouble(c -> c.getCoordinate().latitude()).average().orElse(0.0);
+                centerLongitude = candidates.stream().mapToDouble(c -> c.getCoordinate().longitude()).average().orElse(0.0);
+                RfCoordinate center = new RfCoordinate(centerLatitude, centerLongitude);
+                double farthestCandidateM = candidates.stream()
+                        .mapToDouble(c -> GeoDistanceCalculator.distanceMeters(center, c.getCoordinate()))
+                        .max()
+                        .orElse(0.0);
+                double coverageRadiusM = radioCoverageCalculator.calculateCoverageRadius(
+                        command.rfParameter(), propagationModel);
+                radiusMeters = Math.min(farthestCandidateM + coverageRadiusM, MAX_DERIVED_UNIVERSE_RADIUS_M);
+            }
+
+            assets = assetRepository.findAllWithinRadius(
+                    command.importId(), centerLatitude, centerLongitude, radiusMeters);
         }
 
-        List<Asset> assets = assetRepository.findAllWithinRadius(
-                command.importId(), centerLatitude, centerLongitude, radiusMeters);
         if (assets == null || assets.isEmpty()) {
             throw new InvalidSimulationParameterException(
                     "Nenhum ativo encontrado na área de busca informada.");
         }
         return assets;
     }
-
     private void validateCenterWithinBdgdBounds(SimulationCommand command) {
+        if (command.hasSearchPolygon()) {
+            for (PolygonPoint point : command.searchPolygonPoints()) {
+                BdgdAssetService.BoundaryCheck pointCheck = bdgdAssetService.checkPointWithinImportBounds(
+                        command.importId(), point.longitude(), point.latitude());
+                if (pointCheck.hasBoundary() && !pointCheck.isPointInside()) {
+                    throw new com.backend.tecsys.scenario.exception.PointOutOfBoundsException(
+                            "Um ou mais pontos do polígono estão fora da area de cobertura da BDGD selecionada.");
+                }
+            }
+            return;
+        }
         if (!command.hasSearchArea()) {
             return;
         }
@@ -201,7 +219,6 @@ public class SimulationService {
                     "O ponto central informado esta fora da area de cobertura da BDGD selecionada.");
         }
     }
-
     private void validate(SimulationCommand command) {
         if (command.scenarioName() == null || command.scenarioName().isBlank()) {
             throw new InvalidSimulationParameterException("O nome do cenário é obrigatório.");
@@ -213,6 +230,11 @@ public class SimulationService {
         if (searchAreaFieldsProvided != 0 && searchAreaFieldsProvided != 3) {
             throw new InvalidSimulationParameterException(
                     "Informe latitude, longitude e raio da área de busca juntos, ou nenhum deles.");
+        }
+
+        if (command.searchPolygonPoints() != null && !command.searchPolygonPoints().isEmpty()
+                && command.searchPolygonPoints().size() < 3) {
+            throw new InvalidSimulationParameterException("O polígono manual deve ter no mínimo 3 pontos para formar uma área válida.");
         }
 
         if (command.coverageTargetPct() < 1.0 || command.coverageTargetPct() > 100.0) {
@@ -303,12 +325,17 @@ public class SimulationService {
             List<GatewayCandidate> gatewayCandidates,
             Double searchCenterLatitude,
             Double searchCenterLongitude,
-            Double searchRadiusMeters) {
+            Double searchRadiusMeters,
+            List<PolygonPoint> searchPolygonPoints) {
 
         public boolean hasSearchArea() {
             return searchCenterLatitude != null
                     && searchCenterLongitude != null
                     && searchRadiusMeters != null;
+        }
+
+        public boolean hasSearchPolygon() {
+            return searchPolygonPoints != null && searchPolygonPoints.size() >= 3;
         }
     }
 

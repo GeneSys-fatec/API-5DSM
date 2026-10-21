@@ -6,6 +6,7 @@ import com.backend.tecsys.scenario.dto.SearchAreaResponse;
 import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
 import com.backend.tecsys.scenario.repository.IAssetRepository;
 import com.backend.tecsys.scenario.service.SearchAreaService;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -77,6 +78,63 @@ class SearchAreaServiceTest {
         SearchAreaResponse response = service.processSearchArea(request);
 
         assertEquals("OK", response.getValidationStatus());
+    }
+
+    @Test
+    void shouldRejectPolygonSearchWithFewerThanThreePoints() {
+        UUID importId = UUID.randomUUID();
+
+        SearchAreaRequest request = SearchAreaRequest.builder()
+                .importId(importId)
+                .latitude(-22.0).longitude(-47.0)
+                .polygonPoints(List.of(
+                        new PolygonPoint(-22.0, -47.0),
+                        new PolygonPoint(-22.1, -47.1)))
+                .build();
+
+        assertThrows(IllegalArgumentException.class, () -> service.processSearchArea(request));
+    }
+
+    @Test
+    void shouldRejectPolygonSearchWhenAnyVertexIsOutsideBoundary() {
+        UUID importId = UUID.randomUUID();
+        when(bdgdAssetService.checkPointWithinImportBounds(any(), anyDouble(), anyDouble()))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(samplePolygon(), true))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(samplePolygon(), false));
+
+        SearchAreaRequest request = SearchAreaRequest.builder()
+                .importId(importId)
+                .latitude(-22.0).longitude(-47.0)
+                .polygonPoints(List.of(
+                        new PolygonPoint(-22.0, -47.0),
+                        new PolygonPoint(-22.1, -47.1),
+                        new PolygonPoint(10.0, 10.0)))
+                .build();
+
+        assertThrows(PointOutOfBoundsException.class, () -> service.processSearchArea(request));
+    }
+
+    @Test
+    void shouldAcceptPolygonSearchWhenAllVerticesAreInsideBoundary() {
+        UUID importId = UUID.randomUUID();
+        when(bdgdAssetService.checkPointWithinImportBounds(any(), anyDouble(), anyDouble()))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(samplePolygon(), true));
+        when(assetRepository.findWithinPolygon(any(), any()))
+                .thenReturn(List.of());
+
+        SearchAreaRequest request = SearchAreaRequest.builder()
+                .importId(importId)
+                .latitude(-22.0).longitude(-47.0)
+                .polygonPoints(List.of(
+                        new PolygonPoint(-22.0, -47.0),
+                        new PolygonPoint(-22.1, -47.1),
+                        new PolygonPoint(-22.0, -47.2)))
+                .build();
+
+        SearchAreaResponse response = service.processSearchArea(request);
+
+        assertEquals("OK", response.getValidationStatus());
+        assertTrue(response.getCandidates().isEmpty());
     }
 
     private Object samplePolygon() {

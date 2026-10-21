@@ -3,6 +3,7 @@ package com.backend.tecsys.scenario.repository;
 import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.radio.model.RfCoordinate;
 import com.backend.tecsys.scenario.repository.IAssetRepository;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
@@ -79,5 +80,35 @@ public class MockAssetRepository implements IAssetRepository {
     @Override
     public List<Asset> findAllWithinRadius(UUID importId, double latitude, double longitude, double radiusMeters) {
         return findWithinRadius(importId, latitude, longitude, radiusMeters);
+    }
+
+    @Override
+    public List<Asset> findWithinPolygon(UUID importId, List<PolygonPoint> polygonPoints) {
+        List<Asset> all = findByImportId(importId);
+        List<Asset> result = new ArrayList<>();
+        for (Asset a : all) {
+            if (isPointInsidePolygon(a.getCoordinate().latitude(), a.getCoordinate().longitude(), polygonPoints)) {
+                result.add(a);
+            }
+        }
+        return result;
+    }
+
+    private boolean isPointInsidePolygon(double latitude, double longitude, List<PolygonPoint> polygon) {
+        boolean inside = false;
+        int vertexCount = polygon.size();
+        for (int i = 0, j = vertexCount - 1; i < vertexCount; j = i++) {
+            double latI = polygon.get(i).latitude();
+            double lonI = polygon.get(i).longitude();
+            double latJ = polygon.get(j).latitude();
+            double lonJ = polygon.get(j).longitude();
+
+            boolean intersects = (lonI > longitude) != (lonJ > longitude)
+                    && (latitude < (latJ - latI) * (longitude - lonI) / (lonJ - lonI) + latI);
+            if (intersects) {
+                inside = !inside;
+            }
+        }
+        return inside;
     }
 }
