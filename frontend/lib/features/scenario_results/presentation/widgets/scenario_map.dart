@@ -126,6 +126,7 @@ class _ScenarioMapState extends State<ScenarioMap> {
     final searchRadius = widget.scenario.searchRadiusMeters;
     final hasSearchArea = searchRadius > 0;
     final viewBounds = computeScenarioViewBounds(widget.scenario);
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -214,23 +215,27 @@ class _ScenarioMapState extends State<ScenarioMap> {
                             for (final gw in gateways)
                               Marker(
                                 point: LatLng(gw.lat, gw.lng),
-                                width: 34,
-                                height: 34,
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _selectedGateway = gw),
-                                  child: Icon(
-                                    Icons.cell_tower,
-                                    color: _selectedGateway?.id == gw.id
-                                        ? AppColors.primaryDark
-                                        : Colors.amber,
-                                    size: 30,
-                                    shadows: const [
-                                      Shadow(
-                                        blurRadius: 3,
-                                        color: Colors.black45,
-                                      ),
-                                    ],
+                                width: 36,
+                                height: 36,
+                                child: Tooltip(
+                                  message:
+                                      '${gw.id} · ${gw.posteId}\nClique para ver detalhes de localização',
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedGateway = gw),
+                                    child: Icon(
+                                      Icons.cell_tower,
+                                      color: _selectedGateway?.id == gw.id
+                                          ? AppColors.primaryDark
+                                          : Colors.amber.shade700,
+                                      size: 32,
+                                      shadows: const [
+                                        Shadow(
+                                          blurRadius: 4,
+                                          color: Colors.black45,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -250,15 +255,73 @@ class _ScenarioMapState extends State<ScenarioMap> {
                       bottom: 24,
                       child: _SearchAreaLegend(radiusMeters: searchRadius),
                     ),
-                  if (_selectedGateway != null)
-                    Positioned(
-                      left: 12,
-                      bottom: 12,
-                      child: GatewayInfoCard(
-                        gateway: _selectedGateway!,
-                        onClose: () => setState(() => _selectedGateway = null),
+                  Positioned(
+                    left: isMobile ? 12 : 16,
+                    right: isMobile ? 12 : null,
+                    bottom: 12,
+                    child: IgnorePointer(
+                      ignoring: _selectedGateway == null,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        reverseDuration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.linear,
+                        switchOutCurve: Curves.linear,
+                        transitionBuilder: (child, animation) {
+                          final fadeAnimation = CurvedAnimation(
+                            parent: animation,
+                            curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
+                            reverseCurve: const Interval(0.25, 1.0, curve: Curves.easeIn),
+                          );
+                          final scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutBack,
+                              reverseCurve: Curves.easeInCubic,
+                            ),
+                          );
+                          final slideAnimation = Tween<Offset>(
+                            begin: Offset(0.0, isMobile ? 0.08 : 0.05),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                              reverseCurve: Curves.easeInCubic,
+                            ),
+                          );
+
+                          return FadeTransition(
+                            opacity: fadeAnimation,
+                            child: ScaleTransition(
+                              scale: scaleAnimation,
+                              alignment: isMobile
+                                  ? Alignment.bottomCenter
+                                  : Alignment.bottomLeft,
+                              child: SlideTransition(
+                                position: slideAnimation,
+                                child: child,
+                              ),
+                            ),
+                          );
+                        },
+                        child: _selectedGateway == null
+                            ? const SizedBox.shrink(key: ValueKey('empty_gateway'))
+                            : ConstrainedBox(
+                                key: ValueKey('gateway_${_selectedGateway!.id}'),
+                                constraints: BoxConstraints(
+                                  maxWidth: isMobile ? double.infinity : 360,
+                                  maxHeight: isMobile ? 400 : 480,
+                                ),
+                                child: GatewayInfoCard(
+                                  gateway: _selectedGateway!,
+                                  defaultMunicipio: widget.scenario.region,
+                                  onClose: () =>
+                                      setState(() => _selectedGateway = null),
+                                ),
+                              ),
                       ),
                     ),
+                  ),
                   if (!widget.isFullScreen)
                     Positioned(
                       right: 8,

@@ -222,6 +222,8 @@ class SelectedGatewayResponse {
   final double latitude;
   final double longitude;
   final double coverageRadiusMeters;
+  final String? address;
+  final String? municipio;
   final String? coverageGeometryGeoJson;
   final List<String> shadowedAssetKeys;
 
@@ -230,6 +232,8 @@ class SelectedGatewayResponse {
     required this.latitude,
     required this.longitude,
     required this.coverageRadiusMeters,
+    this.address,
+    this.municipio,
     this.coverageGeometryGeoJson,
     this.shadowedAssetKeys = const [],
   });
@@ -240,6 +244,8 @@ class SelectedGatewayResponse {
       latitude: (map['latitude'] as num).toDouble(),
       longitude: (map['longitude'] as num).toDouble(),
       coverageRadiusMeters: (map['coverageRadiusMeters'] as num).toDouble(),
+      address: map['address'] as String? ?? map['endereco'] as String?,
+      municipio: map['municipio'] as String? ?? map['cidade'] as String?,
       coverageGeometryGeoJson: map['coverageGeometryGeoJson'] as String?,
       shadowedAssetKeys: List<String>.from(
         map['shadowedAssetKeys'] as List? ?? const [],
@@ -388,6 +394,8 @@ class SimulationResponse {
             : (coveredAssetKeys.length / selectedGateways.length).round(),
         avgFadeMarginDb: rfNumber('systemLossDb', 14.0),
         coverageRadiusMeters: gw.coverageRadiusMeters,
+        address: gw.address,
+        municipio: gw.municipio ?? (regionName.isNotEmpty ? regionName : null),
         coverageGeometryGeoJson: gw.coverageGeometryGeoJson,
         shadowedAssetKeys: gw.shadowedAssetKeys,
       );
