@@ -34,14 +34,14 @@ class TecsysApp extends StatelessWidget {
         '/scenario': (_) => const AuthGuard(child: AreaDelimitationScreen()),
         '/scenario/rf': (_) => const AuthGuard(child: ScenarioConfigScreen()),
         '/history': (_) => const AuthGuard(child: HistoryScreen()),
-        '/manual': (_) => const AuthGuard(child: ManualScreen()),
+        '/manual': (_) => const ManualScreen(),
         // '/settings': (_) => const AuthGuard(child: SettingsScreen()),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/manual') {
           final sectionId = settings.arguments is String ? settings.arguments as String : null;
           return MaterialPageRoute(
-            builder: (_) => AuthGuard(child: ManualScreen(initialSectionId: sectionId)),
+            builder: (_) => ManualScreen(initialSectionId: sectionId),
             settings: settings,
           );
         }
