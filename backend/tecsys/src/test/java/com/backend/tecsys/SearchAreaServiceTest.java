@@ -31,7 +31,7 @@ class SearchAreaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new SearchAreaService(assetRepository, bdgdAssetService);
+        service = new SearchAreaService(assetRepository, bdgdAssetService, new com.backend.tecsys.scenario.catalog.BdgdAssetCatalog());
         ReflectionTestUtils.setField(service, "minRadius", 100.0);
         ReflectionTestUtils.setField(service, "maxRadius", 8000.0);
     }
@@ -115,6 +115,37 @@ class SearchAreaServiceTest {
         assertEquals(1, response.getCountsByType().get("SUB"));
         assertEquals(1, response.getCountsByType().get("UCBT"));
         assertTrue(response.getAvailableTypes().containsAll(List.of("POSTE", "UNTRMT", "SUB", "UCBT")));
+    }
+
+    @Test
+    void shouldFilterByAliasesAcrossDifferentBdgdConventions() {
+        UUID importId = UUID.randomUUID();
+        when(bdgdAssetService.checkPointWithinImportBounds(any(), anyDouble(), anyDouble()))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(samplePolygon(), true));
+
+        List<Asset> assets = List.of(
+                Asset.builder().assetKey("P1").assetType("POSTE").coordinate(new RfCoordinate(-22.0, -47.0)).build(),
+                Asset.builder().assetKey("P2").assetType("PONNOT").coordinate(new RfCoordinate(-22.01, -47.01)).build(),
+                Asset.builder().assetKey("T1").assetType("UNTRMT").coordinate(new RfCoordinate(-22.02, -47.02)).build(),
+                Asset.builder().assetKey("T2").assetType("UNTRD").coordinate(new RfCoordinate(-22.025, -47.025)).build(),
+                Asset.builder().assetKey("S1").assetType("SUB").coordinate(new RfCoordinate(-22.03, -47.03)).build()
+        );
+        when(assetRepository.findWithinRadius(any(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(assets);
+
+        // User requests PONNOT and TRAFO: should match both POSTE and PONNOT, and both UNTRMT and UNTRD
+        SearchAreaRequest request = SearchAreaRequest.builder()
+                .importId(importId)
+                .latitude(-22.0)
+                .longitude(-47.0)
+                .radius(1000.0)
+                .selectedAssetTypes(List.of("PONNOT", "TRAFO"))
+                .build();
+
+        SearchAreaResponse response = service.processSearchArea(request);
+
+        assertEquals("OK", response.getValidationStatus());
+        assertEquals(4, response.getCandidates().size()); // 2 postes (POSTE, PONNOT) + 2 trafos (UNTRMT, UNTRD)
     }
 
     private Object samplePolygon() {

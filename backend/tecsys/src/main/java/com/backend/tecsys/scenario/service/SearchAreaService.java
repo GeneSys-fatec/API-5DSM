@@ -1,6 +1,7 @@
 package com.backend.tecsys.scenario.service;
 
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
+import com.backend.tecsys.scenario.catalog.BdgdAssetCatalog;
 import com.backend.tecsys.scenario.dto.AssetDto;
 import com.backend.tecsys.scenario.dto.SearchAreaRequest;
 import com.backend.tecsys.scenario.dto.SearchAreaResponse;
@@ -28,10 +29,15 @@ public class SearchAreaService {
 
     private final IAssetRepository assetRepository;
     private final BdgdAssetService bdgdAssetService;
+    private final BdgdAssetCatalog assetCatalog;
 
-    public SearchAreaService(IAssetRepository assetRepository, BdgdAssetService bdgdAssetService) {
+    public SearchAreaService(
+            IAssetRepository assetRepository,
+            BdgdAssetService bdgdAssetService,
+            BdgdAssetCatalog assetCatalog) {
         this.assetRepository = assetRepository;
         this.bdgdAssetService = bdgdAssetService;
+        this.assetCatalog = assetCatalog;
     }
 
     public SearchAreaResponse processSearchArea(SearchAreaRequest request) {
@@ -62,19 +68,17 @@ public class SearchAreaService {
                 }
                 availableTypes.addAll(countsByType.keySet());
 
-                Set<String> selectedFilter = null;
+                Set<String> expandedFilter = null;
                 if (request.getSelectedAssetTypes() != null && !request.getSelectedAssetTypes().isEmpty()) {
-                    selectedFilter = request.getSelectedAssetTypes().stream()
-                            .map(this::canonicalCategory)
-                            .collect(Collectors.toSet());
+                    expandedFilter = assetCatalog.expandFilter(request.getSelectedAssetTypes());
                 }
 
-                final Set<String> finalFilter = selectedFilter;
+                final Set<String> finalFilter = expandedFilter;
                 candidates = dbAssets.stream()
                         .filter(asset -> {
                             if (finalFilter == null) return true;
-                            String cat = canonicalCategory(asset.getAssetType());
-                            return finalFilter.contains(cat);
+                            String rawType = asset.getAssetType() != null ? asset.getAssetType().trim().toUpperCase() : "OUTROS";
+                            return finalFilter.contains(rawType) || finalFilter.contains(assetCatalog.canonicalCode(rawType));
                         })
                         .map(this::mapToDto)
                         .collect(Collectors.toList());
@@ -101,28 +105,10 @@ public class SearchAreaService {
                 .build();
     }
 
-    private String canonicalCategory(String type) {
-        if (type == null || type.isBlank()) {
-            return "OUTROS";
-        }
-        String s = type.trim().toUpperCase();
-        if (s.equals("PONNOT") || s.equals("POSTE") || s.equals("POST")) return "POSTE";
-        if (s.equals("UNTRMT") || s.equals("TRAFO") || s.equals("TRANSFORMADOR")) return "TRAFO";
-        if (s.equals("UNREMT") || s.equals("RELIGADOR") || s.equals("RECLOSER")) return "RELIGADOR";
-        if (s.equals("SUB") || s.equals("SUBESTACAO") || s.equals("SUBSTATION")) return "SUB";
-        if (s.equals("UCBT")) return "UCBT";
-        if (s.equals("UCMT")) return "UCMT";
-        if (s.equals("SSDMT")) return "SSDMT";
-        if (s.equals("SSDBT")) return "SSDBT";
-        if (s.equals("SSDAT")) return "SSDAT";
-        if (s.equals("UNCRAT")) return "UNCRAT";
-        return s;
-    }
-
     private AssetDto mapToDto(Asset asset) {
         return AssetDto.builder()
                 .id(asset.getAssetKey())
-                .type(canonicalCategory(asset.getAssetType()))
+                .type(assetCatalog.canonicalCode(asset.getAssetType()))
                 .latitude(asset.getCoordinate().latitude())
                 .longitude(asset.getCoordinate().longitude())
                 .build();
