@@ -19,6 +19,9 @@ public class SimulationResponse {
     @Schema(description = "Identificador do cenário persistido.", example = "1")
     private Long scenarioId;
 
+    @Schema(description = "Nome informado para o cenário.", example = "Cenário urbano")
+    private String scenarioName;
+
     @Schema(description = "Status da execução.", example = "concluido")
     private String status;
 
@@ -55,6 +58,32 @@ public class SimulationResponse {
     @Schema(description = "Indica se a meta de cobertura foi atingida.", example = "true")
     private boolean targetReached;
 
+    @Schema(description = "RSSI médio dos ativos conectados, em dBm.", example = "-86.4", nullable = true)
+    private Double averageRssiDbm;
+
+    @Schema(description = "Custo unitário efetivamente aplicado a cada gateway.", example = "1500")
+    private Double gatewayUnitCost;
+
+    @Schema(description = "Meta de cobertura informada.")
+    private double coverageTargetPct;
+
+    @Schema(description = "Limite de gateways informado.")
+    private int maxGateways;
+
+    @Schema(description = "Ativos e suas posições geográficas no resultado.")
+    private List<AssetLocationResponse> assets;
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @Schema(description = "Ativo avaliado pela simulação.")
+    public static class AssetLocationResponse {
+        private String assetKey;
+        private double latitude;
+        private double longitude;
+        private boolean covered;
+    }
+
     @Data
     @Builder
     @AllArgsConstructor
@@ -71,5 +100,11 @@ public class SimulationResponse {
 
         @Schema(description = "Raio estimado de cobertura em metros.", example = "1850.5")
         private double coverageRadiusMeters;
+
+        @Schema(description = "Geometria GeoJSON da cobertura efetiva, quando calculada com relevo.")
+        private String coverageGeometryGeoJson;
+
+        @Schema(description = "Ativos bloqueados por obstrução de relevo.")
+        private List<String> shadowedAssetKeys;
     }
 }

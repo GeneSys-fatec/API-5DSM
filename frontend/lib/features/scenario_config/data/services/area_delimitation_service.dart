@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
@@ -8,6 +9,68 @@ import '../models/api_models.dart';
 
 class AreaDelimitationService {
   static const double maxRadiusKm = 8.0;
+
+  Future<List<List<double>>?> fetchBdgdBounds(String importId) async {
+    final prefs = await SharedPreferences.getInstance();
+    var token = prefs.getString('auth_token');
+    if (token == null) {
+      token = await _attemptAutoLogin();
+    }
+    if (token == null) {
+      return null;
+    }
+
+    try {
+      var response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/bdgd/$importId/bounds'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        token = await _attemptAutoLogin();
+        if (token != null) {
+          response = await http.get(
+            Uri.parse('${ApiConfig.baseUrl}/api/bdgd/$importId/bounds'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          ).timeout(const Duration(seconds: 60));
+        }
+      }
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      return _extractPolygonCoordinates(body['geometry']);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<List<double>>? _extractPolygonCoordinates(dynamic geometry) {
+    if (geometry == null || geometry is! Map<String, dynamic>) {
+      return null;
+    }
+    if (geometry['type'] != 'Polygon') {
+      return null;
+    }
+    final rings = geometry['coordinates'] as List<dynamic>?;
+    if (rings == null || rings.isEmpty) {
+      return null;
+    }
+    final outerRing = rings.first as List<dynamic>;
+    return outerRing
+        .map((point) => (point as List<dynamic>)
+            .map((value) => (value as num).toDouble())
+            .toList())
+        .toList();
+  }
 
   Future<AreaDelimitationResult> evaluateArea(AreaDelimitationConfig config) async {
     final isExceeded = config.radiusKm > maxRadiusKm;
@@ -21,7 +84,10 @@ class AreaDelimitationService {
     if (isValid) {
       try {
         final apiResult = await _callSearchAreaApi(config);
-        
+
+        if (apiResult.validationStatus == 'ERROR_OUT_OF_BOUNDS') {
+          throw PointOutOfBoundsException(apiResult.message);
+        }
         if (apiResult.validationStatus == 'ERROR') {
           candidates = [];
         } else if (apiResult.candidates.isNotEmpty) {
@@ -33,11 +99,20 @@ class AreaDelimitationService {
         
         intersectsBoundary = apiResult.validationStatus == 'WARNING_OUT_OF_BOUNDS';
         boundaryOverlapPct = intersectsBoundary ? 12.0 : 0.0;
-      } catch (e) {
-        candidates = _generateMockCandidates(config);
-        counts = _countCandidatesByType(candidates);
-        intersectsBoundary = config.radiusKm >= 3.0;
-        boundaryOverlapPct = intersectsBoundary ? 12.0 : 0.0;
+      } on PointOutOfBoundsException {
+        rethrow;
+      } on AreaDelimitationException {
+        rethrow;
+      } on TimeoutException {
+        throw const AreaDelimitationException(
+          'Tempo limite excedido ao buscar os ativos da BDGD. '
+          'O servidor ou o banco pode estar lento; tente novamente.',
+        );
+      } catch (_) {
+        throw const AreaDelimitationException(
+          'Não foi possível obter os ativos da BDGD. '
+          'Verifique se o servidor está acessível e tente novamente.',
+        );
       }
     } else {
       candidates = [];
@@ -88,10 +163,15 @@ class AreaDelimitationService {
       token = await _attemptAutoLogin();
     }
     if (token == null) {
-      throw AreaDelimitationException('Sessão expirada. Faça login novamente.');
+      throw AreaDelimitationException('SessÃ£o expirada. FaÃ§a login novamente.');
+    }
+
+    if (config.bdgdImportId == null || config.bdgdImportId!.isEmpty) {
+      throw AreaDelimitationException('Selecione uma base BDGD importada antes de delimitar a Ã¡rea.');
     }
 
     final request = SearchAreaRequest(
+      importId: config.bdgdImportId!,
       latitude: config.centerLatitude,
       longitude: config.centerLongitude,
       radius: config.radiusMeters,
@@ -107,7 +187,7 @@ class AreaDelimitationService {
         'Accept': 'application/json',
       },
       body: request.toJson(),
-    ).timeout(const Duration(seconds: 15));
+    ).timeout(const Duration(seconds: 90));
 
     if (response.statusCode == 401 || response.statusCode == 403) {
       token = await _attemptAutoLogin();
@@ -120,7 +200,7 @@ class AreaDelimitationService {
             'Accept': 'application/json',
           },
           body: request.toJson(),
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 90));
       }
     }
 
@@ -157,7 +237,7 @@ class AreaDelimitationService {
         voltageKv: _getDefaultVoltage(type),
         distanceMeters: distM,
         poleHeightM: _getDefaultPoleHeight(type),
-        losVisada: '360° Livre',
+        losVisada: '360Â° Livre',
         bdgdId: api.id,
       ));
     }
@@ -228,113 +308,19 @@ class AreaDelimitationService {
     }
     return counts;
   }
-
-  List<CandidateAsset> _generateMockCandidates(AreaDelimitationConfig config) {
-    final list = <CandidateAsset>[];
-    final centerLat = config.centerLatitude;
-    final centerLng = config.centerLongitude;
-    final radiusM = config.radiusMeters;
-
-    const metersPerDegreeLat = 111320.0;
-    final metersPerDegreeLng = 111320.0 * math.cos(centerLat * math.pi / 180.0);
-
-    final random = math.Random(42);
-
-    for (var i = 0; i < 2; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.1 + random.nextDouble() * 0.4;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'sub-$i',
-        assetKey: 'SUB-${(i + 1).toString().padLeft(2, '0')}',
-        type: CandidateAssetType.subestacao,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 69.0,
-        distanceMeters: distM,
-        poleHeightM: 25.0,
-        losVisada: '360° Livre',
-        bdgdId: '#1000${i + 1}',
-      ));
-    }
-
-    for (var i = 0; i < 88; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.1 + random.nextDouble() * 0.8;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'trafo-$i',
-        assetKey: 'TR-${(i + 1).toString().padLeft(2, '0')}',
-        type: CandidateAssetType.trafo,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 13.8,
-        distanceMeters: distM,
-        poleHeightM: 12.0,
-        losVisada: i % 2 == 0 ? '360° Livre' : '180° Parcial',
-        bdgdId: '#4489${(i + 10).toString().padLeft(2, '0')}',
-      ));
-    }
-
-    for (var i = 0; i < 24; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.1 + random.nextDouble() * 0.8;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'rel-$i',
-        assetKey: 'REL-${(i + 1).toString().padLeft(2, '0')}',
-        type: CandidateAssetType.religador,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 13.8,
-        distanceMeters: distM,
-        poleHeightM: 13.0,
-        losVisada: '360° Livre',
-        bdgdId: '#3301${(i + 1).toString().padLeft(2, '0')}',
-      ));
-    }
-
-    for (var i = 0; i < 342; i++) {
-      final angle = random.nextDouble() * 2 * math.pi;
-      final distFactor = 0.05 + random.nextDouble() * 0.9;
-      final offsetMetersLat = distFactor * radiusM * math.sin(angle);
-      final offsetMetersLng = distFactor * radiusM * math.cos(angle);
-      final distM = math.sqrt(offsetMetersLat * offsetMetersLat + offsetMetersLng * offsetMetersLng);
-      final lat = centerLat + (offsetMetersLat / metersPerDegreeLat);
-      final lng = centerLng + (offsetMetersLng / metersPerDegreeLng);
-      list.add(CandidateAsset(
-        id: 'poste-$i',
-        assetKey: 'PST-${(i + 1).toString().padLeft(3, '0')}',
-        type: CandidateAssetType.poste,
-        latitude: lat,
-        longitude: lng,
-        voltageKv: 13.8,
-        distanceMeters: distM,
-        poleHeightM: 10.0 + (random.nextDouble() * 2),
-        losVisada: '360° Livre',
-        bdgdId: '#550${(i + 100).toString().padLeft(3, '0')}',
-      ));
-    }
-
-    return list;
-  }
 }
 
 class AreaDelimitationException implements Exception {
   final String message;
   const AreaDelimitationException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+class PointOutOfBoundsException implements Exception {
+  final String message;
+  const PointOutOfBoundsException(this.message);
 
   @override
   String toString() => message;

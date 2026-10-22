@@ -4,11 +4,14 @@ import com.backend.tecsys.auth.service.AuthService;
 import com.backend.tecsys.bdgd.exception.InvalidBdgdUploadException;
 import com.backend.tecsys.scenario.exception.InvalidGatewayCandidateException;
 import com.backend.tecsys.scenario.exception.InvalidSimulationParameterException;
+import com.backend.tecsys.scenario.exception.InvalidScenarioReportException;
+import com.backend.tecsys.scenario.exception.ScenarioReportGenerationException;
 import com.backend.tecsys.radio.exception.PropagationCalculationException;
 import com.backend.tecsys.scenario.exception.ScenarioPersistenceException;
 import com.backend.tecsys.radio.exception.UnavailableTerrainDataException;
 import com.backend.tecsys.radio.exception.UnsupportedPropagationModelException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -75,6 +78,17 @@ public class GlobalExceptionHandler {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
 
+        @ExceptionHandler(InvalidScenarioReportException.class)
+        public ResponseEntity<Map<String, Object>> handleInvalidScenarioReport(InvalidScenarioReportException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_SCENARIO_REPORT");
+        }
+
+        @ExceptionHandler(ScenarioReportGenerationException.class)
+        public ResponseEntity<Map<String, Object>> handleScenarioReportGeneration(ScenarioReportGenerationException ex) {
+                log.error("Erro ao gerar relatorio do cenario: {}", ex.getMessage(), ex);
+                return buildErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, "REPORT_GENERATION_FAILED");
+        }
+
         @ExceptionHandler({UnavailableTerrainDataException.class, PropagationCalculationException.class})
         public ResponseEntity<Map<String, Object>> handleCalculation(Exception ex) {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.UNPROCESSABLE_CONTENT);
@@ -86,6 +100,14 @@ public class GlobalExceptionHandler {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
+        @ExceptionHandler(DataIntegrityViolationException.class)
+        public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+                log.warn("Violacao de integridade ao persistir dados: {}", ex.getMostSpecificCause().getMessage());
+                return buildErrorResponse(
+                        "Dados invalidos para persistencia. Verifique os campos informados.",
+                        HttpStatus.BAD_REQUEST, "DATA_INTEGRITY_VIOLATION");
+        }
+
         @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
         public ResponseEntity<Map<String, Object>> handleMethodNotSupported(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
                 return buildErrorResponse("Método HTTP " + ex.getMethod() + " não suportado para este endpoint.", HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED");
@@ -93,6 +115,10 @@ public class GlobalExceptionHandler {
 
         @ExceptionHandler(Exception.class)
         public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+                if (isClientDisconnect(ex)) {
+                        log.debug("Cliente encerrou a conexão antes do fim da resposta: {}", ex.getMessage());
+                        return ResponseEntity.noContent().build();
+                }
                 log.error("Erro interno ao processar requisicao: {}", ex.getMessage(), ex);
                 String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
                         ? ex.getMessage()
@@ -115,5 +141,19 @@ public class GlobalExceptionHandler {
                 }
                 return ResponseEntity.status(status).body(body);
         }
-}
 
+        private boolean isClientDisconnect(Throwable exception) {
+                for (Throwable current = exception; current != null; current = current.getCause()) {
+                        String className = current.getClass().getName();
+                        if (className.equals("org.apache.catalina.connector.ClientAbortException")
+                                || className.equals("org.springframework.web.context.request.async.AsyncRequestNotUsableException")) {
+                                return true;
+                        }
+                        String message = current.getMessage();
+                        if (message != null && message.contains("conexão estabelecida foi anulada")) {
+                                return true;
+                        }
+                }
+                return false;
+        }
+}

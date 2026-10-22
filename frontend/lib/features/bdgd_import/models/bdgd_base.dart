@@ -62,14 +62,9 @@ class BdgdBase {
       versao = fileName;
     }
 
-    String distFormatada = distribuidora;
-    if (regiao != null && regiao.isNotEmpty) {
-      distFormatada = '$distribuidora ($regiao)';
-    }
-
     return BdgdBase(
       id: json['id']?.toString(),
-      distribuidora: distFormatada,
+      distribuidora: distribuidora,
       regiao: regiao,
       dataReferencia: dataRef,
       fileName: fileName,
@@ -80,6 +75,14 @@ class BdgdBase {
       tagColor: color,
       errorMessage: json['errorMessage'] as String?,
     );
+  }
+
+  String get displayName {
+    final region = regiao?.trim();
+    if (region != null && region.isNotEmpty) {
+      return '$distribuidora ($region)';
+    }
+    return distribuidora;
   }
 
   String get statusLabel {
@@ -187,26 +190,3 @@ class BdgdBase {
   }
 }
 
-final List<BdgdBase> kMockBases = [
-  const BdgdBase(
-    distribuidora: 'CPFL Paulista (Regional Leste)',
-    versaoBase: '2024.Q3 (Módulo 8)',
-    ativosMapeados: 142850,
-    projecao: 'SIRGAS 2000 / UTM 23S',
-    tagColor: AppColors.warning,
-  ),
-  const BdgdBase(
-    distribuidora: 'Enel Distribuição SP (Centro-Oeste)',
-    versaoBase: '2024.Q2 (Consolidada)',
-    ativosMapeados: 128430,
-    projecao: 'SIRGAS 2000 / UTM 23S',
-    tagColor: AppColors.success,
-  ),
-  const BdgdBase(
-    distribuidora: 'Neoenergia Elektro (Mogi Mirim)',
-    versaoBase: '2023.Q4 (Auditoria)',
-    ativosMapeados: 91200,
-    projecao: 'SIRGAS 2000 / UTM 23S',
-    tagColor: AppColors.info,
-  ),
-];
