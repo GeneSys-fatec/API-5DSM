@@ -77,6 +77,7 @@ class AreaDelimitationService {
     final isValid = !isExceeded;
 
     List<CandidateAsset> candidates;
+    List<String> availableTypes = const [];
     Map<CandidateAssetType, int> counts;
     bool intersectsBoundary = false;
     double boundaryOverlapPct = 0.0;
@@ -95,7 +96,17 @@ class AreaDelimitationService {
         } else {
           candidates = [];
         }
-        counts = _countCandidatesByType(candidates);
+
+        availableTypes = apiResult.availableTypes;
+        if (apiResult.countsByType.isNotEmpty) {
+          counts = <CandidateAssetType, int>{};
+          apiResult.countsByType.forEach((code, count) {
+            final type = CandidateAssetTypeExt.fromString(code);
+            counts[type] = (counts[type] ?? 0) + count;
+          });
+        } else {
+          counts = _countCandidatesByType(candidates);
+        }
         
         intersectsBoundary = apiResult.validationStatus == 'WARNING_OUT_OF_BOUNDS';
         boundaryOverlapPct = intersectsBoundary ? 12.0 : 0.0;
@@ -132,6 +143,7 @@ class AreaDelimitationService {
       boundaryOverlapPct: boundaryOverlapPct,
       candidates: candidates,
       countsByType: counts,
+      availableTypes: availableTypes,
     );
   }
 
@@ -163,18 +175,20 @@ class AreaDelimitationService {
       token = await _attemptAutoLogin();
     }
     if (token == null) {
-      throw AreaDelimitationException('SessÃ£o expirada. FaÃ§a login novamente.');
+      throw const AreaDelimitationException('Sessão expirada. Faça login novamente.');
     }
 
     if (config.bdgdImportId == null || config.bdgdImportId!.isEmpty) {
-      throw AreaDelimitationException('Selecione uma base BDGD importada antes de delimitar a Ã¡rea.');
+      throw const AreaDelimitationException('Selecione uma base BDGD importada antes de delimitar a área.');
     }
 
+    final selectedCodes = config.selectedAssetTypes.expand((t) => t.allFilterCodes).toList();
     final request = SearchAreaRequest(
       importId: config.bdgdImportId!,
       latitude: config.centerLatitude,
       longitude: config.centerLongitude,
       radius: config.radiusMeters,
+      selectedAssetTypes: selectedCodes,
     );
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenario/search-area');
@@ -237,7 +251,7 @@ class AreaDelimitationService {
         voltageKv: _getDefaultVoltage(type),
         distanceMeters: distM,
         poleHeightM: _getDefaultPoleHeight(type),
-        losVisada: '360Â° Livre',
+        losVisada: '360° Livre',
         bdgdId: api.id,
       ));
     }
@@ -245,37 +259,25 @@ class AreaDelimitationService {
   }
 
   CandidateAssetType _mapAssetType(String apiType) {
-    switch (apiType.toUpperCase()) {
-      case 'PONNOT':
-      case 'POSTE':
-      case 'POST':
-        return CandidateAssetType.poste;
-      case 'UNTRMT':
-      case 'TRAFO':
-      case 'TRANSFORMADOR':
-        return CandidateAssetType.trafo;
-      case 'UNREMT':
-      case 'RELIGADOR':
-      case 'RECLOSER':
-        return CandidateAssetType.religador;
-      case 'SUB':
-      case 'SUBESTACAO':
-      case 'SUBSTATION':
-        return CandidateAssetType.subestacao;
-      default:
-        return CandidateAssetType.poste;
-    }
+    return CandidateAssetTypeExt.fromString(apiType);
   }
 
   double _getDefaultVoltage(CandidateAssetType type) {
     switch (type) {
       case CandidateAssetType.subestacao:
+      case CandidateAssetType.ssdat:
         return 69.0;
       case CandidateAssetType.trafo:
-        return 13.8;
       case CandidateAssetType.religador:
-        return 13.8;
       case CandidateAssetType.poste:
+      case CandidateAssetType.ssdmt:
+      case CandidateAssetType.ucmt:
+      case CandidateAssetType.uncrat:
+        return 13.8;
+      case CandidateAssetType.ucbt:
+      case CandidateAssetType.ssdbt:
+        return 0.22;
+      default:
         return 13.8;
     }
   }
@@ -288,7 +290,15 @@ class AreaDelimitationService {
         return 12.0;
       case CandidateAssetType.religador:
         return 13.0;
+      case CandidateAssetType.ssdat:
+        return 20.0;
       case CandidateAssetType.poste:
+      case CandidateAssetType.ssdmt:
+      case CandidateAssetType.ssdbt:
+      case CandidateAssetType.uncrat:
+      case CandidateAssetType.ucbt:
+      case CandidateAssetType.ucmt:
+      default:
         return 10.0;
     }
   }

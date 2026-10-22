@@ -15,7 +15,7 @@ import java.util.UUID;
 public class BdgdAssetRepository {
 
     public static final List<String> ASSET_TABLES = List.of(
-            "poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat");
+            "poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat", "ponnot", "untrmt", "unremt", "uncrat");
 
     private static final Duration COUNT_CACHE_TTL = Duration.ofSeconds(30);
     private static final int MAX_COUNT_CACHE_ENTRIES = 256;

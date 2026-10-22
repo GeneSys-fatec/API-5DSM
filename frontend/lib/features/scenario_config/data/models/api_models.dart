@@ -6,12 +6,14 @@ class SearchAreaRequest {
   final double latitude;
   final double longitude;
   final double radius;
+  final List<String>? selectedAssetTypes;
 
   const SearchAreaRequest({
     required this.importId,
     required this.latitude,
     required this.longitude,
     required this.radius,
+    this.selectedAssetTypes,
   });
 
   Map<String, dynamic> toMap() {
@@ -20,6 +22,7 @@ class SearchAreaRequest {
       'latitude': latitude,
       'longitude': longitude,
       'radius': radius,
+      if (selectedAssetTypes != null) 'selectedAssetTypes': selectedAssetTypes,
     };
   }
 
@@ -31,6 +34,9 @@ class SearchAreaRequest {
       latitude: (map['latitude'] as num).toDouble(),
       longitude: (map['longitude'] as num).toDouble(),
       radius: (map['radius'] as num).toDouble(),
+      selectedAssetTypes: (map['selectedAssetTypes'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList(),
     );
   }
 
@@ -69,16 +75,33 @@ class SearchAreaResponse {
   final String validationStatus;
   final String message;
   final Map<String, dynamic>? boundaryGeometry;
+  final Map<String, int> countsByType;
+  final List<String> availableTypes;
 
   const SearchAreaResponse({
     required this.candidates,
     required this.validationStatus,
     required this.message,
     this.boundaryGeometry,
+    this.countsByType = const {},
+    this.availableTypes = const [],
   });
 
   factory SearchAreaResponse.fromMap(Map<String, dynamic> map) {
     final candidatesList = map['candidates'] as List<dynamic>? ?? [];
+
+    final counts = <String, int>{};
+    if (map['countsByType'] is Map) {
+      (map['countsByType'] as Map).forEach((k, v) {
+        if (v is num) counts[k.toString()] = v.toInt();
+      });
+    }
+
+    final types = <String>[];
+    if (map['availableTypes'] is List) {
+      types.addAll((map['availableTypes'] as List).map((e) => e.toString()));
+    }
+
     return SearchAreaResponse(
       candidates: candidatesList
           .map((e) => AssetDto.fromMap(e as Map<String, dynamic>))
@@ -86,6 +109,8 @@ class SearchAreaResponse {
       validationStatus: map['validationStatus'] as String? ?? '',
       message: map['message'] as String? ?? '',
       boundaryGeometry: map['boundaryGeometry'] as Map<String, dynamic>?,
+      countsByType: counts,
+      availableTypes: types,
     );
   }
 
@@ -171,6 +196,7 @@ class SimulationRequest {
   final double? searchCenterLongitude;
   final double? searchRadiusMeters;
   final RfParameterRequest rfParameter;
+  final List<String>? selectedAssetTypes;
 
   const SimulationRequest({
     required this.importId,
@@ -185,6 +211,7 @@ class SimulationRequest {
     this.searchCenterLongitude,
     this.searchRadiusMeters,
     required this.rfParameter,
+    this.selectedAssetTypes,
   });
 
   Map<String, dynamic> toMap() {
@@ -197,6 +224,7 @@ class SimulationRequest {
       'gatewayCandidates': gatewayCandidates.map((e) => e.toMap()).toList(),
       'propagationModel': propagationModel,
       if (gatewayUnitCost != null) 'gatewayUnitCost': gatewayUnitCost,
+      if (selectedAssetTypes != null) 'selectedAssetTypes': selectedAssetTypes,
       if (searchCenterLatitude != null &&
           searchCenterLongitude != null &&
           searchRadiusMeters != null) ...{
@@ -259,12 +287,14 @@ class AssetLocationResponse {
   final double latitude;
   final double longitude;
   final bool covered;
+  final String type;
 
   const AssetLocationResponse({
     required this.assetKey,
     required this.latitude,
     required this.longitude,
     required this.covered,
+    this.type = 'POSTE',
   });
 
   factory AssetLocationResponse.fromMap(Map<String, dynamic> map) =>
@@ -273,6 +303,7 @@ class AssetLocationResponse {
         latitude: (map['latitude'] as num).toDouble(),
         longitude: (map['longitude'] as num).toDouble(),
         covered: map['covered'] as bool? ?? false,
+        type: map['type'] as String? ?? 'POSTE',
       );
 }
 
@@ -451,6 +482,7 @@ class SimulationResponse {
                 lat: asset.latitude,
                 lng: asset.longitude,
                 covered: asset.covered,
+                type: asset.type,
               ),
             )
             .toList(),

@@ -73,15 +73,58 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
     super.dispose();
   }
 
+  List<CandidateAsset> _sampleCandidates(List<CandidateAsset> candidates, int maxLimit) {
+    if (candidates.length <= maxLimit) {
+      return candidates;
+    }
+
+    final grouped = <CandidateAssetType, List<CandidateAsset>>{};
+    for (final c in candidates) {
+      grouped.putIfAbsent(c.type, () => []).add(c);
+    }
+
+    final result = <CandidateAsset>[];
+    final largeGroups = <CandidateAssetType, List<CandidateAsset>>{};
+
+    int reservedSlots = 0;
+    for (final entry in grouped.entries) {
+      if (entry.value.length <= 25) {
+        result.addAll(entry.value);
+        reservedSlots += entry.value.length;
+      } else {
+        largeGroups[entry.key] = entry.value;
+      }
+    }
+
+    final remainingQuota = maxLimit - reservedSlots;
+    if (remainingQuota <= 0 || largeGroups.isEmpty) {
+      return result.take(maxLimit).toList();
+    }
+
+    final totalInLarge = largeGroups.values.fold<int>(0, (sum, l) => sum + l.length);
+
+    for (final entry in largeGroups.entries) {
+      final list = entry.value;
+      final rawQuota = ((list.length / totalInLarge) * remainingQuota).round();
+      final quota = rawQuota.clamp(10, list.length);
+
+      final step = list.length / quota;
+      for (int i = 0; i < quota; i++) {
+        final index = (i * step).floor().clamp(0, list.length - 1);
+        result.add(list[index]);
+      }
+    }
+
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cfg = widget.controller.config;
     final center = LatLng(cfg.centerLatitude, cfg.centerLongitude);
     final radiusM = cfg.radiusMeters;
     final candidates = widget.controller.filteredCandidates;
-    final candidatesToRender = candidates.length > 500
-        ? candidates.take(500).toList()
-        : candidates;
+    final candidatesToRender = _sampleCandidates(candidates, 500);
     final selectedCand = widget.controller.selectedCandidate;
     final activeLayer = widget.controller.activeMapLayer;
 
@@ -189,10 +232,11 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
                     ),
                   ),
                   ...candidatesToRender.map((cand) {
+                    final isSub = cand.type == CandidateAssetType.subestacao;
                     return Marker(
                       point: LatLng(cand.latitude, cand.longitude),
-                      width: 28,
-                      height: 28,
+                      width: isSub ? 28 : 22,
+                      height: isSub ? 28 : 22,
                       child: GestureDetector(
                         onTap: () => widget.controller.selectCandidate(cand),
                         child: _CandidateMarkerIcon(candidate: cand),
@@ -343,55 +387,48 @@ class _CandidateMarkerIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    switch (candidate.type) {
-      case CandidateAssetType.poste:
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primaryPurple,
-            border: Border.all(color: Colors.white, width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
-            ],
-          ),
-        );
-      case CandidateAssetType.trafo:
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(3),
-            color: const Color(0xFFF59E0B),
-            border: Border.all(color: Colors.white, width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
-            ],
-          ),
-        );
-      case CandidateAssetType.religador:
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(3),
-            color: const Color(0xFF4F46E5),
-            border: Border.all(color: Colors.white, width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
-            ],
-          ),
-        );
-      case CandidateAssetType.subestacao:
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFDC2626),
-            border: Border.all(color: Colors.white, width: 2),
-            boxShadow: const [
-              BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
-            ],
-          ),
-          child: const Center(
-            child: Icon(Icons.bolt_rounded, size: 14, color: Colors.white),
-          ),
-        );
+    final type = candidate.type;
+    final color = type.color;
+
+    if (type == CandidateAssetType.subestacao) {
+      return Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: const [
+            BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+          ],
+        ),
+        child: const Center(
+          child: Icon(Icons.bolt_rounded, size: 14, color: Colors.white),
+        ),
+      );
     }
+
+    if (type == CandidateAssetType.trafo || type == CandidateAssetType.religador) {
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(3),
+          color: color,
+          border: Border.all(color: Colors.white, width: 1.5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
+        ],
+      ),
+    );
   }
 }
 
@@ -670,6 +707,20 @@ class _CartographicLegendBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Dynamic asset types present in search area (count > 0)
+    final activeTypes = CandidateAssetType.values
+        .where((t) => controller.countForType(t) > 0)
+        .toList();
+
+    final displayTypes = activeTypes.isNotEmpty
+        ? activeTypes
+        : const [
+            CandidateAssetType.poste,
+            CandidateAssetType.trafo,
+            CandidateAssetType.religador,
+            CandidateAssetType.subestacao,
+          ];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
@@ -690,30 +741,18 @@ class _CartographicLegendBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            _LegendItem(
-              label: 'Poste MT (${controller.countForType(CandidateAssetType.poste)})',
-              color: AppColors.primaryPurple,
-              iconData: Icons.circle,
-            ),
-            const SizedBox(width: 12),
-            _LegendItem(
-              label: 'Trafo MT/BT (${controller.countForType(CandidateAssetType.trafo)})',
-              color: const Color(0xFFF59E0B),
-              iconData: Icons.crop_square_rounded,
-            ),
-            const SizedBox(width: 12),
-            _LegendItem(
-              label: 'Religador (${controller.countForType(CandidateAssetType.religador)})',
-              color: const Color(0xFF4F46E5),
-              iconData: Icons.crop_square_rounded,
-            ),
-            const SizedBox(width: 12),
-            _LegendItem(
-              label: 'Subestação (${controller.countForType(CandidateAssetType.subestacao)})',
-              color: const Color(0xFFDC2626),
-              iconData: Icons.bolt_rounded,
-            ),
-            const SizedBox(width: 12),
+            for (final type in displayTypes) ...[
+              _LegendItem(
+                label: '${type.shortLabel} (${controller.countForType(type)})',
+                color: type.color,
+                iconData: type == CandidateAssetType.subestacao
+                    ? Icons.bolt_rounded
+                    : (type == CandidateAssetType.trafo || type == CandidateAssetType.religador
+                        ? Icons.crop_square_rounded
+                        : Icons.circle),
+              ),
+              const SizedBox(width: 12),
+            ],
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [

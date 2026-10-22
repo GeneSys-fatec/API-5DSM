@@ -102,7 +102,9 @@ class AreaDelimitationController extends ChangeNotifier {
 
   bool get canAdvance {
     if (_result == null) return false;
-    return _result!.isValid && filteredCandidates.isNotEmpty;
+    return _result!.isValid &&
+        _config.selectedAssetTypes.isNotEmpty &&
+        filteredCandidates.isNotEmpty;
   }
 
   Future<void> init() async {
@@ -254,6 +256,19 @@ class AreaDelimitationController extends ChangeNotifier {
   void setDefineClickingOnMap(bool value) {
     _config = _config.copyWith(defineClickingOnMap: value);
     _sharedConfig = _config;
+    notifyListeners();
+  }
+
+  void selectAllAssetTypes(Iterable<CandidateAssetType> types) {
+    _config = _config.copyWith(selectedAssetTypes: types.toSet());
+    _sharedConfig = _config;
+    notifyListeners();
+  }
+
+  void deselectAllAssetTypes() {
+    _config = _config.copyWith(selectedAssetTypes: <CandidateAssetType>{});
+    _sharedConfig = _config;
+    _selectedCandidate = null;
     notifyListeners();
   }
 

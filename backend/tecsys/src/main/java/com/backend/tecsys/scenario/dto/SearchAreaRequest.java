@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -31,4 +32,6 @@ public class SearchAreaRequest {
 
     @NotNull(message = "O raio de atuação é obrigatório")
     private Double radius;
+
+    private List<String> selectedAssetTypes;
 }

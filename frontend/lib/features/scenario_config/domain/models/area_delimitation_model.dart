@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 bool isPointInsidePolygon(double latitude, double longitude, List<LatLng> polygon) {
@@ -26,33 +27,194 @@ enum CandidateAssetType {
   trafo,
   religador,
   subestacao,
+  ucbt,
+  ucmt,
+  ssdbt,
+  ssdmt,
+  ssdat,
+  uncrat,
+  outros,
 }
 
 extension CandidateAssetTypeExt on CandidateAssetType {
   String get label {
     switch (this) {
       case CandidateAssetType.poste:
-        return 'Postes de Média Tensão';
+        return 'Postes de Média Tensão (PONNOT)';
       case CandidateAssetType.trafo:
-        return 'Transformadores MT/BT';
+        return 'Transformadores MT/BT (UNTRMT)';
       case CandidateAssetType.religador:
-        return 'Religadores e Chaves';
+        return 'Religadores e Chaves (UNREMT)';
       case CandidateAssetType.subestacao:
-        return 'Subestações Elétricas';
+        return 'Subestações Elétricas (SUB)';
+      case CandidateAssetType.ucbt:
+        return 'Consumidores BT (UCBT)';
+      case CandidateAssetType.ucmt:
+        return 'Consumidores MT (UCMT)';
+      case CandidateAssetType.ssdmt:
+        return 'Segmentos de Rede MT (SSDMT)';
+      case CandidateAssetType.ssdbt:
+        return 'Segmentos de Rede BT (SSDBT)';
+      case CandidateAssetType.ssdat:
+        return 'Segmentos de Rede AT (SSDAT)';
+      case CandidateAssetType.uncrat:
+        return 'Chaves e Religadores AT (UNCRAT)';
+      case CandidateAssetType.outros:
+        return 'Outros Ativos BDGD';
+    }
+  }
+
+  String get shortLabel {
+    switch (this) {
+      case CandidateAssetType.poste:
+        return 'Poste MT';
+      case CandidateAssetType.trafo:
+        return 'Trafo MT/BT';
+      case CandidateAssetType.religador:
+        return 'Religador';
+      case CandidateAssetType.subestacao:
+        return 'Subestação';
+      case CandidateAssetType.ucbt:
+        return 'Consumidor BT';
+      case CandidateAssetType.ucmt:
+        return 'Consumidor MT';
+      case CandidateAssetType.ssdmt:
+        return 'Segmento MT';
+      case CandidateAssetType.ssdbt:
+        return 'Segmento BT';
+      case CandidateAssetType.ssdat:
+        return 'Segmento AT';
+      case CandidateAssetType.uncrat:
+        return 'Chave AT';
+      case CandidateAssetType.outros:
+        return 'Outros';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case CandidateAssetType.poste:
+        return const Color(0xFF7C3AED); // Primary purple
+      case CandidateAssetType.trafo:
+        return const Color(0xFFF59E0B); // Amber
+      case CandidateAssetType.religador:
+        return const Color(0xFF4F46E5); // Indigo
+      case CandidateAssetType.subestacao:
+        return const Color(0xFFDC2626); // Red
+      case CandidateAssetType.ssdmt:
+        return const Color(0xFF8B5CF6); // Purple / Violet
+      case CandidateAssetType.ssdbt:
+        return const Color(0xFF06B6D4); // Cyan
+      case CandidateAssetType.ssdat:
+        return const Color(0xFFEC4899); // Pink / Rose
+      case CandidateAssetType.ucbt:
+        return const Color(0xFF3B82F6); // Blue
+      case CandidateAssetType.ucmt:
+        return const Color(0xFFF97316); // Orange
+      case CandidateAssetType.uncrat:
+        return const Color(0xFF10B981); // Emerald
+      case CandidateAssetType.outros:
+        return const Color(0xFF64748B); // Slate
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case CandidateAssetType.poste:
+        return Icons.circle;
+      case CandidateAssetType.trafo:
+        return Icons.crop_square_rounded;
+      case CandidateAssetType.religador:
+        return Icons.crop_square_rounded;
+      case CandidateAssetType.subestacao:
+        return Icons.bolt_rounded;
+      case CandidateAssetType.ssdmt:
+        return Icons.show_chart_rounded;
+      case CandidateAssetType.ssdbt:
+        return Icons.timeline_rounded;
+      case CandidateAssetType.ssdat:
+        return Icons.electric_bolt_rounded;
+      case CandidateAssetType.ucbt:
+        return Icons.home_rounded;
+      case CandidateAssetType.ucmt:
+        return Icons.factory_rounded;
+      case CandidateAssetType.uncrat:
+        return Icons.tune_rounded;
+      case CandidateAssetType.outros:
+        return Icons.circle;
     }
   }
 
   String get code {
     switch (this) {
       case CandidateAssetType.poste:
-        return 'PONNOT';
+        return 'POSTE';
       case CandidateAssetType.trafo:
-        return 'UNTRMT';
+        return 'TRAFO';
       case CandidateAssetType.religador:
-        return 'UNREMT';
+        return 'RELIGADOR';
       case CandidateAssetType.subestacao:
         return 'SUB';
+      case CandidateAssetType.ucbt:
+        return 'UCBT';
+      case CandidateAssetType.ucmt:
+        return 'UCMT';
+      case CandidateAssetType.ssdmt:
+        return 'SSDMT';
+      case CandidateAssetType.ssdbt:
+        return 'SSDBT';
+      case CandidateAssetType.ssdat:
+        return 'SSDAT';
+      case CandidateAssetType.uncrat:
+        return 'UNCRAT';
+      case CandidateAssetType.outros:
+        return 'OUTROS';
     }
+  }
+
+  List<String> get allFilterCodes {
+    switch (this) {
+      case CandidateAssetType.poste:
+        return const ['POSTE', 'PONNOT', 'POST'];
+      case CandidateAssetType.trafo:
+        return const ['TRAFO', 'UNTRMT', 'TRANSFORMADOR'];
+      case CandidateAssetType.religador:
+        return const ['RELIGADOR', 'UNREMT', 'RECLOSER'];
+      case CandidateAssetType.subestacao:
+        return const ['SUB', 'SUBESTACAO', 'SUBSTATION'];
+      case CandidateAssetType.ucbt:
+        return const ['UCBT'];
+      case CandidateAssetType.ucmt:
+        return const ['UCMT'];
+      case CandidateAssetType.ssdmt:
+        return const ['SSDMT'];
+      case CandidateAssetType.ssdbt:
+        return const ['SSDBT'];
+      case CandidateAssetType.ssdat:
+        return const ['SSDAT'];
+      case CandidateAssetType.uncrat:
+        return const ['UNCRAT'];
+      case CandidateAssetType.outros:
+        return const ['OUTROS'];
+    }
+  }
+
+  static CandidateAssetType fromString(String raw) {
+    final s = raw.trim().toUpperCase();
+    if (s == 'PONNOT' || s == 'POSTE' || s == 'POST') return CandidateAssetType.poste;
+    if (s == 'UNTRMT' || s == 'TRAFO' || s == 'TRANSFORMADOR') return CandidateAssetType.trafo;
+    if (s == 'UNREMT' || s == 'RELIGADOR' || s == 'RECLOSER') return CandidateAssetType.religador;
+    if (s == 'SUB' || s == 'SUBESTACAO' || s == 'SUBSTATION') return CandidateAssetType.subestacao;
+    if (s == 'UCBT') return CandidateAssetType.ucbt;
+    if (s == 'UCMT') return CandidateAssetType.ucmt;
+    if (s == 'SSDMT') return CandidateAssetType.ssdmt;
+    if (s == 'SSDBT') return CandidateAssetType.ssdbt;
+    if (s == 'SSDAT') return CandidateAssetType.ssdat;
+    if (s == 'UNCRAT') return CandidateAssetType.uncrat;
+    for (final t in CandidateAssetType.values) {
+      if (t.name.toUpperCase() == s) return t;
+    }
+    return CandidateAssetType.outros;
   }
 }
 
@@ -123,14 +285,8 @@ class CandidateAsset {
   }
 
   factory CandidateAsset.fromMap(Map<String, dynamic> map) {
-    CandidateAssetType parsedType = CandidateAssetType.poste;
     final typeStr = map['type'] as String? ?? '';
-    for (final t in CandidateAssetType.values) {
-      if (t.name == typeStr) {
-        parsedType = t;
-        break;
-      }
-    }
+    final parsedType = CandidateAssetTypeExt.fromString(typeStr);
     return CandidateAsset(
       id: map['id'] as String? ?? '',
       assetKey: map['assetKey'] as String? ?? '',
@@ -220,15 +376,15 @@ class AreaDelimitationConfig {
     final rawTypes = map['selectedAssetTypes'] as List<dynamic>? ?? [];
     final types = <CandidateAssetType>{};
     for (final raw in rawTypes) {
-      for (final t in CandidateAssetType.values) {
-        if (t.name == raw) {
-          types.add(t);
-          break;
-        }
-      }
+      types.add(CandidateAssetTypeExt.fromString(raw.toString()));
     }
     if (types.isEmpty) {
-      types.addAll(CandidateAssetType.values);
+      types.addAll(const {
+        CandidateAssetType.poste,
+        CandidateAssetType.trafo,
+        CandidateAssetType.religador,
+        CandidateAssetType.subestacao,
+      });
     }
     return AreaDelimitationConfig(
       centerLatitude: (map['centerLatitude'] as num?)?.toDouble() ?? -22.9068,
@@ -255,6 +411,7 @@ class AreaDelimitationResult {
   final double boundaryOverlapPct;
   final List<CandidateAsset> candidates;
   final Map<CandidateAssetType, int> countsByType;
+  final List<String> availableTypes;
 
   const AreaDelimitationResult({
     required this.isValid,
@@ -264,6 +421,7 @@ class AreaDelimitationResult {
     required this.boundaryOverlapPct,
     required this.candidates,
     required this.countsByType,
+    this.availableTypes = const [],
   });
 
   int get totalCandidates => candidates.length;
@@ -279,6 +437,7 @@ class AreaDelimitationResult {
       'boundaryOverlapPct': boundaryOverlapPct,
       'candidates': candidates.map((c) => c.toMap()).toList(),
       'countsByType': countsByType.map((k, v) => MapEntry(k.name, v)),
+      'availableTypes': availableTypes,
     };
   }
 
@@ -304,6 +463,7 @@ class AreaDelimitationResult {
       boundaryOverlapPct: (map['boundaryOverlapPct'] as num?)?.toDouble() ?? 0.0,
       candidates: candidatesList,
       countsByType: counts,
+      availableTypes: List<String>.from(map['availableTypes'] as List? ?? const []),
     );
   }
 

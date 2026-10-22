@@ -6,27 +6,30 @@ import com.backend.tecsys.scenario.dto.SearchAreaRequest;
 import com.backend.tecsys.scenario.dto.SearchAreaResponse;
 import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
 import com.backend.tecsys.scenario.model.Asset;
+import com.backend.tecsys.scenario.repository.IAssetRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class SearchAreaService {
 
-    private final com.backend.tecsys.scenario.repository.IAssetRepository assetRepository;
-    private final BdgdAssetService bdgdAssetService;
-
     @Value("${search.area.radius.min:100.0}")
-    private Double minRadius;
+    private double minRadius;
 
     @Value("${search.area.radius.max:8000.0}")
-    private Double maxRadius;
+    private double maxRadius;
 
-    public SearchAreaService(
-            com.backend.tecsys.scenario.repository.IAssetRepository assetRepository,
-            BdgdAssetService bdgdAssetService) {
+    private final IAssetRepository assetRepository;
+    private final BdgdAssetService bdgdAssetService;
+
+    public SearchAreaService(IAssetRepository assetRepository, BdgdAssetService bdgdAssetService) {
         this.assetRepository = assetRepository;
         this.bdgdAssetService = bdgdAssetService;
     }
@@ -45,12 +48,36 @@ public class SearchAreaService {
                     "O ponto central informado esta fora da area de cobertura da BDGD selecionada.");
         }
 
-        List<AssetDto> candidates = new java.util.ArrayList<>();
+        List<AssetDto> candidates = new ArrayList<>();
+        Map<String, Integer> countsByType = new LinkedHashMap<>();
+        List<String> availableTypes = new ArrayList<>();
+
         try {
             List<Asset> dbAssets = assetRepository.findWithinRadius(
                     request.getImportId(), request.getLatitude(), request.getLongitude(), request.getRadius());
             if (dbAssets != null && !dbAssets.isEmpty()) {
-                candidates = dbAssets.stream().map(this::mapToDto).collect(Collectors.toList());
+                for (Asset asset : dbAssets) {
+                    String type = asset.getAssetType() != null ? asset.getAssetType().trim().toUpperCase() : "OUTROS";
+                    countsByType.merge(type, 1, Integer::sum);
+                }
+                availableTypes.addAll(countsByType.keySet());
+
+                Set<String> selectedFilter = null;
+                if (request.getSelectedAssetTypes() != null && !request.getSelectedAssetTypes().isEmpty()) {
+                    selectedFilter = request.getSelectedAssetTypes().stream()
+                            .map(this::canonicalCategory)
+                            .collect(Collectors.toSet());
+                }
+
+                final Set<String> finalFilter = selectedFilter;
+                candidates = dbAssets.stream()
+                        .filter(asset -> {
+                            if (finalFilter == null) return true;
+                            String cat = canonicalCategory(asset.getAssetType());
+                            return finalFilter.contains(cat);
+                        })
+                        .map(this::mapToDto)
+                        .collect(Collectors.toList());
             }
         } catch (Exception ignored) {
         }
@@ -69,14 +96,33 @@ public class SearchAreaService {
                 .validationStatus(validationStatus)
                 .message(message)
                 .boundaryGeometry(boundaryCheck.geometry())
+                .countsByType(countsByType)
+                .availableTypes(availableTypes)
                 .build();
     }
 
+    private String canonicalCategory(String type) {
+        if (type == null || type.isBlank()) {
+            return "OUTROS";
+        }
+        String s = type.trim().toUpperCase();
+        if (s.equals("PONNOT") || s.equals("POSTE") || s.equals("POST")) return "POSTE";
+        if (s.equals("UNTRMT") || s.equals("TRAFO") || s.equals("TRANSFORMADOR")) return "TRAFO";
+        if (s.equals("UNREMT") || s.equals("RELIGADOR") || s.equals("RECLOSER")) return "RELIGADOR";
+        if (s.equals("SUB") || s.equals("SUBESTACAO") || s.equals("SUBSTATION")) return "SUB";
+        if (s.equals("UCBT")) return "UCBT";
+        if (s.equals("UCMT")) return "UCMT";
+        if (s.equals("SSDMT")) return "SSDMT";
+        if (s.equals("SSDBT")) return "SSDBT";
+        if (s.equals("SSDAT")) return "SSDAT";
+        if (s.equals("UNCRAT")) return "UNCRAT";
+        return s;
+    }
 
     private AssetDto mapToDto(Asset asset) {
         return AssetDto.builder()
                 .id(asset.getAssetKey())
-                .type(asset.getAssetType())
+                .type(canonicalCategory(asset.getAssetType()))
                 .latitude(asset.getCoordinate().latitude())
                 .longitude(asset.getCoordinate().longitude())
                 .build();

@@ -1,9 +1,11 @@
 package com.backend.tecsys;
 
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
+import com.backend.tecsys.radio.model.RfCoordinate;
 import com.backend.tecsys.scenario.dto.SearchAreaRequest;
 import com.backend.tecsys.scenario.dto.SearchAreaResponse;
 import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
+import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.scenario.repository.IAssetRepository;
 import com.backend.tecsys.scenario.service.SearchAreaService;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +79,42 @@ class SearchAreaServiceTest {
         SearchAreaResponse response = service.processSearchArea(request);
 
         assertEquals("OK", response.getValidationStatus());
+    }
+
+    @Test
+    void shouldReturnCountsByTypeAndFilterCandidatesBySelectedTypes() {
+        UUID importId = UUID.randomUUID();
+        when(bdgdAssetService.checkPointWithinImportBounds(any(), anyDouble(), anyDouble()))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(null, null));
+
+        List<Asset> assets = List.of(
+                Asset.builder().assetKey("P1").assetType("POSTE").coordinate(new RfCoordinate(-22.0, -47.0)).build(),
+                Asset.builder().assetKey("P2").assetType("POSTE").coordinate(new RfCoordinate(-22.01, -47.01)).build(),
+                Asset.builder().assetKey("T1").assetType("UNTRMT").coordinate(new RfCoordinate(-22.02, -47.02)).build(),
+                Asset.builder().assetKey("S1").assetType("SUB").coordinate(new RfCoordinate(-22.03, -47.03)).build(),
+                Asset.builder().assetKey("U1").assetType("UCBT").coordinate(new RfCoordinate(-22.04, -47.04)).build()
+        );
+        when(assetRepository.findWithinRadius(any(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(assets);
+
+        // Request with filter for POSTE and SUB only
+        SearchAreaRequest request = SearchAreaRequest.builder()
+                .importId(importId)
+                .latitude(-22.0)
+                .longitude(-47.0)
+                .radius(1000.0)
+                .selectedAssetTypes(List.of("POSTE", "SUB"))
+                .build();
+
+        SearchAreaResponse response = service.processSearchArea(request);
+
+        assertEquals("OK", response.getValidationStatus());
+        assertEquals(3, response.getCandidates().size()); // 2 POSTE + 1 SUB
+        assertEquals(2, response.getCountsByType().get("POSTE"));
+        assertEquals(1, response.getCountsByType().get("UNTRMT"));
+        assertEquals(1, response.getCountsByType().get("SUB"));
+        assertEquals(1, response.getCountsByType().get("UCBT"));
+        assertTrue(response.getAvailableTypes().containsAll(List.of("POSTE", "UNTRMT", "SUB", "UCBT")));
     }
 
     private Object samplePolygon() {
