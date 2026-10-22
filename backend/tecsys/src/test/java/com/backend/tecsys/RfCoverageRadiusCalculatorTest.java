@@ -2,6 +2,7 @@ package com.backend.tecsys;
 
 import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.radio.service.FreeSpacePathLossModel;
+import com.backend.tecsys.radio.service.ItmLongleyRiceModel;
 import com.backend.tecsys.radio.service.LinkBudgetCalculator;
 import com.backend.tecsys.radio.service.OkumuraHataSuburbanModel;
 import com.backend.tecsys.radio.service.RfCoverageRadiusCalculator;
@@ -80,6 +81,15 @@ class RfCoverageRadiusCalculatorTest {
 
         assertTrue(radius > 500.0);
         assertTrue(radius < 50000.0);
+    }
+
+    @Test
+    void shouldUseFreeSpaceRadiusAsItmScreeningLimit() {
+        RfParameter rf = RfParameter.defaults();
+        double freeSpaceRadius = radiusCalculator.calculateRadiusMeters(rf, freeSpaceModel);
+        double itmScreeningRadius = radiusCalculator.calculateRadiusMeters(rf, new ItmLongleyRiceModel());
+
+        assertEquals(freeSpaceRadius, itmScreeningRadius, 0.001);
     }
 
     @Test

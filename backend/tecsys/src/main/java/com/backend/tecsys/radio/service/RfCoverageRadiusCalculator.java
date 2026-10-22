@@ -47,6 +47,9 @@ public class RfCoverageRadiusCalculator {
             case OKUMURA_HATA_SUBURBAN:
                 radiusMeters = calculateOkumuraHataSuburbanRadiusMeters(rfParameter, maxPathLossDb);
                 break;
+            case ITM_LONGLEY_RICE:
+                radiusMeters = calculateFreeSpaceRadiusMeters(rfParameter.getFrequencyMhz(), maxPathLossDb);
+                break;
             default:
                 radiusMeters = calculateByBinarySearch(rfParameter, propagationModel, maxPathLossDb);
                 break;

@@ -585,12 +585,37 @@ class RfParametersCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _buildModelCard(
-          title: 'ITM (Longley-Rice Relevo)',
-          description:
-              'Modelo padrão adotado: considera relevo topográfico SRTM 30m, difração de gume de faca, obstruções de terreno e clutter.',
-          modelName: 'ITM (Longley-Rice Relevo)',
-          width: double.infinity,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 700;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildModelCard(
+                  title: 'Okumura-Hata Suburbano',
+                  description:
+                      'Perfeito para cidades médias do interior paulista com média atenuação por árvores.',
+                  modelName: 'Okumura-Hata Suburbano',
+                  width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                ),
+                _buildModelCard(
+                  title: '3GPP TR 38.901 Rural Macro',
+                  description:
+                      'Ideal para ramais rurais longos e grandes distâncias inter-postes (>200m).',
+                  modelName: '3GPP TR 38.901 Rural Macro',
+                  width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                ),
+                _buildModelCard(
+                  title: 'ITM (Longley-Rice Relevo)',
+                  description:
+                      'Usa SRTM público ou local; Copernicus GLO-90 (Open-Meteo) como alternativa.',
+                  modelName: 'ITM (Longley-Rice Relevo)',
+                  width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
