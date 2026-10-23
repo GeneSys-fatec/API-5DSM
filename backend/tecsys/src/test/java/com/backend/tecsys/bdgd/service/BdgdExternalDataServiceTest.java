@@ -98,4 +98,21 @@ class BdgdExternalDataServiceTest {
         assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("CEMIG-D"));
         assertDoesNotThrow(() -> validator.validateAndNormalizeRegion("Sudeste"));
     }
+
+    @Test
+    void shouldFetchDistributorsDirectlyFromLiveAneelApi() {
+        BdgdExternalDataService liveService = new BdgdExternalDataService(objectMapper);
+        assertEquals(0, liveService.getDistributors().size(), "Antes do refresh, a lista deve estar vazia");
+
+        liveService.refreshData();
+
+        List<String> distributors = liveService.getDistributors();
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                !distributors.isEmpty(),
+                "Ambiente offline ou portal da ANEEL indisponivel no momento do teste"
+        );
+        assertTrue(distributors.size() >= 100);
+        assertTrue(distributors.contains("CPFL-PAULISTA"));
+        assertTrue(distributors.contains("CEMIG-D"));
+    }
 }

@@ -142,7 +142,7 @@ public class BdgdExternalDataService {
 
     public void loadFallbackData() {
         try {
-            ClassPathResource aneelResource = new ClassPathResource("data/aneel_distribuidoras.json");
+            ClassPathResource aneelResource = new ClassPathResource("aneel_distribuidoras.json");
             if (aneelResource.exists()) {
                 try (InputStream is = aneelResource.getInputStream()) {
                     List<String> distributors = parseAneelDistributors(new String(is.readAllBytes()));
