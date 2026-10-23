@@ -3,6 +3,7 @@ package com.backend.tecsys.scenario.dto;
 import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.radio.model.RfCoordinate;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
@@ -74,6 +75,11 @@ public class SimulationRequest {
     @Positive(message = "O raio da área de busca deve ser maior que zero.")
     @Schema(description = "Raio da área de busca da Etapa 1, em metros.", example = "3500")
     private Double searchRadiusMeters;
+
+    @Schema(description = "Pontos do polígono manual desenhado na Etapa 1. Quando informado "
+            + "(3+ pontos), substitui o raio/centro como universo de ativos a cobrir.")
+    @Valid
+    private java.util.List<PolygonPoint> searchPolygonPoints;
 
     @NotBlank(message = "O modelo de propagação é obrigatório.")
     @Schema(description = "Modelo de propagação RF.",

@@ -8,6 +8,7 @@ import com.backend.tecsys.radio.service.RadioCoverageCalculator;
 import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
 import com.backend.tecsys.scenario.model.PropagationModelType;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import com.backend.tecsys.scenario.repository.GatewayCandidateProvider;
 import com.backend.tecsys.scenario.repository.IAssetRepository;
 import com.backend.tecsys.scenario.repository.IScenarioRepository;
@@ -97,7 +98,8 @@ class SimulationServiceBoundaryTest {
                         .build()),
                 -11.0,
                 -37.0,
-                3500.0);
+                3500.0,
+                null);
     }
 
     private SimulationService.SimulationCommand commandWithoutSearchArea(UUID importId) {
@@ -118,7 +120,69 @@ class SimulationServiceBoundaryTest {
                         .build()),
                 null,
                 null,
+                null,
                 null);
+    }
+
+    @Test
+    void shouldRejectSimulationWhenPolygonVertexIsOutsideBdgdBounds() {
+        UUID importId = UUID.randomUUID();
+        when(bdgdAssetService.checkPointWithinImportBounds(any(UUID.class), anyDouble(), anyDouble()))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(samplePolygon(), true))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(samplePolygon(), false));
+
+        SimulationService.SimulationCommand command = commandWithPolygon(importId, List.of(
+                new PolygonPoint(-11.0, -37.0),
+                new PolygonPoint(-11.1, -37.1),
+                new PolygonPoint(10.0, 10.0)));
+
+        assertThrows(PointOutOfBoundsException.class,
+                () -> service.simulate(command, 1L, 1L));
+    }
+
+    @Test
+    void shouldUsePolygonAssetUniverseWhenAllVerticesAreInsideBdgdBounds() {
+        UUID importId = UUID.randomUUID();
+        when(bdgdAssetService.checkPointWithinImportBounds(any(UUID.class), anyDouble(), anyDouble()))
+                .thenReturn(new BdgdAssetService.BoundaryCheck(samplePolygon(), true));
+        when(assetRepository.findWithinPolygon(any(UUID.class), any()))
+                .thenReturn(List.of());
+
+        SimulationService.SimulationCommand command = commandWithPolygon(importId, List.of(
+                new PolygonPoint(-11.0, -37.0),
+                new PolygonPoint(-11.1, -37.1),
+                new PolygonPoint(-11.0, -37.2)));
+
+        try {
+            service.simulate(command, 1L, 1L);
+        } catch (Exception ignored) {
+        }
+
+        org.mockito.Mockito.verify(assetRepository).findWithinPolygon(importId, command.searchPolygonPoints());
+        org.mockito.Mockito.verify(assetRepository, org.mockito.Mockito.never())
+                .findAllWithinRadius(any(UUID.class), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    private SimulationService.SimulationCommand commandWithPolygon(UUID importId, List<PolygonPoint> polygonPoints) {
+        return new SimulationService.SimulationCommand(
+                importId,
+                "Cenario Teste",
+                "Regiao Teste",
+                90.0,
+                5,
+                1500.0,
+                PropagationModelType.OKUMURA_HATA_SUBURBAN,
+                RfParameter.defaults(),
+                List.of(GatewayCandidate.builder()
+                        .id(1L)
+                        .assetKey("CANDIDATE-1")
+                        .coordinate(new RfCoordinate(-11.0, -37.0))
+                        .estimatedCost(1500.0)
+                        .build()),
+                null,
+                null,
+                null,
+                polygonPoints);
     }
 
     private Object samplePolygon() {

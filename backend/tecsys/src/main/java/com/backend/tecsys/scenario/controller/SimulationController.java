@@ -54,7 +54,8 @@ public class SimulationController {
                 request.toGatewayCandidates(user.getUtilityId()),
                 request.getSearchCenterLatitude(),
                 request.getSearchCenterLongitude(),
-                request.getSearchRadiusMeters());
+                request.getSearchRadiusMeters(),
+                request.getSearchPolygonPoints());
 
         SimulationService.SimulationOutcome outcome =
                 simulationService.simulate(command, user.getId(), user.getUtilityId());

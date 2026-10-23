@@ -316,6 +316,8 @@ class ScenarioConfigController extends ChangeNotifier {
   SimulationRequest _buildSimulationRequest(ScenarioConfigModel model, List<CandidateAsset> candidates) {
     const maxCandidates = 30;
     final searchArea = AreaDelimitationController.sharedConfig;
+    final usesPolygon = (searchArea?.useDrawnPolygon ?? false) &&
+        (searchArea?.drawnPolygonPoints.length ?? 0) >= 3;
     final limitedCandidates = selectSpreadCandidates(
       candidates,
       max: maxCandidates,
@@ -357,9 +359,10 @@ class ScenarioConfigController extends ChangeNotifier {
       gatewayCandidates: gatewayCandidates,
       propagationModel: propagationModel,
       gatewayUnitCost: 1500.0,
-      searchCenterLatitude: searchArea?.centerLatitude,
-      searchCenterLongitude: searchArea?.centerLongitude,
-      searchRadiusMeters: searchArea?.radiusMeters,
+      searchCenterLatitude: usesPolygon ? null : searchArea?.centerLatitude,
+      searchCenterLongitude: usesPolygon ? null : searchArea?.centerLongitude,
+      searchRadiusMeters: usesPolygon ? null : searchArea?.radiusMeters,
+      searchPolygonPoints: usesPolygon ? searchArea?.drawnPolygonPoints : null,
       rfParameter: RfParameterRequest(
         frequencyMhz: model.frequencyMhz,
         transmitPowerDbm: model.txPowerDbm,

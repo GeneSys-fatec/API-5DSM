@@ -5,13 +5,15 @@ class SearchAreaRequest {
   final String importId;
   final double latitude;
   final double longitude;
-  final double radius;
+  final double? radius;
+  final List<List<double>>? polygonPoints;
 
   const SearchAreaRequest({
     required this.importId,
     required this.latitude,
     required this.longitude,
-    required this.radius,
+    this.radius,
+    this.polygonPoints,
   });
 
   Map<String, dynamic> toMap() {
@@ -19,7 +21,11 @@ class SearchAreaRequest {
       'importId': importId,
       'latitude': latitude,
       'longitude': longitude,
-      'radius': radius,
+      if (radius != null) 'radius': radius,
+      if (polygonPoints != null)
+        'polygonPoints': polygonPoints!
+            .map((pair) => {'latitude': pair[0], 'longitude': pair[1]})
+            .toList(),
     };
   }
 
@@ -30,14 +36,19 @@ class SearchAreaRequest {
       importId: map['importId'] as String,
       latitude: (map['latitude'] as num).toDouble(),
       longitude: (map['longitude'] as num).toDouble(),
-      radius: (map['radius'] as num).toDouble(),
+      radius: (map['radius'] as num?)?.toDouble(),
+      polygonPoints: (map['polygonPoints'] as List<dynamic>?)
+          ?.map((p) => [
+                ((p as Map<String, dynamic>)['latitude'] as num).toDouble(),
+                (p['longitude'] as num).toDouble(),
+              ])
+          .toList(),
     );
   }
 
   factory SearchAreaRequest.fromJson(String source) =>
       SearchAreaRequest.fromMap(json.decode(source) as Map<String, dynamic>);
 }
-
 class AssetDto {
   final String id;
   final String type;
@@ -170,6 +181,7 @@ class SimulationRequest {
   final double? searchCenterLatitude;
   final double? searchCenterLongitude;
   final double? searchRadiusMeters;
+  final List<List<double>>? searchPolygonPoints;
   final RfParameterRequest rfParameter;
 
   const SimulationRequest({
@@ -184,6 +196,7 @@ class SimulationRequest {
     this.searchCenterLatitude,
     this.searchCenterLongitude,
     this.searchRadiusMeters,
+    this.searchPolygonPoints,
     required this.rfParameter,
   });
 
@@ -204,6 +217,10 @@ class SimulationRequest {
         'searchCenterLongitude': searchCenterLongitude,
         'searchRadiusMeters': searchRadiusMeters,
       },
+      if (searchPolygonPoints != null && searchPolygonPoints!.length >= 3)
+        'searchPolygonPoints': searchPolygonPoints!
+            .map((pair) => {'latitude': pair[0], 'longitude': pair[1]})
+            .toList(),
       'frequencyMhz': rfParameter.frequencyMhz,
       'transmitPowerDbm': rfParameter.transmitPowerDbm,
       'receiverSensitivityDbm': rfParameter.receiverSensitivityDbm,
