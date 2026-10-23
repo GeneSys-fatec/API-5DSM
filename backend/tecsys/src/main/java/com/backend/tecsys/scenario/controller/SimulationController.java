@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/simulations")
@@ -53,7 +54,8 @@ public class SimulationController {
                 request.toGatewayCandidates(user.getUtilityId()),
                 request.getSearchCenterLatitude(),
                 request.getSearchCenterLongitude(),
-                request.getSearchRadiusMeters());
+                request.getSearchRadiusMeters(),
+                request.getSearchPolygonPoints());
 
         SimulationService.SimulationOutcome outcome =
                 simulationService.simulate(command, user.getId(), user.getUtilityId());
@@ -83,9 +85,19 @@ public class SimulationController {
                     .shadowedAssetKeys(new ArrayList<>(coverage.getShadowedAssetKeys()))
                     .build());
         }
+        Set<String> coveredAssetKeys = Set.copyOf(outcome.coveredAssetKeys());
+        List<SimulationResponse.AssetLocationResponse> assets = outcome.assets().stream()
+                .map(asset -> SimulationResponse.AssetLocationResponse.builder()
+                        .assetKey(asset.assetKey())
+                        .latitude(asset.latitude())
+                        .longitude(asset.longitude())
+                        .covered(coveredAssetKeys.contains(asset.assetKey()))
+                        .build())
+                .toList();
 
         return SimulationResponse.builder()
                 .scenarioId(outcome.scenarioId())
+                .scenarioName(outcome.scenarioName())
                 .status(outcome.status())
                 .propagationModel(outcome.propagationModel())
                 .rfParameter(outcome.rfParameter())
@@ -102,6 +114,11 @@ public class SimulationController {
                         ? indicator.getProcessingTimeMs()
                         : 0)
                 .targetReached(indicator.isTargetReached())
+                .averageRssiDbm(outcome.averageRssiDbm())
+                .gatewayUnitCost(outcome.gatewayUnitCost())
+                .coverageTargetPct(outcome.coverageTargetPct())
+                .maxGateways(outcome.maxGateways())
+                .assets(assets)
                 .build();
     }
 }

@@ -36,7 +36,7 @@
     },
     {
       "parameters": {
-        "command": "=\"{{$env.ETL_PYTHON_EXE}}\" \"{{$env.ETL_MAIN_PY}}\" \"{{$json.body.gdb_path}}\" \"{{$json.body.distribuidora}}\" \"{{$json.body.regiao}}\" --layers SUB UCBT UCMT PONNOT POSTE SSDBT SSDMT SSDAT"
+        "command": "=\"{{$env.ETL_PYTHON_EXE}}\" \"{{$env.ETL_MAIN_PY}}\" \"{{$json.body.gdb_path}}\" \"{{$json.body.distribuidora}}\" \"{{$json.body.regiao}}\" --import-id \"{{$json.body.import_id}}\" --layers SUB UCBT UCMT POSTE SSDBT SSDMT SSDAT"
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,

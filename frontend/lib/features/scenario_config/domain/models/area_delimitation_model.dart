@@ -156,6 +156,8 @@ class AreaDelimitationConfig {
   final Set<CandidateAssetType> selectedAssetTypes;
   final String baseName;
   final String? bdgdImportId;
+  final bool useDrawnPolygon;
+  final List<List<double>> drawnPolygonPoints;
 
   const AreaDelimitationConfig({
     this.centerLatitude = -22.9068,
@@ -172,6 +174,8 @@ class AreaDelimitationConfig {
     },
     this.baseName = 'ENERGISA (SUL / SE)',
     this.bdgdImportId,
+    this.useDrawnPolygon = false,
+    this.drawnPolygonPoints = const [],
   });
 
   double get radiusMeters => radiusKm * 1000.0;
@@ -186,6 +190,8 @@ class AreaDelimitationConfig {
     Set<CandidateAssetType>? selectedAssetTypes,
     String? baseName,
     String? bdgdImportId,
+    bool? useDrawnPolygon,
+    List<List<double>>? drawnPolygonPoints,
   }) {
     return AreaDelimitationConfig(
       centerLatitude: centerLatitude ?? this.centerLatitude,
@@ -197,6 +203,8 @@ class AreaDelimitationConfig {
       selectedAssetTypes: selectedAssetTypes ?? this.selectedAssetTypes,
       baseName: baseName ?? this.baseName,
       bdgdImportId: bdgdImportId ?? this.bdgdImportId,
+      useDrawnPolygon: useDrawnPolygon ?? this.useDrawnPolygon,
+      drawnPolygonPoints: drawnPolygonPoints ?? this.drawnPolygonPoints,
     );
   }
 
@@ -211,6 +219,8 @@ class AreaDelimitationConfig {
       'selectedAssetTypes': selectedAssetTypes.map((t) => t.name).toList(),
       'baseName': baseName,
       'bdgdImportId': bdgdImportId,
+      'useDrawnPolygon': useDrawnPolygon,
+      'drawnPolygonPoints': drawnPolygonPoints,
     };
   }
 
@@ -240,6 +250,10 @@ class AreaDelimitationConfig {
       selectedAssetTypes: types,
       baseName: map['baseName'] as String? ?? 'ENERGISA (SUL / SE)',
       bdgdImportId: map['bdgdImportId'] as String?,
+      useDrawnPolygon: map['useDrawnPolygon'] as bool? ?? false,
+      drawnPolygonPoints: (map['drawnPolygonPoints'] as List<dynamic>? ?? [])
+          .map((pair) => (pair as List<dynamic>).map((v) => (v as num).toDouble()).toList())
+          .toList(),
     );
   }
 

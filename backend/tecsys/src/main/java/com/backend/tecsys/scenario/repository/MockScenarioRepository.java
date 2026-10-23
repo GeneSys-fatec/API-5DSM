@@ -45,4 +45,28 @@ public class MockScenarioRepository implements IScenarioRepository {
         scenarios.put(scenarioId, scenario);
         return scenario;
     }
+
+    @Override
+    public Scenario findById(Long id) {
+        return scenarios.get(id);
+    }
+
+    @Override
+    public java.util.List<Scenario> findAllByUserId(Long userId) {
+        return scenarios.values().stream()
+                .filter(s -> s.getUserId().equals(userId))
+                .toList();
+    }
+
+    @Override
+    public java.util.List<Scenario> findByUserIdAndRegionName(Long userId, String regionName) {
+        return scenarios.values().stream()
+                .filter(s -> s.getUserId().equals(userId) && regionName.equals(s.getRegionName()))
+                .toList();
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        scenarios.remove(id);
+    }
 }

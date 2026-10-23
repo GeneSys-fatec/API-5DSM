@@ -11,6 +11,7 @@ import com.backend.tecsys.scenario.exception.InvalidGatewayCandidateException;
 import com.backend.tecsys.scenario.exception.InvalidSimulationParameterException;
 import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import com.backend.tecsys.scenario.model.GatewayCoverage;
 import com.backend.tecsys.scenario.model.PropagationModelType;
 import com.backend.tecsys.scenario.model.Scenario;
@@ -23,12 +24,20 @@ import com.backend.tecsys.scenario.repository.IScenarioRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class SimulationService {
+
+    private static final Logger log = LoggerFactory.getLogger(SimulationService.class);
 
     private static final double MAX_DERIVED_UNIVERSE_RADIUS_M = 25_000.0;
 
@@ -88,12 +97,20 @@ public class SimulationService {
                 command.maxGateways());
 
         Set<String> coveredAssetKeys = selection.coveredAssetKeys();
+        Double averageRssiDbm = calculateAverageRssi(selection.selectedCoverages());
         List<ScenarioSelectedGateway> selectedGateways = buildSelectedGateways(selection.selectedCoverages());
         List<ScenarioAssetCoverage> assetCoverages = buildAssetCoverages(assets, coveredAssetKeys, selection.selectedCoverages());
 
         int processingTimeMs = (int) (System.currentTimeMillis() - startedAt);
+        double effectiveGatewayUnitCost = command.gatewayUnitCost() != null
+                ? command.gatewayUnitCost()
+                : MockCostCalculator.DEFAULT_GATEWAY_UNIT_COST;
         double totalEstimatedCost = costCalculator.calculateTotalCost(
                 selectedGateways.size(), command.gatewayUnitCost());
+
+        double coverageRadiusMeters = selection.selectedCoverages().isEmpty()
+                ? radioCoverageCalculator.calculateCoverageRadius(command.rfParameter(), propagationModel)
+                : selection.selectedCoverages().get(0).getCoverageRadiusMeters();
 
         ScenarioIndicator indicator = scenarioIndicatorCalculator.calculate(
                 assets,
@@ -110,12 +127,13 @@ public class SimulationService {
                 .regionName(command.regionName())
                 .coverageTargetPct(command.coverageTargetPct())
                 .maxGateways(command.maxGateways())
-                .gatewayUnitCost(command.gatewayUnitCost() != null
-                        ? command.gatewayUnitCost()
-                        : MockCostCalculator.DEFAULT_GATEWAY_UNIT_COST)
+                .gatewayUnitCost(effectiveGatewayUnitCost)
                 .propagationModel(command.propagationModel())
                 .status("concluido")
                 .processingTimeMs(processingTimeMs)
+                .areaWkt(buildSearchAreaWkt(command))
+                .rfParameter(command.rfParameter())
+                .coverageRadiusMeters(coverageRadiusMeters)
                 .selectedGateways(selectedGateways)
                 .assetCoverages(assetCoverages)
                 .indicator(indicator)
@@ -138,12 +156,9 @@ public class SimulationService {
             selectedCandidates.add(coverage.getCandidate());
         }
 
-        double coverageRadiusMeters = selection.selectedCoverages().isEmpty()
-                ? radioCoverageCalculator.calculateCoverageRadius(command.rfParameter(), propagationModel)
-                : selection.selectedCoverages().get(0).getCoverageRadiusMeters();
-
         return new SimulationOutcome(
                 scenario.getId(),
+                scenario.getName(),
                 scenario.getStatus(),
                 command.propagationModel(),
                 command.rfParameter(),
@@ -152,7 +167,42 @@ public class SimulationService {
                 coveredAssetKeysResult,
                 uncoveredAssetKeysResult,
                 indicator,
-                coverageRadiusMeters);
+                coverageRadiusMeters,
+                averageRssiDbm,
+                effectiveGatewayUnitCost,
+                command.coverageTargetPct(),
+                command.maxGateways(),
+                assets.stream()
+                        .map(asset -> new AssetLocation(
+                                asset.getAssetKey(),
+                                asset.getCoordinate().latitude(),
+                                asset.getCoordinate().longitude()))
+                        .toList());
+    }
+    
+    private String buildSearchAreaWkt(SimulationCommand command) {
+        if (!command.hasSearchArea()) {
+            return null;
+        }
+
+        final int points = 72;
+        double metersPerDegreeLat = 111_320.0;
+        double metersPerDegreeLon = 111_320.0 * Math.cos(Math.toRadians(command.searchCenterLatitude()));
+        double latDelta = command.searchRadiusMeters() / metersPerDegreeLat;
+        double lonDelta = command.searchRadiusMeters() / metersPerDegreeLon;
+
+        StringBuilder wkt = new StringBuilder("POLYGON((");
+        for (int i = 0; i <= points; i++) {
+            double angle = 2 * Math.PI * i / points;
+            double latitude = command.searchCenterLatitude() + latDelta * Math.sin(angle);
+            double longitude = command.searchCenterLongitude() + lonDelta * Math.cos(angle);
+            if (i > 0) {
+                wkt.append(", ");
+            }
+            wkt.append(longitude).append(' ').append(latitude);
+        }
+        wkt.append("))");
+        return wkt.toString();
     }
 
     private List<Asset> loadAssetUniverse(
@@ -160,48 +210,65 @@ public class SimulationService {
             List<GatewayCandidate> candidates,
             PropagationModel propagationModel) {
 
-        double centerLatitude;
-        double centerLongitude;
-        double radiusMeters;
+        List<Asset> assets;
 
-        if (command.hasSearchArea()) {
-            centerLatitude = command.searchCenterLatitude();
-            centerLongitude = command.searchCenterLongitude();
-            radiusMeters = command.searchRadiusMeters();
+        if (command.hasSearchPolygon()) {
+            assets = assetRepository.findWithinPolygon(command.importId(), command.searchPolygonPoints());
         } else {
-            centerLatitude = candidates.stream().mapToDouble(c -> c.getCoordinate().latitude()).average().orElse(0.0);
-            centerLongitude = candidates.stream().mapToDouble(c -> c.getCoordinate().longitude()).average().orElse(0.0);
-            RfCoordinate center = new RfCoordinate(centerLatitude, centerLongitude);
-            double farthestCandidateM = candidates.stream()
-                    .mapToDouble(c -> GeoDistanceCalculator.distanceMeters(center, c.getCoordinate()))
-                    .max()
-                    .orElse(0.0);
-            double coverageRadiusM = radioCoverageCalculator.calculateCoverageRadius(
-                    command.rfParameter(), propagationModel);
-            radiusMeters = Math.min(farthestCandidateM + coverageRadiusM, MAX_DERIVED_UNIVERSE_RADIUS_M);
+            double centerLatitude;
+            double centerLongitude;
+            double radiusMeters;
+
+            if (command.hasSearchArea()) {
+                centerLatitude = command.searchCenterLatitude();
+                centerLongitude = command.searchCenterLongitude();
+                radiusMeters = command.searchRadiusMeters();
+            } else {
+                centerLatitude = candidates.stream().mapToDouble(c -> c.getCoordinate().latitude()).average().orElse(0.0);
+                centerLongitude = candidates.stream().mapToDouble(c -> c.getCoordinate().longitude()).average().orElse(0.0);
+                RfCoordinate center = new RfCoordinate(centerLatitude, centerLongitude);
+                double farthestCandidateM = candidates.stream()
+                        .mapToDouble(c -> GeoDistanceCalculator.distanceMeters(center, c.getCoordinate()))
+                        .max()
+                        .orElse(0.0);
+                double coverageRadiusM = radioCoverageCalculator.calculateCoverageRadius(
+                        command.rfParameter(), propagationModel);
+                radiusMeters = Math.min(farthestCandidateM + coverageRadiusM, MAX_DERIVED_UNIVERSE_RADIUS_M);
+            }
+
+            assets = assetRepository.findAllWithinRadius(
+                    command.importId(), centerLatitude, centerLongitude, radiusMeters);
         }
 
-        List<Asset> assets = assetRepository.findAllWithinRadius(
-                command.importId(), centerLatitude, centerLongitude, radiusMeters);
         if (assets == null || assets.isEmpty()) {
             throw new InvalidSimulationParameterException(
                     "Nenhum ativo encontrado na área de busca informada.");
         }
         return assets;
     }
-
     private void validateCenterWithinBdgdBounds(SimulationCommand command) {
+        if (command.hasSearchPolygon()) {
+            for (PolygonPoint point : command.searchPolygonPoints()) {
+                BdgdAssetService.BoundaryCheck pointCheck = bdgdAssetService.checkPointWithinImportBounds(
+                        command.importId(), point.longitude(), point.latitude());
+                if (pointCheck.hasBoundary() && !pointCheck.isPointInside()) {
+                    throw new com.backend.tecsys.scenario.exception.PointOutOfBoundsException(
+                            "Um ou mais pontos do polígono estão fora da area de cobertura da BDGD selecionada.");
+                }
+            }
+            return;
+        }
         if (!command.hasSearchArea()) {
             return;
         }
         BdgdAssetService.BoundaryCheck boundaryCheck = bdgdAssetService.checkPointWithinImportBounds(
                 command.importId(), command.searchCenterLongitude(), command.searchCenterLatitude());
+
         if (boundaryCheck.hasBoundary() && !boundaryCheck.isPointInside()) {
             throw new com.backend.tecsys.scenario.exception.PointOutOfBoundsException(
                     "O ponto central informado esta fora da area de cobertura da BDGD selecionada.");
         }
     }
-
     private void validate(SimulationCommand command) {
         if (command.scenarioName() == null || command.scenarioName().isBlank()) {
             throw new InvalidSimulationParameterException("O nome do cenário é obrigatório.");
@@ -213,6 +280,11 @@ public class SimulationService {
         if (searchAreaFieldsProvided != 0 && searchAreaFieldsProvided != 3) {
             throw new InvalidSimulationParameterException(
                     "Informe latitude, longitude e raio da área de busca juntos, ou nenhum deles.");
+        }
+
+        if (command.searchPolygonPoints() != null && !command.searchPolygonPoints().isEmpty()
+                && command.searchPolygonPoints().size() < 3) {
+            throw new InvalidSimulationParameterException("O polígono manual deve ter no mínimo 3 pontos para formar uma área válida.");
         }
 
         if (command.coverageTargetPct() < 1.0 || command.coverageTargetPct() > 100.0) {
@@ -291,6 +363,19 @@ public class SimulationService {
         return assetCoverages;
     }
 
+    static Double calculateAverageRssi(List<GatewayCoverage> selectedCoverages) {
+        Map<String, Double> strongestRssiByAsset = new HashMap<>();
+        for (GatewayCoverage coverage : selectedCoverages) {
+            coverage.getReceivedPowerDbmByAssetKey().forEach((assetKey, rssi) ->
+                    strongestRssiByAsset.merge(assetKey, rssi, Math::max));
+        }
+
+        OptionalDouble average = strongestRssiByAsset.values().stream()
+                .mapToDouble(Double::doubleValue)
+                .average();
+        return average.isPresent() ? average.getAsDouble() : null;
+    }
+
     public record SimulationCommand(
             java.util.UUID importId,
             String scenarioName,
@@ -303,17 +388,23 @@ public class SimulationService {
             List<GatewayCandidate> gatewayCandidates,
             Double searchCenterLatitude,
             Double searchCenterLongitude,
-            Double searchRadiusMeters) {
+            Double searchRadiusMeters,
+            List<PolygonPoint> searchPolygonPoints) {
 
         public boolean hasSearchArea() {
             return searchCenterLatitude != null
                     && searchCenterLongitude != null
                     && searchRadiusMeters != null;
         }
+
+        public boolean hasSearchPolygon() {
+            return searchPolygonPoints != null && searchPolygonPoints.size() >= 3;
+        }
     }
 
     public record SimulationOutcome(
             Long scenarioId,
+            String scenarioName,
             String status,
             PropagationModelType propagationModel,
             RfParameter rfParameter,
@@ -322,7 +413,12 @@ public class SimulationService {
             List<String> coveredAssetKeys,
             List<String> uncoveredAssetKeys,
             ScenarioIndicator indicator,
-            double coverageRadiusMeters) {
+            double coverageRadiusMeters,
+            Double averageRssiDbm,
+            Double gatewayUnitCost,
+            double coverageTargetPct,
+            int maxGateways,
+            List<AssetLocation> assets) {
 
         public SimulationOutcome(
                 Long scenarioId,
@@ -333,8 +429,26 @@ public class SimulationService {
                 List<String> coveredAssetKeys,
                 List<String> uncoveredAssetKeys,
                 ScenarioIndicator indicator) {
-                this(scenarioId, status, propagationModel, rfParameter, selectedGateways, List.of(),
-                    coveredAssetKeys, uncoveredAssetKeys, indicator, 0.0);
+                this(scenarioId, null, status, propagationModel, rfParameter, selectedGateways, List.of(),
+                    coveredAssetKeys, uncoveredAssetKeys, indicator, 0.0, null, null, 0.0, 0, List.of());
         }
+
+        public SimulationOutcome(
+                Long scenarioId,
+                String status,
+                PropagationModelType propagationModel,
+                RfParameter rfParameter,
+                List<GatewayCandidate> selectedGateways,
+                List<GatewayCoverage> selectedCoverages,
+                List<String> coveredAssetKeys,
+                List<String> uncoveredAssetKeys,
+                ScenarioIndicator indicator,
+                double coverageRadiusMeters) {
+                this(scenarioId, null, status, propagationModel, rfParameter, selectedGateways, selectedCoverages,
+                        coveredAssetKeys, uncoveredAssetKeys, indicator, coverageRadiusMeters, null, null, 0.0, 0, List.of());
+        }
+    }
+
+    public record AssetLocation(String assetKey, double latitude, double longitude) {
     }
 }

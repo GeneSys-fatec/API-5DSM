@@ -5,7 +5,10 @@ import 'package:frontend/features/scenario_config/data/models/api_models.dart';
 import 'package:frontend/features/scenario_results/models/scenario_results_models.dart';
 import 'package:frontend/features/scenario_results/presentation/widgets/scenario_map.dart';
 
-SimulationScenario _scenario({double searchRadiusMeters = 3500}) {
+SimulationScenario _scenario({
+  double searchRadiusMeters = 3500,
+  List<AssetPoint> assets = const [],
+}) {
   return SimulationScenario(
     id: '1',
     code: 'SIM-1',
@@ -20,7 +23,7 @@ SimulationScenario _scenario({double searchRadiusMeters = 3500}) {
       txPowerDbm: 21,
       propagationModel: 'OKUMURA_HATA_SUBURBAN',
     ),
-    results: const ScenarioResults(
+    results: ScenarioResults(
       coveragePercent: 91,
       connectedAssets: 91,
       totalAssets: 100,
@@ -39,6 +42,7 @@ SimulationScenario _scenario({double searchRadiusMeters = 3500}) {
           coverageRadiusMeters: 1751,
         ),
       ],
+      assets: assets,
     ),
   );
 }
@@ -58,11 +62,16 @@ void main() {
     test('SimulationResponse.toSimulationScenario repassa o raio da busca', () {
       final response = SimulationResponse.fromMap({
         'scenarioId': 7,
+        'scenarioName': 'Cenário teste',
         'status': 'concluido',
         'propagationModel': 'OKUMURA_HATA_SUBURBAN',
-        'rfParameter': <String, dynamic>{},
         'selectedGateways': [
-          {'candidateId': 1, 'latitude': -10.9, 'longitude': -37.0, 'coverageRadiusMeters': 1751.0},
+          {
+            'candidateId': 1,
+            'latitude': -10.9,
+            'longitude': -37.0,
+            'coverageRadiusMeters': 1751.0,
+          },
         ],
         'totalCoveragePct': 91.0,
         'coveragePctByAssetType': <String, dynamic>{},
@@ -72,6 +81,27 @@ void main() {
         'totalEstimatedCost': 1500.0,
         'processingTimeMs': 10,
         'targetReached': true,
+        'averageRssiDbm': -84.5,
+        'gatewayUnitCost': 1500.0,
+        'coverageTargetPct': 90.0,
+        'maxGateways': 5,
+        'assets': [
+          {
+            'assetKey': 'asset-1',
+            'latitude': -10.91,
+            'longitude': -37.07,
+            'covered': true,
+          },
+        ],
+        'rfParameter': {
+          'frequencyMhz': 915.0,
+          'transmitPowerDbm': 21.0,
+          'receiverSensitivityDbm': -120.0,
+          'antennaHeightM': 6.0,
+          'deviceHeightM': 5.0,
+          'antennaGainDbi': 0.0,
+          'systemLossDb': 2.0,
+        },
       });
       final scenario = response.toSimulationScenario(
         centerLat: '-10.909',
@@ -80,12 +110,28 @@ void main() {
         searchRadiusMeters: 3500,
       );
       expect(scenario.searchRadiusMeters, 3500);
+      expect(scenario.name, 'Cenário teste');
+      expect(scenario.results.avgRssiDbm, -84.5);
+      expect(scenario.parameters.frequencyMhz, 915.0);
+      expect(scenario.parameters.coverageTargetPct, 90.0);
+      expect(scenario.parameters.maxGateways, 5);
+      expect(scenario.parameters.gatewayUnitCost, 1500.0);
+      expect(scenario.results.assets.single.assetKey, 'asset-1');
+      expect(scenario.results.assets.single.covered, isTrue);
+
+      final restored = SimulationScenario.fromJson(scenario.toJson());
+      expect(restored.results.avgRssiDbm, -84.5);
+      expect(restored.parameters.frequencyMhz, 915.0);
+      expect(restored.results.assets.single.lat, -10.91);
     });
   });
 
   group('computeScenarioViewBounds', () {
     test('sem area de busca mantem o enquadramento padrao', () {
-      expect(computeScenarioViewBounds(_scenario(searchRadiusMeters: 0)), isNull);
+      expect(
+        computeScenarioViewBounds(_scenario(searchRadiusMeters: 0)),
+        isNull,
+      );
     });
 
     test('engloba a area de busca inteira', () {
@@ -96,21 +142,24 @@ void main() {
       expect(bounds.east, greaterThan(-37.068 + 0.031));
     });
 
-    test('estende o enquadramento quando o alcance do gateway passa da area de busca', () {
-      final wide = SimulationScenario(
-        id: '2',
-        code: 'SIM-2',
-        region: 'x',
-        centerLat: -10.909,
-        centerLng: -37.068,
-        searchRadiusMeters: 500,
-        executedAt: DateTime(2026, 10, 2),
-        parameters: _scenario().parameters,
-        results: _scenario().results,
-      );
-      final bounds = computeScenarioViewBounds(wide)!;
-      expect(bounds.north, greaterThan(-10.909 + 0.0157));
-    });
+    test(
+      'estende o enquadramento quando o alcance do gateway passa da area de busca',
+      () {
+        final wide = SimulationScenario(
+          id: '2',
+          code: 'SIM-2',
+          region: 'x',
+          centerLat: -10.909,
+          centerLng: -37.068,
+          searchRadiusMeters: 500,
+          executedAt: DateTime(2026, 10, 2),
+          parameters: _scenario().parameters,
+          results: _scenario().results,
+        );
+        final bounds = computeScenarioViewBounds(wide)!;
+        expect(bounds.north, greaterThan(-10.909 + 0.0157));
+      },
+    );
   });
 
   group('ScenarioMap', () {
@@ -134,11 +183,16 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('desenha o circulo da area de busca e o toggle da camada', (tester) async {
+    testWidgets('desenha o circulo da area de busca e o toggle da camada', (
+      tester,
+    ) async {
       await pump(tester, _scenario());
 
       expect(find.text('Área de busca'), findsOneWidget);
-      expect(find.textContaining('Área de busca (raio 3.5 km)'), findsOneWidget);
+      expect(
+        find.textContaining('Área de busca (raio 3.5 km)'),
+        findsOneWidget,
+      );
 
       final radii = tester
           .widgetList<CircleLayer>(find.byType(CircleLayer))
@@ -149,7 +203,9 @@ void main() {
       expect(radii, contains(1751.0));
     });
 
-    testWidgets('desligar a camada remove o circulo e a legenda', (tester) async {
+    testWidgets('desligar a camada remove o circulo e a legenda', (
+      tester,
+    ) async {
       await pump(tester, _scenario());
 
       await tester.tap(find.text('Área de busca'));
@@ -164,11 +220,52 @@ void main() {
       expect(find.textContaining('Área de busca (raio'), findsNothing);
     });
 
-    testWidgets('cenario sem raio nao mostra a camada de area de busca', (tester) async {
+    testWidgets('cenario sem raio nao mostra a camada de area de busca', (
+      tester,
+    ) async {
       await pump(tester, _scenario(searchRadiusMeters: 0));
 
       expect(find.text('Área de busca'), findsNothing);
       expect(find.textContaining('Área de busca (raio'), findsNothing);
+    });
+
+    testWidgets('camada de ativos mostra pontos conectados e em sombra', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        _scenario(
+          assets: const [
+            AssetPoint(
+              assetKey: 'connected',
+              lat: -10.91,
+              lng: -37.07,
+              covered: true,
+            ),
+            AssetPoint(
+              assetKey: 'shadowed',
+              lat: -10.92,
+              lng: -37.08,
+              covered: false,
+            ),
+          ],
+        ),
+      );
+
+      var markerCount = tester
+          .widgetList<MarkerLayer>(find.byType(MarkerLayer))
+          .expand((layer) => layer.markers)
+          .length;
+      expect(markerCount, 3);
+
+      await tester.tap(find.text('Ativos'));
+      await tester.pump();
+
+      markerCount = tester
+          .widgetList<MarkerLayer>(find.byType(MarkerLayer))
+          .expand((layer) => layer.markers)
+          .length;
+      expect(markerCount, 1);
     });
   });
 }

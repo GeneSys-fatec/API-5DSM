@@ -16,50 +16,90 @@ class MapLayerToggleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: kMapLayerInfo.entries
-          .where((entry) => !hiddenLayers.contains(entry.key))
-          .map((entry) {
-        final layer = entry.key;
-        final info = entry.value;
-        final isActive = activeLayers.contains(layer);
+    final layers = MapLayerType.values
+        .where((layer) => !hiddenLayers.contains(layer))
+        .toList();
 
-        return Tooltip(
-          message: info.available ? '' : 'Disponível em breve',
-          child: FilterChip(
-            avatar: Icon(
-              info.icon,
-              size: 16,
-              color: !info.available
-                  ? Colors.grey.shade400
-                  : isActive
-                      ? Colors.white
-                      : AppColors.primaryDark,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          for (final layer in layers) ...[
+            _LayerChip(
+              info: kMapLayerInfo[layer]!,
+              selected: activeLayers.contains(layer),
+              onTap: () => onToggle(layer),
             ),
-            label: Text(info.label),
-            selected: isActive,
-            onSelected: info.available ? (_) => onToggle(layer) : null,
-            labelStyle: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: !info.available
-                  ? Colors.grey.shade400
-                  : isActive
-                      ? Colors.white
-                      : AppColors.primaryDark,
-            ),
-            selectedColor: AppColors.primaryDark,
-            backgroundColor: AppColors.primaryLight,
-            disabledColor: Colors.grey.shade100,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide.none,
-            ),
-          ),
-        );
-      }).toList(),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
     );
+  }
+}
+
+class _LayerChip extends StatelessWidget {
+  final MapLayerInfo info;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _LayerChip({
+    required this.info,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final available = info.available;
+    final isOn = available && selected;
+
+    final background = !available
+        ? Colors.grey.shade100
+        : isOn
+        ? AppColors.primaryPurple
+        : Colors.white;
+    final foreground = !available
+        ? Colors.grey.shade400
+        : isOn
+        ? Colors.white
+        : AppColors.textSecondary;
+    final borderColor = !available
+        ? Colors.grey.shade200
+        : isOn
+        ? AppColors.primaryPurple
+        : Colors.grey.shade300;
+
+    final chip = Material(
+      color: background,
+      elevation: isOn ? 1 : 0,
+      shadowColor: AppColors.primaryPurple.withValues(alpha: 0.15),
+      shape: StadiumBorder(side: BorderSide(color: borderColor, width: 1.0)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: available ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(info.icon, size: 14, color: foreground),
+              const SizedBox(width: 4), 
+              Text(
+                info.label,
+                style: TextStyle(
+                  fontSize: 12, 
+                  fontWeight: FontWeight.w600,
+                  color: foreground,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return available ? chip : Tooltip(message: 'Em breve', child: chip);
   }
 }
