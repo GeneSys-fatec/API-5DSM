@@ -44,12 +44,17 @@ class ScenarioMap extends StatefulWidget {
   final SimulationScenario scenario;
   final bool isFullScreen;
   final bool enableTiles;
+  final GlobalKey? captureKey;
+
+  final bool showLayerToggleBar;
 
   const ScenarioMap({
     super.key,
     required this.scenario,
     this.isFullScreen = false,
     this.enableTiles = true,
+    this.captureKey,
+    this.showLayerToggleBar = true,
   });
 
   @override
@@ -57,13 +62,20 @@ class ScenarioMap extends StatefulWidget {
 }
 
 class _ScenarioMapState extends State<ScenarioMap> {
-  Set<MapLayerType> _activeLayers = {
-    MapLayerType.searchArea,
-    MapLayerType.coverage,
-    MapLayerType.gateways,
-  };
+  late Set<MapLayerType> _activeLayers;
 
   GatewayPoint? _selectedGateway;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeLayers = {
+      MapLayerType.searchArea,
+      MapLayerType.coverage,
+      MapLayerType.gateways,
+      if (widget.scenario.results.assets.isNotEmpty) MapLayerType.assets,
+    };
+  }
 
   void _toggleLayer(MapLayerType layer) {
     setState(() {
@@ -122,64 +134,89 @@ class _ScenarioMapState extends State<ScenarioMap> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        MapLayerToggleBar(
-          activeLayers: _activeLayers,
-          onToggle: _toggleLayer,
-          hiddenLayers: hasSearchArea
-              ? const {}
-              : const {MapLayerType.searchArea},
-        ),
-        const SizedBox(height: 10),
+        if (widget.showLayerToggleBar) ...[
+          MapLayerToggleBar(
+            activeLayers: _activeLayers,
+            onToggle: _toggleLayer,
+            hiddenLayers: hasSearchArea ? const {} : const {MapLayerType.searchArea},
+          ),
+          const SizedBox(height: 10),
+        ],
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                FlutterMap(
-                  options: MapOptions(
-                    initialCenter: center,
-                    initialZoom: 12,
-                    initialCameraFit: viewBounds == null
-                        ? null
-                        : CameraFit.bounds(
-                            bounds: viewBounds,
-                            padding: const EdgeInsets.all(24),
-                          ),
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                    ),
-                    onTap: (_, __) => setState(() => _selectedGateway = null),
-                  ),
-                  children: [
-                    if (widget.enableTiles)
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.tecsys.api5dsm',
-                      ),
-                    if (hasSearchArea &&
-                        _activeLayers.contains(MapLayerType.searchArea))
-                      CircleLayer(
-                        circles: [
-                          CircleMarker(
-                            point: center,
-                            radius: searchRadius,
-                            useRadiusInMeter: true,
-                            color: Colors.deepOrange.withValues(alpha: 0.05),
-                            borderColor: Colors.deepOrange.withValues(
-                              alpha: 0.85,
+            child: RepaintBoundary(
+              key: widget.captureKey,
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    options: MapOptions(
+                      initialCenter: center,
+                      initialZoom: 12,
+                      initialCameraFit: viewBounds == null
+                          ? null
+                          : CameraFit.bounds(
+                              bounds: viewBounds,
+                              padding: const EdgeInsets.all(24),
                             ),
-                            borderStrokeWidth: 2,
-                          ),
-                        ],
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                       ),
-                    if (_activeLayers.contains(MapLayerType.coverage))
-                      _buildCoverageLayer(gateways),
-                    if (_activeLayers.contains(MapLayerType.gateways))
-                      MarkerLayer(
-                        markers: gateways
-                            .map(
-                              (gw) => Marker(
+                      onTap: (_, _) => setState(() => _selectedGateway = null),
+                    ),
+                    children: [
+                      if (widget.enableTiles)
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.tecsys.api5dsm',
+                        ),
+                      if (hasSearchArea &&
+                          _activeLayers.contains(MapLayerType.searchArea))
+                        CircleLayer(
+                          circles: [
+                            CircleMarker(
+                              point: center,
+                              radius: searchRadius,
+                              useRadiusInMeter: true,
+                              color: Colors.deepOrange.withValues(alpha: 0.05),
+                              borderColor: Colors.deepOrange.withValues(
+                                alpha: 0.85,
+                              ),
+                              borderStrokeWidth: 2,
+                            ),
+                          ],
+                        ),
+                      if (_activeLayers.contains(MapLayerType.coverage))
+                        _buildCoverageLayer(gateways),
+                      if (_activeLayers.contains(MapLayerType.assets))
+                        MarkerLayer(
+                          markers: [
+                            for (final asset in widget.scenario.results.assets)
+                              Marker(
+                                point: LatLng(asset.lat, asset.lng),
+                                width: 10,
+                                height: 10,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: asset.covered
+                                        ? Colors.green.shade700
+                                        : Colors.red.shade700,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      if (_activeLayers.contains(MapLayerType.gateways))
+                        MarkerLayer(
+                          markers: [
+                            for (final gw in gateways)
+                              Marker(
                                 point: LatLng(gw.lat, gw.lng),
                                 width: 36,
                                 height: 36,
@@ -205,100 +242,100 @@ class _ScenarioMapState extends State<ScenarioMap> {
                                   ),
                                 ),
                               ),
-                            )
-                            .toList(),
+                          ],
+                        ),
+                      const RichAttributionWidget(
+                        attributions: [
+                          TextSourceAttribution('© OpenStreetMap contributors'),
+                        ],
                       ),
-                    const RichAttributionWidget(
-                      attributions: [
-                        TextSourceAttribution('© OpenStreetMap contributors'),
-                      ],
-                    ),
-                  ],
-                ),
-                if (hasSearchArea &&
-                    _activeLayers.contains(MapLayerType.searchArea))
-                  Positioned(
-                    right: 8,
-                    bottom: 24,
-                    child: _SearchAreaLegend(radiusMeters: searchRadius),
+                    ],
                   ),
-                Positioned(
-                  left: isMobile ? 12 : 16,
-                  right: isMobile ? 12 : null,
-                  bottom: 12,
-                  child: IgnorePointer(
-                    ignoring: _selectedGateway == null,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
-                      reverseDuration: const Duration(milliseconds: 220),
-                      switchInCurve: Curves.linear,
-                      switchOutCurve: Curves.linear,
-                      transitionBuilder: (child, animation) {
-                        final fadeAnimation = CurvedAnimation(
-                          parent: animation,
-                          curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
-                          reverseCurve: const Interval(0.25, 1.0, curve: Curves.easeIn),
-                        );
-                        final scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
-                          CurvedAnimation(
+                  if (hasSearchArea &&
+                      _activeLayers.contains(MapLayerType.searchArea))
+                    Positioned(
+                      right: 8,
+                      bottom: 24,
+                      child: _SearchAreaLegend(radiusMeters: searchRadius),
+                    ),
+                  Positioned(
+                    left: isMobile ? 12 : 16,
+                    right: isMobile ? 12 : null,
+                    bottom: 12,
+                    child: IgnorePointer(
+                      ignoring: _selectedGateway == null,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        reverseDuration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.linear,
+                        switchOutCurve: Curves.linear,
+                        transitionBuilder: (child, animation) {
+                          final fadeAnimation = CurvedAnimation(
                             parent: animation,
-                            curve: Curves.easeOutBack,
-                            reverseCurve: Curves.easeInCubic,
-                          ),
-                        );
-                        final slideAnimation = Tween<Offset>(
-                          begin: Offset(0.0, isMobile ? 0.08 : 0.05),
-                          end: Offset.zero,
-                        ).animate(
-                          CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOutCubic,
-                            reverseCurve: Curves.easeInCubic,
-                          ),
-                        );
+                            curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
+                            reverseCurve: const Interval(0.25, 1.0, curve: Curves.easeIn),
+                          );
+                          final scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutBack,
+                              reverseCurve: Curves.easeInCubic,
+                            ),
+                          );
+                          final slideAnimation = Tween<Offset>(
+                            begin: Offset(0.0, isMobile ? 0.08 : 0.05),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                              reverseCurve: Curves.easeInCubic,
+                            ),
+                          );
 
-                        return FadeTransition(
-                          opacity: fadeAnimation,
-                          child: ScaleTransition(
-                            scale: scaleAnimation,
-                            alignment: isMobile
-                                ? Alignment.bottomCenter
-                                : Alignment.bottomLeft,
-                            child: SlideTransition(
-                              position: slideAnimation,
-                              child: child,
-                            ),
-                          ),
-                        );
-                      },
-                      child: _selectedGateway == null
-                          ? const SizedBox.shrink(key: ValueKey('empty_gateway'))
-                          : ConstrainedBox(
-                              key: ValueKey('gateway_${_selectedGateway!.id}'),
-                              constraints: BoxConstraints(
-                                maxWidth: isMobile ? double.infinity : 360,
-                                maxHeight: isMobile ? 400 : 480,
-                              ),
-                              child: GatewayInfoCard(
-                                gateway: _selectedGateway!,
-                                defaultMunicipio: widget.scenario.region,
-                                onClose: () =>
-                                    setState(() => _selectedGateway = null),
+                          return FadeTransition(
+                            opacity: fadeAnimation,
+                            child: ScaleTransition(
+                              scale: scaleAnimation,
+                              alignment: isMobile
+                                  ? Alignment.bottomCenter
+                                  : Alignment.bottomLeft,
+                              child: SlideTransition(
+                                position: slideAnimation,
+                                child: child,
                               ),
                             ),
+                          );
+                        },
+                        child: _selectedGateway == null
+                            ? const SizedBox.shrink(key: ValueKey('empty_gateway'))
+                            : ConstrainedBox(
+                                key: ValueKey('gateway_${_selectedGateway!.id}'),
+                                constraints: BoxConstraints(
+                                  maxWidth: isMobile ? double.infinity : 360,
+                                  maxHeight: isMobile ? 400 : 480,
+                                ),
+                                child: GatewayInfoCard(
+                                  gateway: _selectedGateway!,
+                                  defaultMunicipio: widget.scenario.region,
+                                  onClose: () =>
+                                      setState(() => _selectedGateway = null),
+                                ),
+                              ),
+                      ),
                     ),
                   ),
-                ),
-                if (!widget.isFullScreen)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: _FullScreenButton(
-                      icon: Icons.fullscreen,
-                      onTap: _openFullScreen,
+                  if (!widget.isFullScreen)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: _FullScreenButton(
+                        icon: Icons.fullscreen,
+                        onTap: _openFullScreen,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -328,8 +365,8 @@ class _ScenarioMapState extends State<ScenarioMap> {
             polygons.add(
               Polygon(
                 points: points,
-                color: AppColors.primaryDark.withOpacity(0.10),
-                borderColor: AppColors.primaryDark.withOpacity(0.55),
+                color: AppColors.primaryDark.withValues(alpha: 0.10),
+                borderColor: AppColors.primaryDark.withValues(alpha: 0.55),
                 borderStrokeWidth: 1.5,
               ),
             );
@@ -344,8 +381,8 @@ class _ScenarioMapState extends State<ScenarioMap> {
           point: LatLng(gateway.lat, gateway.lng),
           radius: gateway.coverageRadiusMeters,
           useRadiusInMeter: true,
-          color: AppColors.primaryDark.withOpacity(0.08),
-          borderColor: AppColors.primaryDark.withOpacity(0.4),
+          color: AppColors.primaryDark.withValues(alpha: 0.08),
+          borderColor: AppColors.primaryDark.withValues(alpha: 0.4),
           borderStrokeWidth: 1.5,
         ),
       );

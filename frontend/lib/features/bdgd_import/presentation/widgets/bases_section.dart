@@ -10,6 +10,7 @@ class BasesSection extends StatelessWidget {
   final bool isLoading;
   final VoidCallback? onRefresh;
   final String? error;
+  final Widget? filtersWidget;
   final ValueChanged<BdgdBase>? onSelectBase;
   final ValueChanged<BdgdBase>? onEditBase;
   final String? emptyMessage;
@@ -20,6 +21,7 @@ class BasesSection extends StatelessWidget {
     this.isLoading = false,
     this.onRefresh,
     this.error,
+    this.filtersWidget,
     this.onSelectBase,
     this.onEditBase,
     this.emptyMessage,
@@ -35,51 +37,8 @@ class BasesSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.storage_rounded, color: AppColors.primary, size: 20),
-                    const SizedBox(width: 8),
-                    const Flexible(
-                      child: Text(
-                        'Bases de Dados Geográficas Importadas',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-                      ),
-                    ),
-                    if (onRefresh != null) ...[
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: const Icon(Icons.refresh_rounded, size: 20),
-                        tooltip: 'Recarregar bases',
-                        onPressed: isLoading ? null : onRefresh,
-                      ),
-                    ],
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${bases.length} Base(s)',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            _buildHeader(context),
+            const SizedBox(height: 32),
             if (isLoading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 36),
@@ -152,6 +111,76 @@ class BasesSection extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final isDesktop = Responsive.isDesktop(context);
+
+    final titleGroup = Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.storage_rounded, color: AppColors.primary, size: 20),
+            const SizedBox(width: 8),
+            const Flexible(
+              child: Text(
+                'Bases de Dados Geográficas Importadas',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+              ),
+            ),
+            if (onRefresh != null) ...[
+              const SizedBox(width: 6),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                tooltip: 'Recarregar bases',
+                onPressed: isLoading ? null : onRefresh,
+              ),
+            ],
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '${bases.length} Base(s)',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primaryDark,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (filtersWidget == null) return titleGroup;
+
+    if (isDesktop) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(child: titleGroup),
+          const SizedBox(width: 16),
+          filtersWidget!,
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        titleGroup,
+        const SizedBox(height: 12),
+        filtersWidget!,
+      ],
     );
   }
 

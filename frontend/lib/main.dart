@@ -32,7 +32,7 @@ class TecsysApp extends StatelessWidget {
         '/bdgd-import': (_) => const AuthGuard(child: BdgdImportScreen()),
         '/scenario': (_) => const AuthGuard(child: AreaDelimitationScreen()),
         '/scenario/rf': (_) => const AuthGuard(child: ScenarioConfigScreen()),
-        // '/history': (_) => const AuthGuard(child: HistoryScreen()),
+        '/history': (_) => const AuthGuard(child: HistoryScreen()),
         // '/settings': (_) => const AuthGuard(child: SettingsScreen()),
       },
       onGenerateRoute: (settings) {

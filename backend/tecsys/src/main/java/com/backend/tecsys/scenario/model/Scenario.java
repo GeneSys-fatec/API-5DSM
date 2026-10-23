@@ -1,10 +1,12 @@
 package com.backend.tecsys.scenario.model;
 
+import com.backend.tecsys.radio.model.RfParameter;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +26,11 @@ public class Scenario {
     private PropagationModelType propagationModel;
     private String status;
     private Integer processingTimeMs;
+    private Instant processedAt;
+    private String areaWkt;
+    private RfParameter rfParameter;
+    private Long rfParameterId;
+    private Double coverageRadiusMeters;
 
     @Builder.Default
     private List<ScenarioSelectedGateway> selectedGateways = new ArrayList<>();

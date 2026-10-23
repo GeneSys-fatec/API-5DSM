@@ -4,6 +4,7 @@ import com.backend.tecsys.auth.dto.LoginRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.backend.tecsys.scenario.dto.SimulationRequest;
 import com.backend.tecsys.scenario.dto.GatewayCandidateRequest;
+import com.backend.tecsys.scenario.dto.ScenarioReportRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,10 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.util.List;
+import java.util.Base64;
+import java.io.ByteArrayOutputStream;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -71,6 +76,9 @@ class SimulationIntegrationTest {
                 .andExpect(jsonPath("$.selectedGateways").isArray())
                 .andExpect(jsonPath("$.usedGatewayCount").isNumber())
                 .andExpect(jsonPath("$.totalCoveragePct").isNumber())
+                .andExpect(jsonPath("$.gatewayUnitCost").isNumber())
+                .andExpect(jsonPath("$.averageRssiDbm").exists())
+                .andExpect(jsonPath("$.assets").isArray())
                 .andExpect(jsonPath("$.processingTimeMs").isNumber())
                 .andExpect(jsonPath("$.propagationModel").value("OKUMURA_HATA_SUBURBAN"));
     }
@@ -158,6 +166,49 @@ class SimulationIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error").isNotEmpty());
+    }
+
+    @Test
+    void shouldDownloadGeneratedScenarioReport() throws Exception {
+        ScenarioReportRequest request = new ScenarioReportRequest(
+                "Cenario Centro",
+                "Centro",
+                mapImageBase64(),
+                "OKUMURA_HATA_SUBURBAN",
+                915.0,
+                21.0,
+                0.0,
+                -120.0,
+                6.0,
+                5.0,
+                0.0,
+                90.0,
+                5,
+                92.5,
+                3,
+                100,
+                92,
+                8,
+                4500.0,
+                -84.25,
+                1500.0,
+                3500.0);
+
+        MvcResult result = mockMvc.perform(post("/simulations/27/report")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_PDF)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                MediaType.APPLICATION_PDF_VALUE, result.getResponse().getContentType());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                result.getResponse().getHeader("Content-Disposition").contains("attachment"));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                new String(result.getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1)
+                        .startsWith("%PDF-"));
     }
 
     @Test
@@ -265,5 +316,12 @@ class SimulationIntegrationTest {
                 .longitude(longitude)
                 .estimatedCost(1500.0)
                 .build();
+    }
+
+    private String mapImageBase64() throws Exception {
+        BufferedImage image = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", output);
+        return Base64.getEncoder().encodeToString(output.toByteArray());
     }
 }

@@ -39,3 +39,5 @@ build/
 *.local.properties
 application-local.properties
 
+
+node_modules/

@@ -17,6 +17,7 @@ class ScenarioKpiRow extends StatelessWidget {
         icon: Icons.donut_large,
         label: 'Cobertura Total',
         value: '${results.coveragePercent.toStringAsFixed(1)}%',
+        progress: results.coveragePercent / 100,
       ),
       _KpiCard(
         icon: Icons.wifi_tethering,
@@ -35,16 +36,21 @@ class ScenarioKpiRow extends StatelessWidget {
       ),
     ];
 
-    final isMobile = Responsive.isMobile(context);
-
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: isMobile ? 1 : cards.length,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: isMobile ? 3.2 : 1.8,
-      children: cards,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth < 560 ? 1 : cards.length;
+        return GridView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            mainAxisExtent: 116,
+          ),
+          children: cards,
+        );
+      },
     );
   }
 }
@@ -56,6 +62,7 @@ class _KpiCard extends StatelessWidget {
   final String? suffix;
   final String? footer;
   final Color? footerColor;
+  final double? progress;
 
   const _KpiCard({
     required this.icon,
@@ -64,83 +71,108 @@ class _KpiCard extends StatelessWidget {
     this.suffix,
     this.footer,
     this.footerColor,
+    this.progress,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade300),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
                     label.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
                       color: Colors.grey.shade600,
-                      height: 1.25,
                     ),
-                    maxLines: 2,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, size: 16, color: AppColors.primaryDark),
+                  child: Icon(icon, size: 18, color: AppColors.primaryDark),
                 ),
               ],
             ),
-            const Spacer(),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                        ),
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
+                    if (suffix != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        suffix!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (suffix != null) ...[
-                  const SizedBox(width: 4),
+                if (progress != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress!.clamp(0.0, 1.0).toDouble(),
+                      minHeight: 6,
+                      backgroundColor: AppColors.primaryLight,
+                      color: AppColors.primaryPurple,
+                    ),
+                  ),
+                ],
+                if (footer != null) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    suffix!,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    footer!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: footerColor ?? Colors.grey.shade600,
+                    ),
                   ),
                 ],
               ],
             ),
-            if (footer != null)
-              Text(
-                footer!,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: footerColor ?? Colors.grey.shade600,
-                ),
-              ),
           ],
         ),
       ),
