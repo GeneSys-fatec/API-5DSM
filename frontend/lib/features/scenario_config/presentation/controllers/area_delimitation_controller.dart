@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -52,6 +53,8 @@ class AreaDelimitationController extends ChangeNotifier {
   String? _lastBoundaryImportId;
   bool _pointOutOfBounds = false;
   String? _areaDelimitationError;
+  bool _polygonPointOutOfBounds = false;
+  Timer? _polygonDebounceTimer;
 
   AreaDelimitationController({
     AreaDelimitationService? service,
@@ -71,6 +74,11 @@ class AreaDelimitationController extends ChangeNotifier {
   List<LatLng>? get boundaryPolygon => _boundaryPolygon;
   bool get pointOutOfBounds => _pointOutOfBounds;
   String? get areaDelimitationError => _areaDelimitationError;
+  bool get useDrawnPolygon => _config.useDrawnPolygon;
+  bool get polygonPointOutOfBounds => _polygonPointOutOfBounds;
+  List<LatLng> get drawnPolygonPoints => _config.drawnPolygonPoints
+      .map((pair) => LatLng(pair[0], pair[1]))
+      .toList();
 
   double get radiusKm => _config.radiusKm;
   bool get isUnitKm => _config.isUnitKm;
@@ -113,6 +121,7 @@ class AreaDelimitationController extends ChangeNotifier {
       _config = _sharedConfig ?? _config;
       await _refreshBoundaryIfNeeded();
       notifyListeners();
+      await evaluateArea();
       return;
     }
     final cachedConfig = await _storageService.loadAreaConfig();
@@ -126,7 +135,12 @@ class AreaDelimitationController extends ChangeNotifier {
       _sharedResult = cachedResult;
       await _refreshBoundaryIfNeeded();
       notifyListeners();
+      await evaluateArea();
       return;
+    }
+    if (cachedConfig != null) {
+      _config = cachedConfig;
+      _sharedConfig = cachedConfig;
     }
     await evaluateArea();
   }
@@ -190,6 +204,14 @@ class AreaDelimitationController extends ChangeNotifier {
     }
   }
 
+  static const Duration _polygonDebounceDuration = Duration(milliseconds: 400);
+
+  void _scheduleEvaluateArea() {
+    _polygonDebounceTimer?.cancel();
+    _polygonDebounceTimer = Timer(_polygonDebounceDuration, () {
+      evaluateArea();
+    });
+  }
   bool setCenterCoordinates(double lat, double lng) {
     if (_boundaryPolygon != null &&
         !isPointInsidePolygon(lat, lng, _boundaryPolygon!)) {
@@ -214,12 +236,97 @@ class AreaDelimitationController extends ChangeNotifier {
   }
 
   void onMapTap(double lat, double lng) {
-    if (_config.defineClickingOnMap) {
+    if (_config.useDrawnPolygon) {
+      addPolygonPoint(lat, lng);
+    } else if (_config.defineClickingOnMap) {
       setCenterCoordinates(lat, lng);
     } else {
       _selectedCandidate = null;
       notifyListeners();
     }
+  }
+
+  void setUseDrawnPolygon(bool value) {
+    if (_config.useDrawnPolygon == value) return;
+    _config = _config.copyWith(useDrawnPolygon: value);
+    _sharedConfig = _config;
+    _polygonPointOutOfBounds = false;
+    if (!value || _config.drawnPolygonPoints.length >= 3) {
+      evaluateArea();
+    } else {
+      _result = null;
+      notifyListeners();
+    }
+  }
+
+  bool addPolygonPoint(double lat, double lng) {
+    if (_boundaryPolygon != null &&
+        !isPointInsidePolygon(lat, lng, _boundaryPolygon!)) {
+      _polygonPointOutOfBounds = true;
+      notifyListeners();
+      return false;
+    }
+
+    _polygonPointOutOfBounds = false;
+    final updatedPoints = List<List<double>>.from(_config.drawnPolygonPoints)
+      ..add([lat, lng]);
+    _config = _config.copyWith(drawnPolygonPoints: updatedPoints);
+    _sharedConfig = _config;
+    if (updatedPoints.length >= 3) {
+      _scheduleEvaluateArea();
+    } else {
+      notifyListeners();
+    }
+    return true;
+  }
+
+  bool movePolygonPoint(int index, double lat, double lng) {
+    if (index < 0 || index >= _config.drawnPolygonPoints.length) {
+      return false;
+    }
+    if (_boundaryPolygon != null &&
+        !isPointInsidePolygon(lat, lng, _boundaryPolygon!)) {
+      _polygonPointOutOfBounds = true;
+      notifyListeners();
+      return false;
+    }
+
+    _polygonPointOutOfBounds = false;
+    final updatedPoints = List<List<double>>.from(_config.drawnPolygonPoints);
+    updatedPoints[index] = [lat, lng];
+    _config = _config.copyWith(drawnPolygonPoints: updatedPoints);
+    _sharedConfig = _config;
+    if (updatedPoints.length >= 3) {
+      _scheduleEvaluateArea();
+    } else {
+      notifyListeners();
+    }
+    return true;
+  }
+
+  void removePolygonPoint(int index) {
+    if (index < 0 || index >= _config.drawnPolygonPoints.length) {
+      return;
+    }
+    final updatedPoints = List<List<double>>.from(_config.drawnPolygonPoints)
+      ..removeAt(index);
+    _config = _config.copyWith(drawnPolygonPoints: updatedPoints);
+    _sharedConfig = _config;
+    _polygonPointOutOfBounds = false;
+    if (updatedPoints.length >= 3) {
+      _scheduleEvaluateArea();
+    } else {
+      _result = null;
+      notifyListeners();
+    }
+  }
+
+  void clearDrawnPolygon() {
+    _config = _config.copyWith(drawnPolygonPoints: const []);
+    _sharedConfig = _config;
+    _polygonPointOutOfBounds = false;
+    _result = null;
+    notifyListeners();
   }
 
   void setAddressQuery(String query) {
@@ -296,5 +403,11 @@ class AreaDelimitationController extends ChangeNotifier {
   void setMapLayer(String layer) {
     _activeMapLayer = layer;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _polygonDebounceTimer?.cancel();
+    super.dispose();
   }
 }

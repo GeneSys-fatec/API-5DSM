@@ -1,3 +1,4 @@
+import 'dart:math' show Point;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -173,6 +174,31 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
                     ),
                   ],
                 ),
+              if (widget.controller.useDrawnPolygon &&
+                  widget.controller.drawnPolygonPoints.length >= 3)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: widget.controller.drawnPolygonPoints,
+                      color: AppColors.primaryPurple.withValues(alpha: 0.12),
+                      borderColor: AppColors.primaryPurple,
+                      borderStrokeWidth: 2.5,
+                    ),
+                  ],
+                ),
+              if (widget.controller.useDrawnPolygon &&
+                  widget.controller.drawnPolygonPoints.length == 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: widget.controller.drawnPolygonPoints,
+                      color: AppColors.primaryPurple,
+                      strokeWidth: 2.5,
+                      pattern: const StrokePattern.dotted(),
+                    ),
+                  ],
+                ),
+              if (!widget.controller.useDrawnPolygon)
               CircleLayer(
                 circles: [
                   CircleMarker(
@@ -243,6 +269,26 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
                       ),
                     );
                   }),
+                  if (widget.controller.useDrawnPolygon)
+                    ...widget.controller.drawnPolygonPoints.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final point = entry.value;
+                      return Marker(
+                        point: point,
+                        width: 24,
+                        height: 24,
+                        child: _PolygonVertexHandle(
+                          mapController: _mapController,
+                          currentPoint: point,
+                          onPanUpdate: (newPoint) {
+                            widget.controller.movePolygonPoint(
+                              index, newPoint.latitude, newPoint.longitude,
+                            );
+                          },
+                          onDoubleTap: () => widget.controller.removePolygonPoint(index),
+                        ),
+                      );
+                    }),
                 ],
               ),
             ],
@@ -273,6 +319,7 @@ class _AreaDelimitationMapState extends State<AreaDelimitationMap> {
               },
             ),
           ),
+          if (!widget.controller.useDrawnPolygon)
           Positioned(
             top: 160,
             right: 120,
@@ -803,6 +850,73 @@ class _LegendItem extends StatelessWidget {
           style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
         ),
       ],
+    );
+  }
+}
+
+class _PolygonVertexHandle extends StatefulWidget {
+  final MapController mapController;
+  final LatLng currentPoint;
+  final ValueChanged<LatLng> onPanUpdate;
+  final VoidCallback onDoubleTap;
+
+  const _PolygonVertexHandle({
+    required this.mapController,
+    required this.currentPoint,
+    required this.onPanUpdate,
+    required this.onDoubleTap,
+  });
+
+  @override
+  State<_PolygonVertexHandle> createState() => _PolygonVertexHandleState();
+}
+
+class _PolygonVertexHandleState extends State<_PolygonVertexHandle> {
+  Point<double>? _dragWorldPoint;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onDoubleTap: widget.onDoubleTap,
+      onPanStart: (_) {
+        final camera = widget.mapController.camera;
+        _dragWorldPoint = camera.project(widget.currentPoint);
+      },
+      onPanUpdate: (details) {
+        if (_dragWorldPoint == null) return;
+        final camera = widget.mapController.camera;
+        _dragWorldPoint = Point<double>(
+          _dragWorldPoint!.x + details.delta.dx,
+          _dragWorldPoint!.y + details.delta.dy,
+        );
+        final newLatLng = camera.unproject(_dragWorldPoint!);
+        widget.onPanUpdate(newLatLng);
+      },
+      onPanEnd: (_) {
+        _dragWorldPoint = null;
+      },
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: AppColors.primaryPurple, width: 2.5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
+          ],
+        ),
+        child: Center(
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primaryPurple,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

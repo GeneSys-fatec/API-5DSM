@@ -183,13 +183,21 @@ class AreaDelimitationService {
     }
 
     final selectedCodes = config.selectedAssetTypes.expand((t) => t.allFilterCodes).toList();
-    final request = SearchAreaRequest(
-      importId: config.bdgdImportId!,
-      latitude: config.centerLatitude,
-      longitude: config.centerLongitude,
-      radius: config.radiusMeters,
-      selectedAssetTypes: selectedCodes,
-    );
+    final request = config.useDrawnPolygon && config.drawnPolygonPoints.length >= 3
+        ? SearchAreaRequest(
+            importId: config.bdgdImportId!,
+            latitude: config.centerLatitude,
+            longitude: config.centerLongitude,
+            polygonPoints: config.drawnPolygonPoints,
+            selectedAssetTypes: selectedCodes,
+          )
+        : SearchAreaRequest(
+            importId: config.bdgdImportId!,
+            latitude: config.centerLatitude,
+            longitude: config.centerLongitude,
+            radius: config.radiusMeters,
+            selectedAssetTypes: selectedCodes,
+          );
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenario/search-area');
 

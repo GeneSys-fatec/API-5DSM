@@ -7,6 +7,7 @@ import com.backend.tecsys.scenario.dto.SearchAreaRequest;
 import com.backend.tecsys.scenario.dto.SearchAreaResponse;
 import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
 import com.backend.tecsys.scenario.model.Asset;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 import com.backend.tecsys.scenario.repository.IAssetRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -41,7 +42,14 @@ public class SearchAreaService {
     }
 
     public SearchAreaResponse processSearchArea(SearchAreaRequest request) {
-        if (request.getRadius() < minRadius || request.getRadius() > maxRadius) {
+        if (request.hasPolygon()) {
+            return processPolygonSearchArea(request);
+        }
+        return processRadiusSearchArea(request);
+    }
+
+    private SearchAreaResponse processRadiusSearchArea(SearchAreaRequest request) {
+        if (request.getRadius() == null || request.getRadius() < minRadius || request.getRadius() > maxRadius) {
             throw new IllegalArgumentException("O raio informado (" + request.getRadius() +
                     "m) deve estar entre " + minRadius + "m e " + maxRadius + "m.");
         }
@@ -86,11 +94,71 @@ public class SearchAreaService {
         } catch (Exception ignored) {
         }
 
+        return buildResponse(candidates, boundaryCheck, countsByType, availableTypes);
+    }
+
+    private SearchAreaResponse processPolygonSearchArea(SearchAreaRequest request) {
+        List<PolygonPoint> polygonPoints = request.getPolygonPoints();
+        if (polygonPoints.size() < 3) {
+            throw new IllegalArgumentException(
+                    "O polígono manual deve ter no mínimo 3 pontos para formar uma área válida.");
+        }
+
+        BdgdAssetService.BoundaryCheck boundaryCheck = null;
+        for (PolygonPoint point : polygonPoints) {
+            BdgdAssetService.BoundaryCheck pointCheck = bdgdAssetService.checkPointWithinImportBounds(
+                    request.getImportId(), point.longitude(), point.latitude());
+            if (pointCheck.hasBoundary() && !pointCheck.isPointInside()) {
+                throw new PointOutOfBoundsException(
+                        "Um ou mais pontos do polígono estão fora da area de cobertura da BDGD selecionada.");
+            }
+            boundaryCheck = pointCheck;
+        }
+
+        List<AssetDto> candidates = new ArrayList<>();
+        Map<String, Integer> countsByType = new LinkedHashMap<>();
+        List<String> availableTypes = new ArrayList<>();
+
+        try {
+            List<Asset> dbAssets = assetRepository.findWithinPolygon(request.getImportId(), polygonPoints);
+            if (dbAssets != null && !dbAssets.isEmpty()) {
+                for (Asset asset : dbAssets) {
+                    String type = asset.getAssetType() != null ? asset.getAssetType().trim().toUpperCase() : "OUTROS";
+                    countsByType.merge(type, 1, Integer::sum);
+                }
+                availableTypes.addAll(countsByType.keySet());
+
+                Set<String> expandedFilter = null;
+                if (request.getSelectedAssetTypes() != null && !request.getSelectedAssetTypes().isEmpty()) {
+                    expandedFilter = assetCatalog.expandFilter(request.getSelectedAssetTypes());
+                }
+
+                final Set<String> finalFilter = expandedFilter;
+                candidates = dbAssets.stream()
+                        .filter(asset -> {
+                            if (finalFilter == null) return true;
+                            String rawType = asset.getAssetType() != null ? asset.getAssetType().trim().toUpperCase() : "OUTROS";
+                            return finalFilter.contains(rawType) || finalFilter.contains(assetCatalog.canonicalCode(rawType));
+                        })
+                        .map(this::mapToDto)
+                        .collect(Collectors.toList());
+            }
+        } catch (Exception ignored) {
+        }
+
+        return buildResponse(candidates, boundaryCheck, countsByType, availableTypes);
+    }
+
+    private SearchAreaResponse buildResponse(
+            List<AssetDto> candidates,
+            BdgdAssetService.BoundaryCheck boundaryCheck,
+            Map<String, Integer> countsByType,
+            List<String> availableTypes) {
         String validationStatus = "OK";
         String message;
 
         if (candidates.isEmpty()) {
-            message = "Nenhum ativo encontrado para as coordenadas e raio informados.";
+            message = "Nenhum ativo encontrado para a área informada.";
         } else {
             message = "Área delimitada com sucesso (" + candidates.size() + " ativos encontrados na base BDGD).";
         }
@@ -99,9 +167,9 @@ public class SearchAreaService {
                 .candidates(candidates)
                 .validationStatus(validationStatus)
                 .message(message)
-                .boundaryGeometry(boundaryCheck.geometry())
-                .countsByType(countsByType)
-                .availableTypes(availableTypes)
+                .boundaryGeometry(boundaryCheck != null ? boundaryCheck.geometry() : null)
+                .countsByType(countsByType != null ? countsByType : Map.of())
+                .availableTypes(availableTypes != null ? availableTypes : List.of())
                 .build();
     }
 

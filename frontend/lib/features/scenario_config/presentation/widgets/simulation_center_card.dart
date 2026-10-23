@@ -195,6 +195,7 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
   Widget build(BuildContext context) {
     final defineClicking = widget.controller.defineClickingOnMap;
     final pointOutOfBounds = widget.controller.pointOutOfBounds;
+    final useDrawnPolygon = widget.controller.useDrawnPolygon;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -518,31 +519,40 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
           ],
           const SizedBox(height: 14),
           InkWell(
-            onTap: () => widget.controller.setDefineClickingOnMap(!defineClicking),
+            onTap: useDrawnPolygon
+                ? null
+                : () => widget.controller.setDefineClickingOnMap(!defineClicking),
             borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  const Icon(Icons.touch_app_outlined, color: AppColors.primaryPurple, size: 18),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Definir Clicando no Mapa',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+            child: Opacity(
+              opacity: useDrawnPolygon ? 0.5 : 1.0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.touch_app_outlined, color: AppColors.primaryPurple, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        useDrawnPolygon
+                            ? 'Clique no mapa adiciona pontos do polígono'
+                            : 'Definir Clicando no Mapa',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
-                  ),
-                  Switch.adaptive(
-                    value: defineClicking,
-                    onChanged: (val) => widget.controller.setDefineClickingOnMap(val),
-                    activeTrackColor: AppColors.primaryPurple,
-                    activeThumbColor: Colors.white,
-                  ),
-                ],
+                    Switch.adaptive(
+                      value: defineClicking,
+                      onChanged: useDrawnPolygon
+                          ? null
+                          : (val) => widget.controller.setDefineClickingOnMap(val),
+                      activeTrackColor: AppColors.primaryPurple,
+                      activeThumbColor: Colors.white,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

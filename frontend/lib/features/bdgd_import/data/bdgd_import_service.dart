@@ -12,6 +12,25 @@ import '../models/bdgd_base.dart';
 /// Tamanho de cada chunk: 10 MB (deve coincidir com bdgd.ingestion.chunk-size no backend).
 const int _kChunkSize = 10 * 1024 * 1024;
 
+const List<String> kDefaultRegions = [
+  'Centro-Oeste',
+  'Nordeste',
+  'Norte',
+  'Sudeste',
+  'Sul',
+];
+
+const List<String> kDefaultDistributors = [
+  'Celesc',
+  'CEMIG',
+  'Copel',
+  'CPFL Paulista',
+  'EDP SP',
+  'ENEL SP',
+  'Light',
+  'Neoenergia Elektro',
+];
+
 class BdgdImportService {
   /// Upload de arquivo grande via chunks de [_kChunkSize] bytes.
   ///
@@ -104,7 +123,9 @@ class BdgdImportService {
     final totalChunks = (fileSize / _kChunkSize).ceil();
     for (int i = 0; i < totalChunks; i++) {
       final start = i * _kChunkSize;
-      final end = (start + _kChunkSize > fileSize) ? fileSize : start + _kChunkSize;
+      final end = (start + _kChunkSize > fileSize)
+          ? fileSize
+          : start + _kChunkSize;
       final blob = webFile.slice(start, end);
 
       await _sendBlobChunk(
@@ -150,7 +171,6 @@ class BdgdImportService {
     await for (final bytes in fileStream) {
       buffer.add(bytes);
 
-      // Quando o buffer atingir o tamanho do chunk, enviar
       while (buffer.length >= _kChunkSize) {
         final chunk = buffer.toBytes();
         final chunkData = chunk.sublist(0, _kChunkSize);
@@ -170,7 +190,6 @@ class BdgdImportService {
       }
     }
 
-    // Enviar bytes restantes
     if (buffer.length > 0) {
       await _sendBytesChunk(
         uploadId: uploadId,
@@ -195,14 +214,15 @@ class BdgdImportService {
     required String data,
     required String token,
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('${ApiConfig.baseUrl}/api/bdgd'),
-    )
-      ..headers['Authorization'] = 'Bearer $token'
-      ..fields['distribuidora'] = distribuidora
-      ..fields['regiao'] = regiao
-      ..fields['data'] = data;
+    final request =
+        http.MultipartRequest(
+            'POST',
+            Uri.parse('${ApiConfig.baseUrl}/api/bdgd'),
+          )
+          ..headers['Authorization'] = 'Bearer $token'
+          ..fields['distribuidora'] = distribuidora
+          ..fields['regiao'] = regiao
+          ..fields['data'] = data;
 
     request.files.add(
       await http.MultipartFile.fromPath('file', filePath, filename: fileName),
@@ -220,7 +240,8 @@ class BdgdImportService {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       message = body['error'] as String? ?? message;
     } catch (_) {
-      message += ' - ${response.body.isNotEmpty ? response.body : "Sem resposta"}';
+      message +=
+          ' - ${response.body.isNotEmpty ? response.body : 'Sem resposta'}';
     }
     throw BdgdUploadException(message);
   }
@@ -238,20 +259,25 @@ class BdgdImportService {
     required String token,
   }) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/upload/init');
-    final resp = await http.post(uri, headers: {
-      'Authorization': 'Bearer $token',
-    }, body: {
-      'fileName': fileName,
-      'fileSize': fileSize.toString(),
-      'distribuidora': distribuidora,
-      'regiao': regiao,
-      'data': data,
-    });
+    final resp = await http.post(
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
+      body: {
+        'fileName': fileName,
+        'fileSize': fileSize.toString(),
+        'distribuidora': distribuidora,
+        'regiao': regiao,
+        'data': data,
+      },
+    );
 
     if (resp.statusCode != 200) {
-      throw BdgdUploadException('Falha ao iniciar sessão de upload: ${resp.body}');
+      throw BdgdUploadException(
+        'Falha ao iniciar sessão de upload: ${resp.body}',
+      );
     }
-    return (jsonDecode(resp.body) as Map<String, dynamic>)['uploadId'] as String;
+    return (jsonDecode(resp.body) as Map<String, dynamic>)['uploadId']
+        as String;
   }
 
   /// Envia um chunk como Blob via XHR (não bufferiza o Blob inteiro na heap Dart).
@@ -275,11 +301,15 @@ class BdgdImportService {
         completer.complete();
       } else {
         completer.completeError(
-            BdgdUploadException('Chunk $chunkIndex falhou: HTTP ${xhr.status}'));
+          BdgdUploadException('Chunk $chunkIndex falhou: HTTP ${xhr.status}'),
+        );
       }
     });
-    xhr.onError.listen((_) =>
-        completer.completeError(BdgdUploadException('Erro de rede no chunk $chunkIndex')));
+    xhr.onError.listen(
+      (_) => completer.completeError(
+        BdgdUploadException('Erro de rede no chunk $chunkIndex'),
+      ),
+    );
     xhr.send(formData);
     return completer.future;
   }
@@ -304,9 +334,11 @@ class BdgdImportService {
     required String token,
   }) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/upload/finalize');
-    final resp = await http.post(uri, headers: {'Authorization': 'Bearer $token'}, body: {
-      'uploadId': uploadId,
-    });
+    final resp = await http.post(
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
+      body: {'uploadId': uploadId},
+    );
 
     if (resp.statusCode == 202 || resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -314,7 +346,9 @@ class BdgdImportService {
 
     var message = 'Erro ao finalizar: HTTP ${resp.statusCode}';
     try {
-      message = (jsonDecode(resp.body) as Map<String, dynamic>)['error'] as String? ?? message;
+      message =
+          (jsonDecode(resp.body) as Map<String, dynamic>)['error'] as String? ??
+          message;
     } catch (_) {}
     throw BdgdUploadException(message);
   }
@@ -326,11 +360,16 @@ class BdgdImportService {
   Future<String?> _attemptAutoLogin() async {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/auth/login');
-      final res = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': 'admin@tecsys.com', 'password': 'Admin@123'}),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'email': 'admin@tecsys.com',
+              'password': 'Admin@123',
+            }),
+          )
+          .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = json.decode(res.body) as Map<String, dynamic>;
         final token = data['token'] as String?;
@@ -344,7 +383,10 @@ class BdgdImportService {
     return null;
   }
 
-  Future<List<BdgdBase>> fetchBases({String? regiao, String? distribuidora}) async {
+  Future<List<BdgdBase>> fetchBases({
+    String? regiao,
+    String? distribuidora,
+  }) async {
     final query = <String, String>{};
     if (regiao != null && regiao.trim().isNotEmpty) {
       query['regiao'] = regiao.trim();
@@ -352,25 +394,32 @@ class BdgdImportService {
     if (distribuidora != null && distribuidora.trim().isNotEmpty) {
       query['distribuidora'] = distribuidora.trim();
     }
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/bases')
-        .replace(queryParameters: query.isEmpty ? null : query);
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/bdgd/bases',
+    ).replace(queryParameters: query.isEmpty ? null : query);
 
     try {
       final response = await _authorizedRequest('GET', uri);
       if (response != null && response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body) as List<dynamic>;
-        return list.map((item) => BdgdBase.fromJson(item as Map<String, dynamic>)).toList();
+        return list
+            .map((item) => BdgdBase.fromJson(item as Map<String, dynamic>))
+            .toList();
       }
 
       if (response == null) {
-        throw const BdgdUploadException('Sessão expirada. Faça login novamente.');
+        throw const BdgdUploadException(
+          'Sessão expirada. Faça login novamente.',
+        );
       }
 
       throw BdgdUploadException('Erro HTTP ${response.statusCode}');
     } on BdgdUploadException {
-      rethrow; // já formatada — propaga diretamente
+      rethrow;
     } on TimeoutException {
-      throw const BdgdUploadException('Tempo limite excedido (60 s). Verifique se o servidor está acessível.');
+      throw const BdgdUploadException(
+        'Tempo limite excedido (60 s). Verifique se o servidor está acessível.',
+      );
     } catch (e) {
       throw BdgdUploadException('Falha de conexão: ${e.runtimeType}');
     }
@@ -385,9 +434,35 @@ class BdgdImportService {
     if (regiao != null && regiao.trim().isNotEmpty) {
       query['regiao'] = regiao.trim();
     }
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/distributors')
-        .replace(queryParameters: query.isEmpty ? null : query);
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/bdgd/distributors',
+    ).replace(queryParameters: query.isEmpty ? null : query);
     return _fetchStringList(uri);
+  }
+
+  Future<({List<String> regions, List<String> distributors})>
+  fetchImportOptions() async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/options');
+      final response = await _authorizedRequest('GET', uri);
+      if (response != null && response.statusCode == 200) {
+        final Map<String, dynamic> data =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final rawRegions =
+            (data['regioes'] ?? data['regions']) as List<dynamic>?;
+        final rawDistributors =
+            (data['distribuidoras'] ?? data['distributors']) as List<dynamic>?;
+        return (
+          regions: rawRegions != null && rawRegions.isNotEmpty
+              ? rawRegions.map((e) => e.toString()).toList()
+              : kDefaultRegions,
+          distributors: rawDistributors != null && rawDistributors.isNotEmpty
+              ? rawDistributors.map((e) => e.toString()).toList()
+              : kDefaultDistributors,
+        );
+      }
+    } catch (_) {}
+    return (regions: kDefaultRegions, distributors: kDefaultDistributors);
   }
 
   Future<BdgdBase> updateBaseGroup({
@@ -444,7 +519,11 @@ class BdgdImportService {
     return const [];
   }
 
-  Future<http.Response?> _authorizedRequest(String method, Uri uri, {Object? body}) async {
+  Future<http.Response?> _authorizedRequest(
+    String method,
+    Uri uri, {
+    Object? body,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     var token = prefs.getString('auth_token');
     if (token == null) {
@@ -463,10 +542,16 @@ class BdgdImportService {
       switch (method) {
         case 'PATCH':
           return http
-              .patch(uri, headers: headers, body: jsonEncode(body ?? const <String, dynamic>{}))
+              .patch(
+                uri,
+                headers: headers,
+                body: jsonEncode(body ?? const <String, dynamic>{}),
+              )
               .timeout(const Duration(seconds: 60));
         default:
-          return http.get(uri, headers: headers).timeout(const Duration(seconds: 60));
+          return http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 60));
       }
     }
 
