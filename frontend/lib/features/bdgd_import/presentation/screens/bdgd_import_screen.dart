@@ -23,16 +23,14 @@ class BdgdImportScreen extends StatefulWidget {
 
 class _BdgdImportScreenState extends State<BdgdImportScreen> {
   PlatformFile? _selectedFile;
-  WebFile? _webFile;
+  WebFile? _webFile; // arquivo nativo do browser para upload chunked
   bool _isPicking = false;
   bool _isUploading = false;
-  double _uploadProgress = 0.0;
+  double _uploadProgress = 0.0; // 0.0 a 1.0
   String? _errorMessage;
   String? _successMessage;
-  String? _selectedImportDistribuidora;
-  String? _selectedImportRegiao;
-  List<String> _importRegions = kDefaultRegions;
-  List<String> _importDistributors = kDefaultDistributors;
+  final _distribuidoraController = TextEditingController();
+  final _regiaoController = TextEditingController();
   final _dataController = TextEditingController();
   final _importService = BdgdImportService();
 
@@ -51,16 +49,6 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     super.initState();
     _loadBases();
     _loadFilterOptions();
-    _loadImportOptions();
-  }
-
-  Future<void> _loadImportOptions() async {
-    final options = await _importService.fetchImportOptions();
-    if (!mounted) return;
-    setState(() {
-      _importRegions = options.regions;
-      _importDistributors = options.distributors;
-    });
   }
 
   Future<void> _loadBases() async {
@@ -159,7 +147,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
 
       setState(() {
         _selectedFile = result.files.single;
-        _webFile = null;
+        _webFile = null; // será obtido via readStream
         _successMessage = null;
         _uploadProgress = 0.0;
       });
@@ -191,6 +179,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
 
     const calendarHeight = 360.0;
     const margin = 12.0;
+
     final panelWidth = fieldSize.width < 300 ? 300.0 : fieldSize.width;
 
     var left = fieldPosition.dx;
@@ -242,9 +231,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                       child: Theme(
                         data: Theme.of(context).copyWith(
                           colorScheme: Theme.of(context).colorScheme.copyWith(
-                            primary: AppColors.primary,
-                            onPrimary: Colors.white,
-                          ),
+                                primary: AppColors.primary,
+                                onPrimary: Colors.white,
+                              ),
                         ),
                         child: CalendarDatePicker(
                           initialDate: _parseDate(_dataController.text) ?? now,
@@ -297,10 +286,9 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   Future<void> _uploadFile() async {
     final file = _selectedFile;
     if (file == null) return;
-    final distribuidora = _selectedImportDistribuidora;
-    final regiao = _selectedImportRegiao;
-    final data = _dataController.text.trim();
-    if (distribuidora == null || regiao == null || data.isEmpty) {
+    if (_distribuidoraController.text.trim().isEmpty ||
+        _regiaoController.text.trim().isEmpty ||
+        _dataController.text.trim().isEmpty) {
       setState(() => _errorMessage = 'Preencha distribuidora, região e data.');
       return;
     }
@@ -315,13 +303,12 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     try {
       await _importService.upload(
         fileName: file.name,
-        fileStream: file.readStream,
-        fileSize: file.size,
-        filePath: kIsWeb ? null : file.path,
-        webFile: _webFile,
-        distribuidora: distribuidora,
-        regiao: regiao,
-        data: data,
+        fileStream: file.readStream, 
+        fileSize: file.size,        
+        filePath: kIsWeb ? null : file.path, 
+        distribuidora: _distribuidoraController.text.trim(),
+        regiao: _regiaoController.text.trim(),
+        data: _dataController.text.trim(),
         onProgress: (p) {
           if (mounted) setState(() => _uploadProgress = p);
         },
@@ -381,38 +368,20 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                             width: isMobile
                                 ? MediaQuery.of(context).size.width - 72
                                 : 220,
-                            child: _metadataSelectField(
-                              label: 'Distribuidora',
-                              value: _selectedImportDistribuidora,
-                              items: _importDistributors,
+                            child: _metadataField(
+                              _distribuidoraController,
+                              'Distribuidora',
                               icon: Icons.business_rounded,
-                              hint: 'Selecione a distribuidora',
-                              onChanged: _isUploading
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _selectedImportDistribuidora = value;
-                                      });
-                                    },
                             ),
                           ),
                           SizedBox(
                             width: isMobile
                                 ? MediaQuery.of(context).size.width - 72
                                 : 220,
-                            child: _metadataSelectField(
-                              label: 'Região',
-                              value: _selectedImportRegiao,
-                              items: _importRegions,
+                            child: _metadataField(
+                              _regiaoController,
+                              'Região',
                               icon: Icons.location_on_outlined,
-                              hint: 'Selecione a região',
-                              onChanged: _isUploading
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _selectedImportRegiao = value;
-                                      });
-                                    },
                             ),
                           ),
                           SizedBox(
@@ -425,7 +394,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                               hint: 'Selecione a data',
                               icon: Icons.calendar_today_outlined,
                               readOnly: true,
-                              onTap: _isUploading ? null : _toggleDatePicker,
+                              onTap: _toggleDatePicker,
                               fieldKey: _dateFieldKey,
                             ),
                           ),
@@ -455,22 +424,16 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          color: Colors.green,
-                          size: 16,
-                        ),
+                        const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
                         const SizedBox(width: 6),
                         Text(
                           _successMessage!,
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
                   ],
+                  // Barra de progresso do upload chunked
                   if (_isUploading) ...[
                     const SizedBox(height: 16),
                     Column(
@@ -481,18 +444,14 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                           children: [
                             const Text(
                               'Enviando em partes…',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
+                              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                             ),
                             Text(
                               '${(_uploadProgress * 100).toStringAsFixed(0)}%',
                               style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary),
                             ),
                           ],
                         ),
@@ -517,23 +476,12 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor: AppColors.primary
-                              .withOpacity(0.4),
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.4),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        onPressed:
-                            (_selectedFile == null ||
-                                _isUploading ||
-                                _selectedImportDistribuidora == null ||
-                                _selectedImportRegiao == null ||
-                                _dataController.text.trim().isEmpty)
+                        onPressed: _selectedFile == null || _isUploading
                             ? null
                             : _uploadFile,
                         icon: _isUploading
@@ -559,17 +507,16 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          _buildFilters(),
-          const SizedBox(height: 16),
+          
           BasesSection(
             bases: _bases,
             isLoading: _isLoadingBases,
             onRefresh: _loadBases,
             error: _basesError,
+            filtersWidget: _buildFiltersWidget(),
             onSelectBase: _onSelectBase,
             onEditBase: _editBase,
-            emptyMessage:
-                (_selectedRegion != null || _selectedDistributor != null)
+            emptyMessage: (_selectedRegion != null || _selectedDistributor != null)
                 ? 'Nenhuma base encontrada para os filtros selecionados.'
                 : null,
           ),
@@ -578,103 +525,113 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildFiltersWidget() {
     final hasFilters = _selectedRegion != null || _selectedDistributor != null;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          children: [
-            SizedBox(
-              width: 260,
-              child: _filterDropdown(
-                label: 'Região',
-                hint: 'Todas as regiões',
-                value: _selectedRegion,
-                items: _regions,
-                onChanged: _isLoadingBases ? null : _onRegionChanged,
-              ),
-            ),
-            SizedBox(
-              width: 300,
-              child: _filterDropdown(
-                label: 'Distribuidora',
-                hint: 'Todas as distribuidoras',
-                value: _selectedDistributor,
-                items: _distributors,
-                onChanged: _isLoadingBases ? null : _onDistributorChanged,
-              ),
-            ),
-            if (hasFilters)
-              TextButton.icon(
-                onPressed: _isLoadingBases ? null : _clearFilters,
-                icon: const Icon(Icons.clear, size: 18),
-                label: const Text('Limpar filtros'),
-              ),
+    final isMobile = Responsive.isMobile(context);
+
+    final regionField = _filterDropdown(
+      hint: 'Todas as regiões',
+      icon: Icons.location_on_outlined,
+      value: _selectedRegion,
+      items: _regions,
+      onChanged: _isLoadingBases ? null : _onRegionChanged,
+    );
+
+    final distributorField = _filterDropdown(
+      hint: 'Todas as distribuidoras',
+      icon: Icons.business_rounded,
+      value: _selectedDistributor,
+      items: _distributors,
+      onChanged: _isLoadingBases ? null : _onDistributorChanged,
+    );
+
+    final clearButton = IconButton(
+      tooltip: 'Limpar filtros',
+      onPressed: _isLoadingBases ? null : _clearFilters,
+      icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+      color: AppColors.primary,
+      visualDensity: VisualDensity.compact,
+    );
+
+    if (!isMobile) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 190, child: regionField),
+          const SizedBox(width: 8),
+          SizedBox(width: 220, child: distributorField),
+          if (hasFilters) ...[
+            const SizedBox(width: 4),
+            clearButton,
           ],
-        ),
-      ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        regionField,
+        const SizedBox(height: 8),
+        distributorField,
+        if (hasFilters)
+          Align(
+            alignment: Alignment.centerRight,
+            child: clearButton,
+          ),
+      ],
     );
   }
 
   Widget _filterDropdown({
-    required String label,
     required String hint,
+    required IconData icon,
     required String? value,
     required List<String> items,
     required ValueChanged<String?>? onChanged,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              isDense: true,
-              menuMaxHeight: 400,
-              value: (value != null && items.contains(value)) ? value : null,
-              hint: Text(
-                hint,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-              ),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-              items: items
-                  .map(
-                    (item) => DropdownMenuItem<String>(
-                      value: item,
-                      child: Text(
-                        item,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: onChanged,
+    OutlineInputBorder border(Color color, [double width = 1]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return DropdownButtonFormField<String>(
+      value: (value != null && items.contains(value)) ? value : null,
+      isExpanded: true,
+      onChanged: onChanged,
+      borderRadius: BorderRadius.circular(8),
+      dropdownColor: Colors.white,
+      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.grey.shade600),
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF1F2937),
+      ),
+      hint: Text(
+        hint,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+      ),
+      items: items
+          .map(
+            (item) => DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, overflow: TextOverflow.ellipsis),
             ),
-          ),
-        ),
-      ],
+          )
+          .toList(),
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, size: 16, color: Colors.grey.shade500),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        border: border(Colors.grey.shade300),
+        enabledBorder: border(Colors.grey.shade300),
+        disabledBorder: border(Colors.grey.shade200),
+        focusedBorder: border(AppColors.primary, 1.5),
+      ),
     );
   }
 
@@ -685,6 +642,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       address: base.defaultAddress,
       radiusKm: 3.5,
       baseName: base.distribuidora,
+      bdgdImportId: base.id,
     );
     AreaDelimitationController.setSharedConfig(config);
     Navigator.of(context).pushReplacementNamed('/scenario');
@@ -750,7 +708,10 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+        hintStyle: TextStyle(
+          fontSize: 13,
+          color: Colors.grey.shade400,
+        ),
         prefixIcon: icon == null
             ? null
             : Icon(icon, size: 18, color: Colors.grey.shade500),
@@ -787,98 +748,11 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     );
   }
 
-  Widget _metadataSelectField({
-    required String label,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?>? onChanged,
-    IconData? icon,
-    String? hint,
-  }) {
-    return DropdownButtonFormField<String>(
-      key: ValueKey(value),
-      initialValue: (value != null && items.contains(value)) ? value : null,
-      menuMaxHeight: 400,
-      isDense: true,
-      isExpanded: true,
-      alignment: AlignmentDirectional.centerStart,
-      hint: hint != null
-          ? Text(
-              hint,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade400,
-                fontWeight: FontWeight.w500,
-              ),
-            )
-          : null,
-      items: items.map((item) {
-        return DropdownMenuItem<String>(
-          value: item,
-          child: Text(
-            item,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF1F2937),
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: onChanged,
-      icon: Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Color(0xFF1F2937),
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: icon == null
-            ? null
-            : Icon(icon, size: 18, color: Colors.grey.shade500),
-        filled: true,
-        fillColor: const Color(0xFFF9FAFB),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
-        ),
-        labelStyle: TextStyle(
-          fontSize: 13,
-          color: Colors.grey.shade600,
-          fontWeight: FontWeight.w500,
-        ),
-        floatingLabelStyle: const TextStyle(
-          color: AppColors.primary,
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _removeDateOverlay();
+    _distribuidoraController.dispose();
+    _regiaoController.dispose();
     _dataController.dispose();
     super.dispose();
   }
@@ -894,34 +768,27 @@ class _EditGroupDialog extends StatefulWidget {
 }
 
 class _EditGroupDialogState extends State<_EditGroupDialog> {
-  String? _selectedRegiao;
-  String? _selectedDistribuidora;
-  late final List<String> _regions;
-  late final List<String> _distributors;
+  late final TextEditingController _regiaoController;
+  late final TextEditingController _distribuidoraController;
   String? _validationError;
 
   @override
   void initState() {
     super.initState();
-    _selectedRegiao = widget.base.regiao;
-    _selectedDistribuidora = widget.base.distribuidora;
+    _regiaoController = TextEditingController(text: widget.base.regiao ?? '');
+    _distribuidoraController = TextEditingController(text: widget.base.distribuidora);
+  }
 
-    final regionsSet = {...kDefaultRegions};
-    if (widget.base.regiao != null && widget.base.regiao!.isNotEmpty) {
-      regionsSet.add(widget.base.regiao!);
-    }
-    _regions = regionsSet.toList();
-
-    final distSet = {...kDefaultDistributors};
-    if (widget.base.distribuidora.isNotEmpty) {
-      distSet.add(widget.base.distribuidora);
-    }
-    _distributors = distSet.toList();
+  @override
+  void dispose() {
+    _regiaoController.dispose();
+    _distribuidoraController.dispose();
+    super.dispose();
   }
 
   void _submit() {
-    final regiao = _selectedRegiao?.trim() ?? '';
-    final distribuidora = _selectedDistribuidora?.trim() ?? '';
+    final regiao = _regiaoController.text.trim();
+    final distribuidora = _distribuidoraController.text.trim();
     if (regiao.isEmpty || distribuidora.isEmpty) {
       setState(() => _validationError = 'Preencha região e distribuidora.');
       return;
@@ -942,32 +809,16 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            key: ValueKey(_selectedRegiao),
-            initialValue: _selectedRegiao,
-            menuMaxHeight: 400,
-            isDense: true,
-            isExpanded: true,
-            items: _regions
-                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                .toList(),
-            onChanged: (val) => setState(() => _selectedRegiao = val),
+          TextField(
+            controller: _regiaoController,
             decoration: const InputDecoration(
               labelText: 'Região',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            key: ValueKey(_selectedDistribuidora),
-            initialValue: _selectedDistribuidora,
-            menuMaxHeight: 400,
-            isDense: true,
-            isExpanded: true,
-            items: _distributors
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) => setState(() => _selectedDistribuidora = val),
+          TextField(
+            controller: _distribuidoraController,
             decoration: const InputDecoration(
               labelText: 'Distribuidora',
               border: OutlineInputBorder(),

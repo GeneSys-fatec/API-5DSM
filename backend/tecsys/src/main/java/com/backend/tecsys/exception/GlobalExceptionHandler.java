@@ -4,6 +4,8 @@ import com.backend.tecsys.auth.service.AuthService;
 import com.backend.tecsys.bdgd.exception.InvalidBdgdUploadException;
 import com.backend.tecsys.scenario.exception.InvalidGatewayCandidateException;
 import com.backend.tecsys.scenario.exception.InvalidSimulationParameterException;
+import com.backend.tecsys.scenario.exception.InvalidScenarioReportException;
+import com.backend.tecsys.scenario.exception.ScenarioReportGenerationException;
 import com.backend.tecsys.radio.exception.PropagationCalculationException;
 import com.backend.tecsys.scenario.exception.ScenarioPersistenceException;
 import com.backend.tecsys.radio.exception.UnavailableTerrainDataException;
@@ -76,6 +78,17 @@ public class GlobalExceptionHandler {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
         }
 
+        @ExceptionHandler(InvalidScenarioReportException.class)
+        public ResponseEntity<Map<String, Object>> handleInvalidScenarioReport(InvalidScenarioReportException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_SCENARIO_REPORT");
+        }
+
+        @ExceptionHandler(ScenarioReportGenerationException.class)
+        public ResponseEntity<Map<String, Object>> handleScenarioReportGeneration(ScenarioReportGenerationException ex) {
+                log.error("Erro ao gerar relatorio do cenario: {}", ex.getMessage(), ex);
+                return buildErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, "REPORT_GENERATION_FAILED");
+        }
+
         @ExceptionHandler({UnavailableTerrainDataException.class, PropagationCalculationException.class})
         public ResponseEntity<Map<String, Object>> handleCalculation(Exception ex) {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.UNPROCESSABLE_CONTENT);
@@ -144,4 +157,3 @@ public class GlobalExceptionHandler {
                 return false;
         }
 }
-

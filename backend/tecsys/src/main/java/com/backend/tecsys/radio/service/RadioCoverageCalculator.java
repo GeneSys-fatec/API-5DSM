@@ -9,6 +9,7 @@ import com.backend.tecsys.radio.exception.UnavailableTerrainDataException;
 import com.backend.tecsys.scenario.model.Asset;
 import com.backend.tecsys.scenario.model.GatewayCandidate;
 import com.backend.tecsys.scenario.model.GatewayCoverage;
+import com.backend.tecsys.scenario.model.PropagationModelType;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -47,7 +48,10 @@ public class RadioCoverageCalculator {
             RfParameter rfParameter,
             PropagationModel propagationModel) {
 
-        double coverageRadiusMeters = rfCoverageRadiusCalculator.calculateRadiusMeters(rfParameter, propagationModel);
+        double maximumCoverageRadiusMeters =
+                rfCoverageRadiusCalculator.calculateRadiusMeters(rfParameter, propagationModel);
+        boolean terrainModel = propagationModel.type() == PropagationModelType.ITM_LONGLEY_RICE;
+        double furthestCoveredAssetDistanceMeters = 0.0;
         Map<String, Double> receivedPowerByAssetKey = new LinkedHashMap<>();
         Set<String> coveredAssetKeys = new LinkedHashSet<>();
         Set<String> shadowedAssetKeys = new LinkedHashSet<>();
@@ -58,7 +62,7 @@ public class RadioCoverageCalculator {
                     GeoDistanceCalculator.distanceMeters(candidate.getCoordinate(), asset.getCoordinate()),
                     MINIMUM_DISTANCE_M);
 
-            if (distanceM > coverageRadiusMeters) {
+            if (distanceM > maximumCoverageRadiusMeters) {
                 continue;
             }
 
@@ -84,6 +88,9 @@ public class RadioCoverageCalculator {
             try {
                 propagationLossDb = propagationModel.calculatePropagationLossDb(input);
             } catch (UnavailableTerrainDataException unavailableTerrainData) {
+                if (propagationModel.type() == PropagationModelType.ITM_LONGLEY_RICE) {
+                    throw unavailableTerrainData;
+                }
                 propagationLossDb = freeSpacePathLossModel.calculatePropagationLossDb(input);
             }
             double receivedPowerDbm = linkBudgetCalculator.receivedPowerDbm(rfParameter, propagationLossDb);
@@ -92,12 +99,16 @@ public class RadioCoverageCalculator {
                 receivedPowerByAssetKey.put(asset.getAssetKey(), receivedPowerDbm);
                 coveredAssetKeys.add(asset.getAssetKey());
                 coveredAssets.add(asset);
+                furthestCoveredAssetDistanceMeters = Math.max(
+                        furthestCoveredAssetDistanceMeters, distanceM);
             }
         }
 
         return GatewayCoverage.builder()
                 .candidate(candidate)
-                .coverageRadiusMeters(coverageRadiusMeters)
+                .coverageRadiusMeters(terrainModel
+                        ? furthestCoveredAssetDistanceMeters
+                        : maximumCoverageRadiusMeters)
                 .receivedPowerDbmByAssetKey(receivedPowerByAssetKey)
                 .coveredAssetKeys(coveredAssetKeys)
                 .shadowedAssetKeys(shadowedAssetKeys)

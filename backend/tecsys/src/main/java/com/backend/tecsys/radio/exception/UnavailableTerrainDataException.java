@@ -4,4 +4,8 @@ public class UnavailableTerrainDataException extends PropagationCalculationExcep
     public UnavailableTerrainDataException(String message) {
         super(message);
     }
+
+    public UnavailableTerrainDataException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

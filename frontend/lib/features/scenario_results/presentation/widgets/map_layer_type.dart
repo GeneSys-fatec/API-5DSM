@@ -4,9 +4,7 @@ enum MapLayerType {
   searchArea,
   coverage,
   gateways,
-  rssiHeatmap,
-  lineOfSight,
-  terrain,
+  assets,
 }
 
 class MapLayerInfo {
@@ -34,19 +32,8 @@ const Map<MapLayerType, MapLayerInfo> kMapLayerInfo = {
     label: 'Gateways',
     icon: Icons.cell_tower,
   ),
-  MapLayerType.rssiHeatmap: MapLayerInfo(
-    label: 'Heatmap RSSI',
-    icon: Icons.grain,
-    available: false,
-  ),
-  MapLayerType.lineOfSight: MapLayerInfo(
-    label: 'Visada (LoS)',
-    icon: Icons.visibility_outlined,
-    available: false,
-  ),
-  MapLayerType.terrain: MapLayerInfo(
-    label: 'Relevo',
-    icon: Icons.terrain,
-    available: false,
+  MapLayerType.assets: MapLayerInfo(
+    label: 'Ativos',
+    icon: Icons.electrical_services,
   ),
 };
