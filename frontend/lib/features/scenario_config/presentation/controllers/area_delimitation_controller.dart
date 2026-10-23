@@ -124,7 +124,9 @@ class AreaDelimitationController extends ChangeNotifier {
     }
     final cachedConfig = await _storageService.loadAreaConfig();
     final cachedResult = await _storageService.loadAreaResult();
-    if (cachedConfig != null && cachedResult != null) {
+    if (cachedConfig != null &&
+        cachedResult != null &&
+        !_containsLegacyMockCandidates(cachedResult)) {
       _config = cachedConfig;
       _result = cachedResult;
       _sharedConfig = cachedConfig;

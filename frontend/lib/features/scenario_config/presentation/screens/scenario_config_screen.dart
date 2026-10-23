@@ -67,7 +67,54 @@ class _ScenarioConfigScreenState extends State<ScenarioConfigScreen> {
                     onStep1Tap: _navigateToStep1,
                     showSystemPills: false,
                   ),
-                  const SizedBox(height: 18),
+                  if (_controller.isCalculating)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16, bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          LinearProgressIndicator(
+                            minHeight: 6,
+                            borderRadius: BorderRadius.all(Radius.circular(4)),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Processando cenário, calculando otimização. Por favor aguarde...',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (!_controller.isCalculating) const SizedBox(height: 18),
+                  if (_controller.errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 18),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          border: Border.all(color: Colors.red.shade200),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline, color: Colors.red.shade700),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _controller.errorMessage!,
+                                style: TextStyle(color: Colors.red.shade900),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   RfParametersCard(controller: _controller),
                   const SizedBox(height: 18),
                   OptimizationCriteriaCard(controller: _controller),

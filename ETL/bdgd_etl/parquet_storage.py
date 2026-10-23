@@ -13,6 +13,8 @@ from typing import Optional
 
 import duckdb
 
+from .duckdb_spatial import load_spatial
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,7 +57,7 @@ class ParquetStage:
 
         con = duckdb.connect()
         try:
-            con.execute("INSTALL spatial; LOAD spatial;")
+            load_spatial(con)
             # Fast streaming extraction directly from VSI into Parquet
             con.execute(f"""
                 COPY (

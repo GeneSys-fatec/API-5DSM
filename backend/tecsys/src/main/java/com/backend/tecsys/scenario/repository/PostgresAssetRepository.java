@@ -56,21 +56,8 @@ public class PostgresAssetRepository implements IAssetRepository {
 
     @Override
     public List<Asset> findWithinRadius(UUID importId, double latitude, double longitude, double radiusMeters) {
-        BdgdImportRecord record = importRepository.find(importId);
-        BdgdAssetRepository.AssetUnionQuery query = requireUnionQuery(record);
-        String sql = wrapWithRadiusFilter(query.sql());
-
-        List<Object> params = new ArrayList<>(List.of(query.params()));
-        params.add(longitude);
-        params.add(latitude);
-        params.add(radiusMeters);
-
-        try {
-            return jdbcTemplate.query(sql, assetRowMapper, params.toArray());
-        } catch (Exception e) {
-            throw new ScenarioPersistenceException(
-                    "Falha ao obter os ativos no raio especificado.", e);
-        }
+        // Sem LIMIT: todo ativo dentro da area delimitada deve ser candidato.
+        return findAllWithinRadius(importId, latitude, longitude, radiusMeters);
     }
 
         private String buildRadiusQuery(boolean withEnvelope) {
@@ -209,14 +196,6 @@ public class PostgresAssetRepository implements IAssetRepository {
     private String selectAssetsSql(String unionSql) {
         return "SELECT asset_key, tipo_ativo, ST_Y(ST_Centroid(geometry)) AS latitude, "
                 + "ST_X(ST_Centroid(geometry)) AS longitude FROM (" + unionSql + ") assets";
-    }
-
-    private String wrapWithRadiusFilter(String unionSql) {
-        return "SELECT asset_key, tipo_ativo, latitude, longitude FROM (" + selectAssetsSql(unionSql)
-                + ") assets WHERE ST_DWithin("
-                + "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography, "
-                + "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?) "
-                + "ORDER BY asset_key LIMIT 5000";
     }
 
     private String wrapWithEnvelopeAndRadiusFilter(String unionSql) {

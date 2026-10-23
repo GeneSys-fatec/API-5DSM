@@ -481,6 +481,42 @@ class _SimulationCenterCardState extends State<SimulationCenterCard> {
               ),
             ),
           ],
+          if (widget.controller.areaDelimitationError != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.badgeRedLight,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.badgeRed.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 16, color: AppColors.vermelhoErro),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.controller.areaDelimitationError!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.vermelhoErro,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: widget.controller.isLoading
+                        ? null
+                        : widget.controller.evaluateArea,
+                    child: const Text('Tentar novamente'),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           InkWell(
             onTap: useDrawnPolygon

@@ -95,8 +95,8 @@ class ScenarioConfigController extends ChangeNotifier {
     final text = txPowerController.text.trim();
     if (text.isEmpty) return 'Informe a potência TX';
     final val = double.tryParse(text);
-    if (val == null || val <= 0) {
-      return 'Potência deve ser maior que 0 dBm';
+    if (val == null || !val.isFinite) {
+      return 'Potência TX inválida';
     }
     return null;
   }
@@ -278,7 +278,7 @@ class ScenarioConfigController extends ChangeNotifier {
       final response = await _simulationService.runSimulationWithAuth(request);
 
       _lastSimulationResult = response;
-      
+
       final config = AreaDelimitationController.sharedConfig;
       final defaultLat = response.selectedGateways.isNotEmpty
           ? response.selectedGateways.first.latitude.toString()
@@ -292,7 +292,7 @@ class ScenarioConfigController extends ChangeNotifier {
         regionName: config?.address ?? 'Campinas - SP',
         searchRadiusMeters: config?.radiusMeters ?? 0.0,
       );
-      
+
       await _storageService.saveLastSimulationScenario(scenario);
       _onSimulationComplete?.call(scenario);
 
@@ -338,11 +338,17 @@ class ScenarioConfigController extends ChangeNotifier {
       );
     }).toList();
 
-    final propagationModelMap = {
+    const propagationModelMap = {
       'Okumura-Hata Suburbano': 'OKUMURA_HATA_SUBURBAN',
-      '3GPP Rural Macro': 'THREE_GPP_RURAL_MACRO',
-      'ITM Longley-Rice': 'ITM_LONGLEY_RICE',
+      '3GPP TR 38.901 Rural Macro': 'THREE_GPP_RURAL_MACRO',
+      'ITM (Longley-Rice Relevo)': 'ITM_LONGLEY_RICE',
     };
+    final propagationModel = propagationModelMap[model.propagationModel];
+    if (propagationModel == null) {
+      throw StateError(
+        'Modelo de propagação não suportado: ${model.propagationModel}',
+      );
+    }
 
     return SimulationRequest(
       importId: AreaDelimitationController.sharedConfig?.bdgdImportId ?? '',
@@ -351,7 +357,7 @@ class ScenarioConfigController extends ChangeNotifier {
       coverageTargetPct: model.minCoveragePercent,
       maxGateways: model.maxGateways,
       gatewayCandidates: gatewayCandidates,
-      propagationModel: propagationModelMap[model.propagationModel] ?? 'OKUMURA_HATA_SUBURBAN',
+      propagationModel: propagationModel,
       gatewayUnitCost: 1500.0,
       searchCenterLatitude: usesPolygon ? null : searchArea?.centerLatitude,
       searchCenterLongitude: usesPolygon ? null : searchArea?.centerLongitude,
