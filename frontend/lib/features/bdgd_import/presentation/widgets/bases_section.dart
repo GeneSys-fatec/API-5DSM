@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../models/bdgd_base.dart';
 import 'base_cards_list.dart';
@@ -28,9 +27,7 @@ class BasesSection extends StatelessWidget {
     this.emptyMessage,
   });
 
-  int get totalAtivos => bases.fold(0, (sum, b) => sum + b.ativosMapeados);
-
- @override
+  @override
   Widget build(BuildContext context) {
     final useTable = Responsive.isDesktop(context);
 
@@ -153,7 +150,7 @@ class BasesSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            '${formatThousands(totalAtivos)} Ativos de Rede · ${bases.length} Base(s)',
+            '${bases.length} Base(s)',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
