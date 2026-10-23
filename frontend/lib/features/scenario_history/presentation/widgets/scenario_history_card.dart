@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/scenario_models.dart';
 
-const double _kInlineActionsMinWidth = 900;
+const double _kInlineActionsMinWidth = 1050;
 
 const double _kFullWidthActionsMaxWidth = 430;
 
@@ -13,7 +13,11 @@ const double _kShowIconMinWidth = 360;
 class ScenarioHistoryCard extends StatelessWidget {
   final ScenarioSummary scenario;
   final bool isMutating;
+  final bool isSelected;
+  final VoidCallback? onToggleSelect;
   final VoidCallback onViewDetails;
+  final VoidCallback? onViewResult;
+  final VoidCallback? onReuseConfig;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
 
@@ -21,7 +25,11 @@ class ScenarioHistoryCard extends StatelessWidget {
     super.key,
     required this.scenario,
     required this.isMutating,
+    this.isSelected = false,
+    this.onToggleSelect,
     required this.onViewDetails,
+    this.onViewResult,
+    this.onReuseConfig,
     required this.onDuplicate,
     required this.onDelete,
   });
@@ -37,21 +45,40 @@ class ScenarioHistoryCard extends StatelessWidget {
 
         final details = _ScenarioDetails(scenario: scenario, compact: fullWidthActions);
 
-        final Widget content = showIcon
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _ScenarioIcon(),
-                  const SizedBox(width: 14),
-                  Expanded(child: details),
-                ],
-              )
-            : details;
+        final Widget contentWithSelection = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (onToggleSelect != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8, top: 4),
+                child: InkWell(
+                  onTap: onToggleSelect,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Icon(
+                    isSelected
+                        ? Icons.check_box_rounded
+                        : Icons.check_box_outline_blank_rounded,
+                    color: isSelected
+                        ? AppColors.primaryPurple
+                        : AppColors.textMuted,
+                    size: 22,
+                  ),
+                ),
+              ),
+            if (showIcon) ...[
+              const _ScenarioIcon(),
+              const SizedBox(width: 14),
+            ],
+            Expanded(child: details),
+          ],
+        );
 
         final actions = _CardActions(
           isMutating: isMutating,
           fullWidth: fullWidthActions,
           onViewDetails: onViewDetails,
+          onViewResult: onViewResult,
+          onReuseConfig: onReuseConfig,
           onDuplicate: onDuplicate,
           onDelete: onDelete,
         );
@@ -61,21 +88,26 @@ class ScenarioHistoryCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surfaceWhite,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primaryPurple.withValues(alpha: 0.7)
+                  : AppColors.cardBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
           ),
           child: inlineActions
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: content),
+                    Expanded(child: contentWithSelection),
                     const SizedBox(width: 16),
-                    actions,
+                    Flexible(child: actions),
                   ],
                 )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    content,
+                    contentWithSelection,
                     const SizedBox(height: 12),
                     actions,
                   ],
@@ -171,6 +203,8 @@ class _CardActions extends StatelessWidget {
   final bool isMutating;
   final bool fullWidth;
   final VoidCallback onViewDetails;
+  final VoidCallback? onViewResult;
+  final VoidCallback? onReuseConfig;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
 
@@ -178,12 +212,30 @@ class _CardActions extends StatelessWidget {
     required this.isMutating,
     required this.fullWidth,
     required this.onViewDetails,
+    this.onViewResult,
+    this.onReuseConfig,
     required this.onDuplicate,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    final viewResult = onViewResult != null
+        ? ElevatedButton.icon(
+            onPressed: isMutating ? null : onViewResult,
+            icon: const Icon(Icons.bar_chart_rounded, size: 16),
+            label: const Text('Ver Resultado'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryPurple,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              minimumSize: Size(0, fullWidth ? 44 : 40),
+              padding: EdgeInsets.symmetric(horizontal: fullWidth ? 12 : 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          )
+        : null;
+
     final details = _action(
       context,
       icon: Icons.visibility_outlined,
@@ -191,6 +243,18 @@ class _CardActions extends StatelessWidget {
       color: AppColors.primaryPurple,
       onPressed: isMutating ? null : onViewDetails,
     );
+
+    final reuse = onReuseConfig != null
+        ? _action(
+            context,
+            icon: Icons.tune_rounded,
+            label: 'Reaproveitar',
+            color: AppColors.textSecondary,
+            borderColor: AppColors.cardBorder,
+            onPressed: isMutating ? null : onReuseConfig,
+          )
+        : null;
+
     final duplicate = _action(
       context,
       icon: Icons.copy_all_outlined,
@@ -199,6 +263,7 @@ class _CardActions extends StatelessWidget {
       borderColor: AppColors.cardBorder,
       onPressed: isMutating ? null : onDuplicate,
     );
+
     final remove = _action(
       context,
       icon: Icons.delete_outline_rounded,
@@ -212,10 +277,21 @@ class _CardActions extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          details,
+          if (viewResult != null) ...[
+            viewResult,
+            const SizedBox(height: 8),
+          ],
+          Row(
+            children: [
+              Expanded(child: details),
+              if (reuse != null) ...[
+                const SizedBox(width: 8),
+                Expanded(child: reuse),
+              ],
+            ],
+          ),
           const SizedBox(height: 8),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(child: duplicate),
               const SizedBox(width: 8),
@@ -231,7 +307,13 @@ class _CardActions extends StatelessWidget {
       runSpacing: 8,
       alignment: WrapAlignment.end,
       crossAxisAlignment: WrapCrossAlignment.center,
-      children: [details, duplicate, remove],
+      children: [
+        if (viewResult != null) viewResult,
+        details,
+        if (reuse != null) reuse,
+        duplicate,
+        remove,
+      ],
     );
   }
 

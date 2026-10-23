@@ -108,6 +108,70 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
     }
   }
 
+  Future<void> _handleSaveScenario() async {
+    final scenario = _scenario;
+    if (scenario == null) return;
+
+    final initialName = scenario.name?.isNotEmpty == true
+        ? scenario.name!
+        : (scenario.parameters.feederName.isNotEmpty
+            ? scenario.parameters.feederName
+            : 'Cenário ${scenario.region}');
+    final initialRegion = scenario.region;
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => _SaveScenarioDialog(
+        initialName: initialName,
+        initialRegion: initialRegion,
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    final updatedName = result['name'] ?? initialName;
+    final updatedRegion = result['region'] ?? initialRegion;
+
+    final updatedScenario = scenario.copyWith(
+      name: updatedName,
+      region: updatedRegion,
+    );
+
+    await _storageService.saveLastSimulationScenario(updatedScenario);
+
+    if (!mounted) return;
+    setState(() {
+      _scenario = updatedScenario;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Cenário "$updatedName" salvo na região "$updatedRegion"!',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'Ver Histórico',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.of(context).pushReplacementNamed('/history');
+          },
+        ),
+      ),
+    );
+  }
+
   static const double _actionHeight = 44;
 
   ButtonStyle _outlinedActionStyle() => OutlinedButton.styleFrom(
@@ -238,7 +302,9 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          scenario.parameters.feederName,
+                          scenario.name?.isNotEmpty == true
+                              ? scenario.name!
+                              : scenario.parameters.feederName,
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
@@ -252,6 +318,14 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
                         ),
                       ],
                     );
+
+                    final saveButton = OutlinedButton.icon(
+                      onPressed: _handleSaveScenario,
+                      style: _outlinedActionStyle(),
+                      icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                      label: const Text('Salvar Cenário'),
+                    );
+
                     final exportButton = OutlinedButton.icon(
                       onPressed: _isExportingReport ? null : _exportReport,
                       style: _outlinedActionStyle(),
@@ -279,10 +353,12 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
                       label: const Text('Nova Simulação'),
                     );
 
-                      final actions = isNarrow
+                    final actions = isNarrow
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              saveButton,
+                              const SizedBox(height: 8),
                               exportButton,
                               const SizedBox(height: 8),
                               newSimulationButton,
@@ -291,6 +367,8 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              saveButton,
+                              const SizedBox(width: 12),
                               exportButton,
                               const SizedBox(width: 12),
                               newSimulationButton,
@@ -331,6 +409,110 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SaveScenarioDialog extends StatefulWidget {
+  final String initialName;
+  final String initialRegion;
+
+  const _SaveScenarioDialog({
+    required this.initialName,
+    required this.initialRegion,
+  });
+
+  @override
+  State<_SaveScenarioDialog> createState() => _SaveScenarioDialogState();
+}
+
+class _SaveScenarioDialogState extends State<_SaveScenarioDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _regionController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _regionController = TextEditingController(text: widget.initialRegion);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _regionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: const Row(
+        children: [
+          Icon(Icons.bookmark_add_outlined, color: AppColors.primaryPurple),
+          SizedBox(width: 8),
+          Text('Salvar Cenário'),
+        ],
+      ),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Defina o nome e confirme a região para organizar este cenário no histórico.',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Nome do Cenário *',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Informe um nome para o cenário' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _regionController,
+              decoration: const InputDecoration(
+                labelText: 'Região *',
+                hintText: 'Ex: Campinas - SP, Regional Leste',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Informe a região do cenário' : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_formKey.currentState?.validate() == true) {
+              Navigator.of(context).pop({
+                'name': _nameController.text.trim(),
+                'region': _regionController.text.trim(),
+              });
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryPurple,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Salvar'),
+        ),
+      ],
     );
   }
 }

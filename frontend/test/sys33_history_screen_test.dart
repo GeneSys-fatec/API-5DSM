@@ -76,6 +76,16 @@ class FakeSavedScenarioService implements SavedScenarioService {
     deletedIds.add(id);
     scenarios = scenarios.where((s) => s.id != id).toList();
   }
+
+  @override
+  Future<ScenarioComparisonResponse> compareScenarios(List<int> ids) async {
+    if (listError != null) throw listError!;
+    final matching = scenarios.where((s) => ids.contains(s.id)).toList();
+    return ScenarioComparisonResponse(
+      scenarios: matching,
+      comparisonIndicators: {'count': matching.length},
+    );
+  }
 }
 
 ScenarioSummary _summary({
@@ -139,8 +149,7 @@ void main() {
     await pump(tester, FakeSavedScenarioService());
     await tester.pumpAndSettle();
 
-    expect(find.text('Nenhum cenário salvo'), findsOneWidget);
-    expect(find.text('Nova Simulação'), findsWidgets);
+    expect(find.text('Nenhuma informação encontrada'), findsOneWidget);
     expect(find.text('Ver Detalhes'), findsNothing);
   });
 
@@ -158,7 +167,7 @@ void main() {
     await tester.tap(find.text('Tentar novamente'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nenhum cenário salvo'), findsOneWidget);
+    expect(find.text('Nenhuma informação encontrada'), findsOneWidget);
   });
 
   testWidgets('filtra a listagem por regiao selecionada', (tester) async {
@@ -195,7 +204,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.deletedIds, [1]);
-    expect(find.text('Nenhum cenário salvo'), findsOneWidget);
+    expect(find.text('Nenhuma informação encontrada'), findsOneWidget);
     expect(find.text('Cenário excluído com sucesso.'), findsOneWidget);
   });
 
@@ -227,7 +236,7 @@ void main() {
 
     expect(find.text('Duplicar Cenário'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'Cenário Centro (cópia)');
+    await tester.enterText(find.byType(TextField).last, 'Cenário Centro (cópia)');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Duplicar'));
     await tester.pumpAndSettle();
 
@@ -274,5 +283,25 @@ void main() {
       isTrue,
       reason: 'esperava o custo total estimado formatado, encontrado: $currencyText',
     );
+  });
+
+  testWidgets('filtra cenários por nome na barra de busca com o hint atualizado', (tester) async {
+    final service = FakeSavedScenarioService(scenarios: [
+      _summary(id: 1, name: 'Cenário Centro Alfa', regionName: 'Centro'),
+      _summary(id: 2, name: 'Simulação Norte Beta', regionName: 'Norte'),
+    ]);
+    await pump(tester, service);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buscar por nome do cenário...'), findsOneWidget);
+    expect(find.text('Cenário Centro Alfa'), findsOneWidget);
+    expect(find.text('Simulação Norte Beta'), findsOneWidget);
+
+    final searchField = find.byType(TextField);
+    await tester.enterText(searchField, 'Beta');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cenário Centro Alfa'), findsNothing);
+    expect(find.text('Simulação Norte Beta'), findsOneWidget);
   });
 }
