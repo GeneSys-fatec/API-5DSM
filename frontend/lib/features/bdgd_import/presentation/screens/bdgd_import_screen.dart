@@ -507,13 +507,13 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          _buildFilters(),
-          const SizedBox(height: 16),
+          
           BasesSection(
             bases: _bases,
             isLoading: _isLoadingBases,
             onRefresh: _loadBases,
             error: _basesError,
+            filtersWidget: _buildFiltersWidget(),
             onSelectBase: _onSelectBase,
             onEditBase: _editBase,
             emptyMessage: (_selectedRegion != null || _selectedDistributor != null)
@@ -525,101 +525,113 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildFiltersWidget() {
     final hasFilters = _selectedRegion != null || _selectedDistributor != null;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          children: [
-            SizedBox(
-              width: 260,
-              child: _filterDropdown(
-                label: 'Região',
-                hint: 'Todas as regiões',
-                value: _selectedRegion,
-                items: _regions,
-                onChanged: _isLoadingBases ? null : _onRegionChanged,
-              ),
-            ),
-            SizedBox(
-              width: 300,
-              child: _filterDropdown(
-                label: 'Distribuidora',
-                hint: 'Todas as distribuidoras',
-                value: _selectedDistributor,
-                items: _distributors,
-                onChanged: _isLoadingBases ? null : _onDistributorChanged,
-              ),
-            ),
-            if (hasFilters)
-              TextButton.icon(
-                onPressed: _isLoadingBases ? null : _clearFilters,
-                icon: const Icon(Icons.clear, size: 18),
-                label: const Text('Limpar filtros'),
-              ),
+    final isMobile = Responsive.isMobile(context);
+
+    final regionField = _filterDropdown(
+      hint: 'Todas as regiões',
+      icon: Icons.location_on_outlined,
+      value: _selectedRegion,
+      items: _regions,
+      onChanged: _isLoadingBases ? null : _onRegionChanged,
+    );
+
+    final distributorField = _filterDropdown(
+      hint: 'Todas as distribuidoras',
+      icon: Icons.business_rounded,
+      value: _selectedDistributor,
+      items: _distributors,
+      onChanged: _isLoadingBases ? null : _onDistributorChanged,
+    );
+
+    final clearButton = IconButton(
+      tooltip: 'Limpar filtros',
+      onPressed: _isLoadingBases ? null : _clearFilters,
+      icon: const Icon(Icons.filter_alt_off_rounded, size: 20),
+      color: AppColors.primary,
+      visualDensity: VisualDensity.compact,
+    );
+
+    if (!isMobile) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 190, child: regionField),
+          const SizedBox(width: 8),
+          SizedBox(width: 220, child: distributorField),
+          if (hasFilters) ...[
+            const SizedBox(width: 4),
+            clearButton,
           ],
-        ),
-      ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        regionField,
+        const SizedBox(height: 8),
+        distributorField,
+        if (hasFilters)
+          Align(
+            alignment: Alignment.centerRight,
+            child: clearButton,
+          ),
+      ],
     );
   }
 
   Widget _filterDropdown({
-    required String label,
     required String hint,
+    required IconData icon,
     required String? value,
     required List<String> items,
     required ValueChanged<String?>? onChanged,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: (value != null && items.contains(value)) ? value : null,
-              hint: Text(
-                hint,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-              ),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-              items: items
-                  .map(
-                    (item) => DropdownMenuItem<String>(
-                      value: item,
-                      child: Text(
-                        item,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: onChanged,
+    OutlineInputBorder border(Color color, [double width = 1]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return DropdownButtonFormField<String>(
+      value: (value != null && items.contains(value)) ? value : null,
+      isExpanded: true,
+      onChanged: onChanged,
+      borderRadius: BorderRadius.circular(8),
+      dropdownColor: Colors.white,
+      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.grey.shade600),
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF1F2937),
+      ),
+      hint: Text(
+        hint,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+      ),
+      items: items
+          .map(
+            (item) => DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, overflow: TextOverflow.ellipsis),
             ),
-          ),
-        ),
-      ],
+          )
+          .toList(),
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, size: 16, color: Colors.grey.shade500),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        border: border(Colors.grey.shade300),
+        enabledBorder: border(Colors.grey.shade300),
+        disabledBorder: border(Colors.grey.shade200),
+        focusedBorder: border(AppColors.primary, 1.5),
+      ),
     );
   }
 
