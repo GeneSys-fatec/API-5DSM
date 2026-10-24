@@ -60,4 +60,45 @@ class BdgdGroupValidatorTest {
         assertNull(validator.normalize("  "));
         assertEquals("Alfa Energia", validator.normalize("  Alfa Energia "));
     }
+
+    @Test
+    void shouldValidateAndNormalizeAllowedRegions() {
+        for (String region : BdgdGroupValidator.ALLOWED_REGIONS) {
+            assertEquals(region, validator.validateAndNormalizeRegion(region.toLowerCase()));
+            assertEquals(region, validator.validateAndNormalizeRegion("  " + region.toUpperCase() + "  "));
+        }
+        assertEquals("Centro-Oeste", validator.validateAndNormalizeRegion("Centro Oeste"));
+        assertEquals("Centro-Oeste", validator.validateAndNormalizeRegion("centro-oeste"));
+    }
+
+    @Test
+    void shouldRejectInvalidRegion() {
+        InvalidBdgdUploadException ex = assertThrows(
+                InvalidBdgdUploadException.class,
+                () -> validator.validateAndNormalizeRegion("Regiao Inexistente")
+        );
+        assertEquals(true, ex.getMessage().contains("Regiao invalida"));
+        assertEquals(true, ex.getMessage().contains("Centro-Oeste"));
+    }
+
+    @Test
+    void shouldValidateAndNormalizeAneelDistributors() {
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("CPFL-PAULISTA"));
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("cpfl-paulista"));
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("CEMIG-D"));
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("cemig-d"));
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("EDP SP"));
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("ENEL RJ"));
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("CELESC"));
+        assertDoesNotThrow(() -> validator.validateAndNormalizeDistributor("CEMIG"));
+    }
+
+    @Test
+    void shouldRejectInvalidDistributor() {
+        InvalidBdgdUploadException ex = assertThrows(
+                InvalidBdgdUploadException.class,
+                () -> validator.validateAndNormalizeDistributor("Empresa Fake")
+        );
+        assertEquals(true, ex.getMessage().contains("Distribuidora invalida"));
+    }
 }

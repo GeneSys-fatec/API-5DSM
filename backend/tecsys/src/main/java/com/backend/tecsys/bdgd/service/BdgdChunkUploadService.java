@@ -56,6 +56,7 @@ public class BdgdChunkUploadService {
     private final BdgdIngestionProperties properties;
     private final BdgdImportRepository repository;
     private final BdgdEtlDispatcher dispatcher;
+    private final BdgdGroupValidator groupValidator;
 
     /**
      * Inicializa uma sessão de upload.
@@ -63,8 +64,10 @@ public class BdgdChunkUploadService {
      * @return uploadId que identifica esta sessão
      */
     public String initSession(String fileName, long totalSize, String distribuidora, String regiao, LocalDate data) {
-        if (distribuidora == null || distribuidora.isBlank() || regiao == null || regiao.isBlank() || data == null) {
-            throw new InvalidBdgdUploadException("Distribuidora, regiao e data sao obrigatorios");
+        String normalizedDistributor = groupValidator.validateAndNormalizeDistributor(distribuidora);
+        String normalizedRegion = groupValidator.validateAndNormalizeRegion(regiao);
+        if (data == null) {
+            throw new InvalidBdgdUploadException("Data e obrigatoria");
         }
         if (totalSize <= 0 || totalSize > properties.getMaxUploadBytes()) {
             throw new InvalidBdgdUploadException(
@@ -74,7 +77,7 @@ public class BdgdChunkUploadService {
         String safeName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
         LocalDate referenceDate = BdgdReferenceDateParser.parseOrDefault(safeName, data);
         String uploadId = UUID.randomUUID().toString();
-        String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), distribuidora, data, uploadId, safeName);
+        String key = String.format("%s/%s/%s/%s-%s", properties.getKeyPrefix(), normalizedDistributor, referenceDate, uploadId, safeName);
 
         try {
             Path tempDir = Path.of(properties.getLocalDirectory(), "_chunks").toAbsolutePath().normalize();
@@ -86,8 +89,8 @@ public class BdgdChunkUploadService {
                 raf.setLength(totalSize);
             }
 
-                sessions.put(uploadId, new UploadSession(
-                    uploadId, safeName, totalSize, distribuidora, regiao, referenceDate, tempFile, key,
+            sessions.put(uploadId, new UploadSession(
+                    uploadId, safeName, totalSize, normalizedDistributor, normalizedRegion, referenceDate, tempFile, key,
                     ConcurrentHashMap.newKeySet()));
             log.info("Sessão de upload iniciada: {} | arquivo={} | tamanho={} bytes", uploadId, safeName, totalSize);
             return uploadId;

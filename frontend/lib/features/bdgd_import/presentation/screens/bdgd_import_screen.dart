@@ -29,8 +29,10 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   double _uploadProgress = 0.0; // 0.0 a 1.0
   String? _errorMessage;
   String? _successMessage;
-  final _distribuidoraController = TextEditingController();
-  final _regiaoController = TextEditingController();
+  String? _selectedImportDistribuidora;
+  String? _selectedImportRegiao;
+  List<String> _importRegions = kDefaultRegions;
+  List<String> _importDistributors = kDefaultDistributors;
   final _dataController = TextEditingController();
   final _importService = BdgdImportService();
 
@@ -49,6 +51,16 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     super.initState();
     _loadBases();
     _loadFilterOptions();
+    _loadImportOptions();
+  }
+
+  Future<void> _loadImportOptions() async {
+    final options = await _importService.fetchImportOptions();
+    if (!mounted) return;
+    setState(() {
+      _importRegions = options.regions;
+      _importDistributors = options.distributors;
+    });
   }
 
   Future<void> _loadBases() async {
@@ -286,9 +298,10 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
   Future<void> _uploadFile() async {
     final file = _selectedFile;
     if (file == null) return;
-    if (_distribuidoraController.text.trim().isEmpty ||
-        _regiaoController.text.trim().isEmpty ||
-        _dataController.text.trim().isEmpty) {
+    final distribuidora = _selectedImportDistribuidora;
+    final regiao = _selectedImportRegiao;
+    final data = _dataController.text.trim();
+    if (distribuidora == null || regiao == null || data.isEmpty) {
       setState(() => _errorMessage = 'Preencha distribuidora, região e data.');
       return;
     }
@@ -303,12 +316,13 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     try {
       await _importService.upload(
         fileName: file.name,
-        fileStream: file.readStream, 
-        fileSize: file.size,        
-        filePath: kIsWeb ? null : file.path, 
-        distribuidora: _distribuidoraController.text.trim(),
-        regiao: _regiaoController.text.trim(),
-        data: _dataController.text.trim(),
+        fileStream: file.readStream,
+        fileSize: file.size,
+        filePath: kIsWeb ? null : file.path,
+        webFile: _webFile,
+        distribuidora: distribuidora,
+        regiao: regiao,
+        data: data,
         onProgress: (p) {
           if (mounted) setState(() => _uploadProgress = p);
         },
@@ -368,20 +382,38 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                             width: isMobile
                                 ? MediaQuery.of(context).size.width - 72
                                 : 220,
-                            child: _metadataField(
-                              _distribuidoraController,
-                              'Distribuidora',
+                            child: _metadataSelectField(
+                              label: 'Distribuidora',
+                              value: _selectedImportDistribuidora,
+                              items: _importDistributors,
                               icon: Icons.business_rounded,
+                              hint: 'Selecione a distribuidora',
+                              onChanged: _isUploading
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedImportDistribuidora = value;
+                                      });
+                                    },
                             ),
                           ),
                           SizedBox(
                             width: isMobile
                                 ? MediaQuery.of(context).size.width - 72
                                 : 220,
-                            child: _metadataField(
-                              _regiaoController,
-                              'Região',
+                            child: _metadataSelectField(
+                              label: 'Região',
+                              value: _selectedImportRegiao,
+                              items: _importRegions,
                               icon: Icons.location_on_outlined,
+                              hint: 'Selecione a região',
+                              onChanged: _isUploading
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedImportRegiao = value;
+                                      });
+                                    },
                             ),
                           ),
                           SizedBox(
@@ -394,7 +426,7 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                               hint: 'Selecione a data',
                               icon: Icons.calendar_today_outlined,
                               readOnly: true,
-                              onTap: _toggleDatePicker,
+                              onTap: _isUploading ? null : _toggleDatePicker,
                               fieldKey: _dateFieldKey,
                             ),
                           ),
@@ -481,7 +513,11 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
                           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        onPressed: _selectedFile == null || _isUploading
+                        onPressed: (_selectedFile == null ||
+                                _isUploading ||
+                                _selectedImportDistribuidora == null ||
+                                _selectedImportRegiao == null ||
+                                _dataController.text.trim().isEmpty)
                             ? null
                             : _uploadFile,
                         icon: _isUploading
@@ -748,11 +784,98 @@ class _BdgdImportScreenState extends State<BdgdImportScreen> {
     );
   }
 
+  Widget _metadataSelectField({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?>? onChanged,
+    IconData? icon,
+    String? hint,
+  }) {
+    return DropdownButtonFormField<String>(
+      key: ValueKey(value),
+      initialValue: (value != null && items.contains(value)) ? value : null,
+      menuMaxHeight: 400,
+      isDense: true,
+      isExpanded: true,
+      alignment: AlignmentDirectional.centerStart,
+      hint: hint != null
+          ? Text(
+              hint,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade400,
+                fontWeight: FontWeight.w500,
+              ),
+            )
+          : null,
+      items: items.map((item) {
+        return DropdownMenuItem<String>(
+          value: item,
+          child: Text(
+            item,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+        );
+      }).toList(),
+      onChanged: onChanged,
+      icon: Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF1F2937),
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: icon == null
+            ? null
+            : Icon(icon, size: 18, color: Colors.grey.shade500),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
+        labelStyle: TextStyle(
+          fontSize: 13,
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w500,
+        ),
+        floatingLabelStyle: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _removeDateOverlay();
-    _distribuidoraController.dispose();
-    _regiaoController.dispose();
     _dataController.dispose();
     super.dispose();
   }
@@ -768,27 +891,34 @@ class _EditGroupDialog extends StatefulWidget {
 }
 
 class _EditGroupDialogState extends State<_EditGroupDialog> {
-  late final TextEditingController _regiaoController;
-  late final TextEditingController _distribuidoraController;
+  String? _selectedRegiao;
+  String? _selectedDistribuidora;
+  late final List<String> _regions;
+  late final List<String> _distributors;
   String? _validationError;
 
   @override
   void initState() {
     super.initState();
-    _regiaoController = TextEditingController(text: widget.base.regiao ?? '');
-    _distribuidoraController = TextEditingController(text: widget.base.distribuidora);
-  }
+    _selectedRegiao = widget.base.regiao;
+    _selectedDistribuidora = widget.base.distribuidora;
 
-  @override
-  void dispose() {
-    _regiaoController.dispose();
-    _distribuidoraController.dispose();
-    super.dispose();
+    final regionsSet = {...kDefaultRegions};
+    if (widget.base.regiao != null && widget.base.regiao!.isNotEmpty) {
+      regionsSet.add(widget.base.regiao!);
+    }
+    _regions = regionsSet.toList();
+
+    final distSet = {...kDefaultDistributors};
+    if (widget.base.distribuidora.isNotEmpty) {
+      distSet.add(widget.base.distribuidora);
+    }
+    _distributors = distSet.toList();
   }
 
   void _submit() {
-    final regiao = _regiaoController.text.trim();
-    final distribuidora = _distribuidoraController.text.trim();
+    final regiao = _selectedRegiao?.trim() ?? '';
+    final distribuidora = _selectedDistribuidora?.trim() ?? '';
     if (regiao.isEmpty || distribuidora.isEmpty) {
       setState(() => _validationError = 'Preencha região e distribuidora.');
       return;
@@ -809,16 +939,28 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _regiaoController,
+          DropdownButtonFormField<String>(
+            key: ValueKey(_selectedRegiao),
+            initialValue: _selectedRegiao,
+            menuMaxHeight: 400,
+            isDense: true,
+            isExpanded: true,
+            items: _regions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+            onChanged: (val) => setState(() => _selectedRegiao = val),
             decoration: const InputDecoration(
               labelText: 'Região',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _distribuidoraController,
+          DropdownButtonFormField<String>(
+            key: ValueKey(_selectedDistribuidora),
+            initialValue: _selectedDistribuidora,
+            menuMaxHeight: 400,
+            isDense: true,
+            isExpanded: true,
+            items: _distributors.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+            onChanged: (val) => setState(() => _selectedDistribuidora = val),
             decoration: const InputDecoration(
               labelText: 'Distribuidora',
               border: OutlineInputBorder(),

@@ -440,18 +440,14 @@ class BdgdImportService {
     return _fetchStringList(uri);
   }
 
-  Future<({List<String> regions, List<String> distributors})>
-  fetchImportOptions() async {
+  Future<({List<String> regions, List<String> distributors})> fetchImportOptions() async {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/api/bdgd/options');
       final response = await _authorizedRequest('GET', uri);
       if (response != null && response.statusCode == 200) {
-        final Map<String, dynamic> data =
-            jsonDecode(response.body) as Map<String, dynamic>;
-        final rawRegions =
-            (data['regioes'] ?? data['regions']) as List<dynamic>?;
-        final rawDistributors =
-            (data['distribuidoras'] ?? data['distributors']) as List<dynamic>?;
+        final Map<String, dynamic> data = jsonDecode(response.body) as Map<String, dynamic>;
+        final rawRegions = (data['regioes'] ?? data['regions']) as List<dynamic>?;
+        final rawDistributors = (data['distribuidoras'] ?? data['distributors']) as List<dynamic>?;
         return (
           regions: rawRegions != null && rawRegions.isNotEmpty
               ? rawRegions.map((e) => e.toString()).toList()
