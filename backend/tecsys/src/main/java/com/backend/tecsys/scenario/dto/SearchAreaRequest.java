@@ -35,6 +35,8 @@ public class SearchAreaRequest {
 
     private Double radius;
 
+    private List<String> selectedAssetTypes;
+
     @Size(min = 3, message = "O polígono manual deve ter no mínimo 3 pontos")
     @Valid
     private List<PolygonPoint> polygonPoints;

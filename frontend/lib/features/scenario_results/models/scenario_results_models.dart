@@ -142,12 +142,14 @@ class ScenarioParameters {
 
 class AssetPoint {
   final String assetKey;
+  final String type;
   final double lat;
   final double lng;
   final bool covered;
 
   const AssetPoint({
     required this.assetKey,
+    this.type = 'POSTE',
     required this.lat,
     required this.lng,
     required this.covered,
@@ -155,6 +157,7 @@ class AssetPoint {
 
   Map<String, dynamic> toMap() => {
     'assetKey': assetKey,
+    'type': type,
     'lat': lat,
     'lng': lng,
     'covered': covered,
@@ -162,6 +165,7 @@ class AssetPoint {
 
   factory AssetPoint.fromMap(Map<String, dynamic> map) => AssetPoint(
     assetKey: map['assetKey'] as String? ?? '',
+    type: map['type'] as String? ?? 'POSTE',
     lat: (map['lat'] as num?)?.toDouble() ?? 0,
     lng: (map['lng'] as num?)?.toDouble() ?? 0,
     covered: map['covered'] as bool? ?? false,
