@@ -9,6 +9,7 @@ import 'features/scenario_history/presentation/screens/history_screen.dart';
 import 'features/settings/presentation/screens/settings_screen.dart';
 import 'features/scenario_results/models/scenario_results_models.dart';
 import 'features/auth/presentation/widgets/auth_guard.dart';
+import 'features/manual/presentation/screens/manual_screen.dart';
 
 void main() {
   runApp(const TecsysApp());
@@ -33,9 +34,17 @@ class TecsysApp extends StatelessWidget {
         '/scenario': (_) => const AuthGuard(child: AreaDelimitationScreen()),
         '/scenario/rf': (_) => const AuthGuard(child: ScenarioConfigScreen()),
         '/history': (_) => const AuthGuard(child: HistoryScreen()),
+        '/manual': (_) => const ManualScreen(),
         // '/settings': (_) => const AuthGuard(child: SettingsScreen()),
       },
       onGenerateRoute: (settings) {
+        if (settings.name == '/manual') {
+          final sectionId = settings.arguments is String ? settings.arguments as String : null;
+          return MaterialPageRoute(
+            builder: (_) => ManualScreen(initialSectionId: sectionId),
+            settings: settings,
+          );
+        }
         if (settings.name == '/results') {
           final scenario = settings.arguments is SimulationScenario
               ? settings.arguments as SimulationScenario
