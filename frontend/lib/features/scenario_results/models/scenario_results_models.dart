@@ -246,6 +246,32 @@ class SimulationScenario {
     required this.results,
   });
 
+  SimulationScenario copyWith({
+    String? id,
+    String? code,
+    String? name,
+    String? region,
+    double? centerLat,
+    double? centerLng,
+    double? searchRadiusMeters,
+    DateTime? executedAt,
+    ScenarioParameters? parameters,
+    ScenarioResults? results,
+  }) {
+    return SimulationScenario(
+      id: id ?? this.id,
+      code: code ?? this.code,
+      name: name ?? this.name,
+      region: region ?? this.region,
+      centerLat: centerLat ?? this.centerLat,
+      centerLng: centerLng ?? this.centerLng,
+      searchRadiusMeters: searchRadiusMeters ?? this.searchRadiusMeters,
+      executedAt: executedAt ?? this.executedAt,
+      parameters: parameters ?? this.parameters,
+      results: results ?? this.results,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

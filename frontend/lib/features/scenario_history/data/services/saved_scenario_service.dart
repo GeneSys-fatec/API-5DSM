@@ -46,6 +46,20 @@ class SavedScenarioService {
     await _send((token) => http.delete(uri, headers: _headers(token)));
   }
 
+  Future<ScenarioComparisonResponse> compareScenarios(List<int> ids) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/scenarios/compare');
+    final response = await _send(
+      (token) => http.post(
+        uri,
+        headers: _headers(token),
+        body: jsonEncode({'scenarioIds': ids}),
+      ),
+    );
+    return ScenarioComparisonResponse.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Map<String, String> _headers(String token) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

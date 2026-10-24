@@ -247,3 +247,24 @@ class ScenarioDetail {
     );
   }
 }
+
+class ScenarioComparisonResponse {
+  final List<ScenarioSummary> scenarios;
+  final Map<String, dynamic> comparisonIndicators;
+
+  const ScenarioComparisonResponse({
+    this.scenarios = const [],
+    this.comparisonIndicators = const {},
+  });
+
+  factory ScenarioComparisonResponse.fromJson(Map<String, dynamic> json) {
+    final rawScenarios = json['scenarios'] as List<dynamic>? ?? const [];
+    return ScenarioComparisonResponse(
+      scenarios: rawScenarios
+          .map((e) => ScenarioSummary.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      comparisonIndicators:
+          (json['comparisonIndicators'] as Map<String, dynamic>?) ?? const {},
+    );
+  }
+}

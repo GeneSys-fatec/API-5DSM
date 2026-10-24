@@ -18,16 +18,23 @@ class ScenarioDetailSheet extends StatelessWidget {
 
   final bool enableMapTiles;
 
+  final VoidCallback? onViewResult;
+  final VoidCallback? onReuseConfig;
+
   const ScenarioDetailSheet({
     super.key,
     required this.detail,
     this.enableMapTiles = true,
+    this.onViewResult,
+    this.onReuseConfig,
   });
 
   static Future<void> show(
     BuildContext context,
     ScenarioDetail detail, {
     bool enableMapTiles = true,
+    VoidCallback? onViewResult,
+    VoidCallback? onReuseConfig,
   }) {
     return showDialog<void>(
       context: context,
@@ -36,6 +43,8 @@ class ScenarioDetailSheet extends StatelessWidget {
       builder: (_) => ScenarioDetailSheet(
         detail: detail,
         enableMapTiles: enableMapTiles,
+        onViewResult: onViewResult,
+        onReuseConfig: onReuseConfig,
       ),
     );
   }
@@ -158,6 +167,56 @@ class ScenarioDetailSheet extends StatelessWidget {
                         ],
                       ],
                     ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompact ? 14 : 20,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (onReuseConfig != null) ...[
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            onReuseConfig!();
+                          },
+                          icon: const Icon(Icons.tune_rounded, size: 16),
+                          label: const Text('Reaproveitar'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.textSecondary,
+                            side: const BorderSide(color: AppColors.cardBorder),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      if (onViewResult != null) ...[
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            onViewResult!();
+                          },
+                          icon: const Icon(Icons.bar_chart_rounded, size: 16),
+                          label: const Text('Ver Resultado'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Fechar'),
+                      ),
+                    ],
                   ),
                 ),
               ],

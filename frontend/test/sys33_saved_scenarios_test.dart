@@ -116,6 +116,16 @@ class FakeSavedScenarioService implements SavedScenarioService {
     if (listError != null) throw listError!;
     scenarios = scenarios.where((s) => s.id != id).toList();
   }
+
+  @override
+  Future<ScenarioComparisonResponse> compareScenarios(List<int> ids) async {
+    if (listError != null) throw listError!;
+    final matching = scenarios.where((s) => ids.contains(s.id)).toList();
+    return ScenarioComparisonResponse(
+      scenarios: matching,
+      comparisonIndicators: {'count': matching.length},
+    );
+  }
 }
 
 void main() {
