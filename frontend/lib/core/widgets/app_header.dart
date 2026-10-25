@@ -7,6 +7,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final String userName;
   final String? userEmail;
   final VoidCallback? onMenuTap;
+  final VoidCallback? onHelpTap;
   final VoidCallback? onLogout;
 
   const AppHeader({
@@ -15,6 +16,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.userName = 'Usuário',
     this.userEmail,
     this.onMenuTap,
+    this.onHelpTap,
     this.onLogout,
   });
 
@@ -54,6 +56,14 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                     email: userEmail,
                   ),
                 ),
+                if (onHelpTap != null) ...[
+                  IconButton(
+                    icon: const Icon(Icons.help_outline_rounded, color: AppColors.primary),
+                    onPressed: onHelpTap,
+                    tooltip: 'Tutorial & Ajuda desta tela',
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 const SizedBox(width: 12),
                 _LogoutButton(compact: isMobile, onPressed: onLogout),
               ],

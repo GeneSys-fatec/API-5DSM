@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../features/auth/data/auth_service.dart';
+import '../../features/manual/presentation/widgets/contextual_help_dialog.dart';
 import 'app_footer.dart';
 import 'app_header.dart';
 import 'app_navbar.dart';
@@ -11,6 +12,8 @@ class AppScaffold extends StatefulWidget {
   final String currentRoute;
   final Widget body;
   final bool showFooter;
+  final VoidCallback? onHelpTap;
+  final bool showHelpButton;
 
   const AppScaffold({
     super.key,
@@ -18,6 +21,8 @@ class AppScaffold extends StatefulWidget {
     required this.currentRoute,
     required this.body,
     this.showFooter = true,
+    this.onHelpTap,
+    this.showHelpButton = true,
   });
 
   @override
@@ -93,25 +98,31 @@ class _AppScaffoldState extends State<AppScaffold> {
             ),
           Expanded(
             child: Builder(
-              builder: (innerContext) => Column(
-                children: [
-                  AppHeader(
-                    title: widget.title,
-                    userName: _userName,
-                    userEmail: _userEmail,
-                    onMenuTap: () => Scaffold.of(innerContext).openDrawer(),
-                    onLogout: _handleLogout,
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.all(
-                          Responsive.horizontalPadding(context)),
-                      child: widget.body,
+              builder: (innerContext) {
+                final helpCallback = widget.showHelpButton && widget.currentRoute != '/manual'
+                    ? (widget.onHelpTap ?? () => showContextualHelpDialog(innerContext, route: widget.currentRoute))
+                    : null;
+                return Column(
+                  children: [
+                    AppHeader(
+                      title: widget.title,
+                      userName: _userName,
+                      userEmail: _userEmail,
+                      onMenuTap: () => Scaffold.of(innerContext).openDrawer(),
+                      onHelpTap: helpCallback,
+                      onLogout: _handleLogout,
                     ),
-                  ),
-                  if (widget.showFooter) const AppFooter(),
-                ],
-              ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(
+                            Responsive.horizontalPadding(context)),
+                        child: widget.body,
+                      ),
+                    ),
+                    if (widget.showFooter) const AppFooter(),
+                  ],
+                );
+              },
             ),
           ),
         ],
