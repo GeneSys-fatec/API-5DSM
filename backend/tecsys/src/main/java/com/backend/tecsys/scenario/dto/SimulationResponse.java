@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.Map;
 @Data
 @Builder
 @AllArgsConstructor
+@NoArgsConstructor
 @Schema(description = "Resultado da simulação de cobertura.")
 public class SimulationResponse {
 
@@ -76,9 +78,11 @@ public class SimulationResponse {
     @Data
     @Builder
     @AllArgsConstructor
+    @NoArgsConstructor
     @Schema(description = "Ativo avaliado pela simulação.")
     public static class AssetLocationResponse {
         private String assetKey;
+        private String type;
         private double latitude;
         private double longitude;
         private boolean covered;
@@ -87,6 +91,7 @@ public class SimulationResponse {
     @Data
     @Builder
     @AllArgsConstructor
+    @NoArgsConstructor
     @Schema(description = "Gateway selecionado na simulação.")
     public static class SelectedGatewayResponse {
         @Schema(description = "Identificador do candidato a gateway.", example = "1")

@@ -8,10 +8,62 @@ class CandidateAssetsCard extends StatelessWidget {
 
   const CandidateAssetsCard({super.key, required this.controller});
 
+  static const List<CandidateAssetType> _allDisplayTypes = [
+    CandidateAssetType.poste,
+    CandidateAssetType.trafo,
+    CandidateAssetType.religador,
+    CandidateAssetType.subestacao,
+    CandidateAssetType.ucbt,
+    CandidateAssetType.ucmt,
+    CandidateAssetType.ssdmt,
+    CandidateAssetType.ssdbt,
+    CandidateAssetType.ssdat,
+    CandidateAssetType.uncrat,
+  ];
+
+  List<CandidateAssetType> _resolveDisplayTypes() {
+    final result = controller.result;
+    if (result == null) {
+      return _allDisplayTypes;
+    }
+
+    final dynamicTypes = <CandidateAssetType>{};
+    // Include types reported by backend counts or availableTypes
+    for (final raw in result.availableTypes) {
+      dynamicTypes.add(CandidateAssetTypeExt.fromString(raw));
+    }
+    result.countsByType.forEach((type, count) {
+      if (count > 0) {
+        dynamicTypes.add(type);
+      }
+    });
+
+    // If backend provided types, filter _allDisplayTypes to present them in logical order,
+    // plus any extra dynamic types found.
+    if (dynamicTypes.isNotEmpty) {
+      final ordered = _allDisplayTypes.where(dynamicTypes.contains).toList();
+      for (final t in dynamicTypes) {
+        if (!ordered.contains(t) && t != CandidateAssetType.outros) {
+          ordered.add(t);
+        }
+      }
+      return ordered.isEmpty ? _allDisplayTypes : ordered;
+    }
+
+    return _allDisplayTypes;
+  }
+
+  Color _colorForType(CandidateAssetType type) => type.color;
+
+  IconData _iconForType(CandidateAssetType type) => type.icon;
+
   @override
   Widget build(BuildContext context) {
     final selectedTypes = controller.selectedAssetTypes;
     final totalCount = controller.totalCandidatesCount;
+    final displayTypes = _resolveDisplayTypes();
+    final allSelected = displayTypes.every(selectedTypes.contains);
+    final noneSelected = selectedTypes.isEmpty;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -67,46 +119,91 @@ class CandidateAssetsCard extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
-          _AssetTypeRow(
-            type: CandidateAssetType.poste,
-            label: 'Postes de Média Tensão (PONNOT)',
-            count: controller.countForType(CandidateAssetType.poste),
-            color: AppColors.primaryPurple,
-            iconData: Icons.circle,
-            isChecked: selectedTypes.contains(CandidateAssetType.poste),
-            onToggle: () => controller.toggleAssetType(CandidateAssetType.poste),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                key: const ValueKey('btn_marcar_todos'),
+                onPressed: allSelected
+                    ? null
+                    : () => controller.selectAllAssetTypes(displayTypes),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+                icon: const Icon(Icons.check_box_outlined, size: 14),
+                label: const Text('Marcar Todos'),
+              ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                key: const ValueKey('btn_desmarcar_todos'),
+                onPressed: noneSelected
+                    ? null
+                    : () => controller.deselectAllAssetTypes(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  foregroundColor: AppColors.textSecondary,
+                ),
+                icon: const Icon(Icons.check_box_outline_blank, size: 14),
+                label: const Text('Desmarcar Todos'),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          _AssetTypeRow(
-            type: CandidateAssetType.trafo,
-            label: 'Transformadores MT/BT (UNTRMT)',
-            count: controller.countForType(CandidateAssetType.trafo),
-            color: const Color(0xFFF59E0B),
-            iconData: Icons.crop_square_rounded,
-            isChecked: selectedTypes.contains(CandidateAssetType.trafo),
-            onToggle: () => controller.toggleAssetType(CandidateAssetType.trafo),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const ClampingScrollPhysics(),
+              itemCount: displayTypes.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 6),
+              itemBuilder: (context, index) {
+                final type = displayTypes[index];
+                return _AssetTypeRow(
+                  type: type,
+                  label: type.label,
+                  count: controller.countForType(type),
+                  color: _colorForType(type),
+                  iconData: _iconForType(type),
+                  isChecked: selectedTypes.contains(type),
+                  onToggle: () => controller.toggleAssetType(type),
+                );
+              },
+            ),
           ),
-          const SizedBox(height: 8),
-          _AssetTypeRow(
-            type: CandidateAssetType.religador,
-            label: 'Religadores e Chaves (UNREMT)',
-            count: controller.countForType(CandidateAssetType.religador),
-            color: const Color(0xFF4F46E5),
-            iconData: Icons.crop_square_rounded,
-            isChecked: selectedTypes.contains(CandidateAssetType.religador),
-            onToggle: () => controller.toggleAssetType(CandidateAssetType.religador),
-          ),
-          const SizedBox(height: 8),
-          _AssetTypeRow(
-            type: CandidateAssetType.subestacao,
-            label: 'Subestações Elétricas (SUB)',
-            count: controller.countForType(CandidateAssetType.subestacao),
-            color: const Color(0xFFDC2626),
-            iconData: Icons.bolt_rounded,
-            isChecked: selectedTypes.contains(CandidateAssetType.subestacao),
-            onToggle: () => controller.toggleAssetType(CandidateAssetType.subestacao),
-          ),
+          if (noneSelected) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFDC2626)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Selecione ao menos um tipo de ativo para avançar.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFB91C1C),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

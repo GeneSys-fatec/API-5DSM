@@ -66,8 +66,16 @@ public class RadioCoverageCalculator {
                 continue;
             }
 
-            TerrainProfile terrainProfile = terrainProfileProvider.getProfile(
-                    candidate.getCoordinate(), asset.getCoordinate());
+            TerrainProfile terrainProfile;
+            try {
+                terrainProfile = terrainProfileProvider.getProfile(
+                        candidate.getCoordinate(), asset.getCoordinate());
+            } catch (UnavailableTerrainDataException unavailableTerrainData) {
+                if (propagationModel.type() == PropagationModelType.ITM_LONGLEY_RICE) {
+                    throw unavailableTerrainData;
+                }
+                terrainProfile = TerrainProfile.empty();
+            }
 
             PropagationInput input = new PropagationInput(
                     rfParameter.getFrequencyMhz(),

@@ -60,6 +60,8 @@ public class SimulationRequest {
         @Valid
         private List<GatewayCandidateRequest> gatewayCandidates;
 
+    private List<String> selectedAssetTypes;
+
     @DecimalMin(value = "-90.0", message = "A latitude do centro da área de busca deve estar entre -90 e 90.")
     @DecimalMax(value = "90.0", message = "A latitude do centro da área de busca deve estar entre -90 e 90.")
     @Schema(description = "Latitude do centro da área de busca da Etapa 1. Junto com longitude e raio, define o "

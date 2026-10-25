@@ -110,7 +110,9 @@ class AreaDelimitationController extends ChangeNotifier {
 
   bool get canAdvance {
     if (_result == null) return false;
-    return _result!.isValid && filteredCandidates.isNotEmpty;
+    return _result!.isValid &&
+        _config.selectedAssetTypes.isNotEmpty &&
+        filteredCandidates.isNotEmpty;
   }
 
   Future<void> init() async {
@@ -142,6 +144,15 @@ class AreaDelimitationController extends ChangeNotifier {
     }
     await evaluateArea();
   }
+
+  /// Versões antigas salvavam candidatos fictícios (ids `sub-0`, `trafo-1`, `rel-2`,
+  /// `poste-3`) quando a API falhava. Esses resultados não devem ser reaproveitados.
+  static final RegExp _legacyMockId = RegExp(r'^(sub|trafo|rel|poste)-\d+$');
+
+  bool _containsLegacyMockCandidates(AreaDelimitationResult result) {
+    return result.candidates.any((c) => _legacyMockId.hasMatch(c.id));
+  }
+
   Future<void> _refreshBoundaryIfNeeded() async {
     final importId = _config.bdgdImportId;
     if (importId == null || importId.isEmpty) {
@@ -352,6 +363,19 @@ class AreaDelimitationController extends ChangeNotifier {
   void setDefineClickingOnMap(bool value) {
     _config = _config.copyWith(defineClickingOnMap: value);
     _sharedConfig = _config;
+    notifyListeners();
+  }
+
+  void selectAllAssetTypes(Iterable<CandidateAssetType> types) {
+    _config = _config.copyWith(selectedAssetTypes: types.toSet());
+    _sharedConfig = _config;
+    notifyListeners();
+  }
+
+  void deselectAllAssetTypes() {
+    _config = _config.copyWith(selectedAssetTypes: <CandidateAssetType>{});
+    _sharedConfig = _config;
+    _selectedCandidate = null;
     notifyListeners();
   }
 
