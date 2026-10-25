@@ -256,6 +256,17 @@ class BdgdGroupingIntegrationTest {
                 .andExpect(header().string("Access-Control-Allow-Methods", containsString("PATCH")));
     }
 
+    @Test
+    void shouldReturnAllowedImportOptions() throws Exception {
+        mockMvc.perform(get("/api/bdgd/options")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.regioes", hasItem("Centro-Oeste")))
+                .andExpect(jsonPath("$.regioes", hasItem("Sudeste")))
+                .andExpect(jsonPath("$.distribuidoras", hasItem("CEMIG-D")))
+                .andExpect(jsonPath("$.distribuidoras", hasItem("CPFL-PAULISTA")));
+    }
+
     private String insertImport(String regiao, String distribuidora) {
         String id = UUID.randomUUID().toString();
         jdbc.update("INSERT INTO bdgd_imports (id, distribuidora, regiao, data_referencia, file_name, storage_key, status, error_message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",

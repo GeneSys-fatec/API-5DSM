@@ -47,8 +47,8 @@ public class BdgdIngestionService {
 
     public BdgdImportResponse ingest(MultipartFile file, String distribuidora, String regiao, LocalDate data) {
         validator.validate(file);
-        String normalizedDistributor = groupValidator.normalizeAndValidate(distribuidora, "Distribuidora");
-        String normalizedRegion = groupValidator.normalizeAndValidate(regiao, "Regiao");
+        String normalizedDistributor = groupValidator.validateAndNormalizeDistributor(distribuidora);
+        String normalizedRegion = groupValidator.validateAndNormalizeRegion(regiao);
         if (data == null) {
             throw new InvalidBdgdUploadException("Data e obrigatoria");
         }
