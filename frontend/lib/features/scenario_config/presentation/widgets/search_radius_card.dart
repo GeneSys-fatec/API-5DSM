@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../controllers/area_delimitation_controller.dart';
+import 'radius_input_utils.dart';
 
 class SearchRadiusCard extends StatelessWidget {
   final AreaDelimitationController controller;
@@ -148,20 +150,90 @@ class _ModeButton extends StatelessWidget {
     );
   }
 }
-class _RadiusModeContent extends StatelessWidget {
+class _RadiusModeContent extends StatefulWidget {
   final AreaDelimitationController controller;
 
   const _RadiusModeContent({required this.controller});
 
   @override
+  State<_RadiusModeContent> createState() => _RadiusModeContentState();
+}
+
+class _RadiusModeContentState extends State<_RadiusModeContent> {
+  late final TextEditingController _textController;
+  late final FocusNode _focusNode;
+
+  late String _lastValidText;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastValidText = _formatCurrentRadius();
+    _textController = TextEditingController(text: _lastValidText);
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus) {
+        _commit();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_RadiusModeContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!_focusNode.hasFocus) {
+      final formatted = _formatCurrentRadius();
+      _textController.text = formatted;
+      _lastValidText = formatted;
+    }
+  }
+
+  String _formatCurrentRadius() {
+    final radiusKm = widget.controller.radiusKm;
+    final isUnitKm = widget.controller.isUnitKm;
+    final displayRadius = isUnitKm ? radiusKm : radiusKm * 1000.0;
+    return isUnitKm ? displayRadius.toStringAsFixed(1) : displayRadius.toStringAsFixed(0);
+  }
+
+  void _commit() {
+    final parsedValue = parseRadiusInput(_textController.text);
+    if (parsedValue == null) {
+      _textController.text = _lastValidText;
+      return;
+    }
+
+    final isUnitKm = widget.controller.isUnitKm;
+    final clampedKm = clampConfirmedRadius(
+      parsedValue,
+      isUnitKm: isUnitKm,
+      maxRadiusKm: widget.controller.maxRadiusKm,
+    );
+
+    final valueInSelectedUnit = isUnitKm ? clampedKm : clampedKm * 1000.0;
+    widget.controller.setRadius(valueInSelectedUnit, isUnitKm: isUnitKm); // AC 3.3
+
+    final formatted = _formatCurrentRadius();
+    _textController.text = formatted;
+    _lastValidText = formatted;
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     final radiusKm = controller.radiusKm;
     final isUnitKm = controller.isUnitKm;
     final isExceeded = controller.isRadiusExceeded;
     final intersects = controller.intersectsBoundary;
     final overlapPct = controller.boundaryOverlapPct;
 
-    final displayRadius = isUnitKm ? radiusKm : radiusKm * 1000.0;
     final unitLabel = isUnitKm ? 'km' : 'm';
 
     return Column(
@@ -195,14 +267,27 @@ class _RadiusModeContent extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    isUnitKm ? displayRadius.toStringAsFixed(1) : displayRadius.toStringAsFixed(0),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: isExceeded ? AppColors.vermelhoErro : AppColors.textPrimary,
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      focusNode: _focusNode,
+                      textAlign: TextAlign.start,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                        _SingleDecimalSeparatorFormatter(),
+                      ],
+                      decoration: const InputDecoration.collapsed(hintText: ''),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: isExceeded ? AppColors.vermelhoErro : AppColors.textPrimary,
+                      ),
+                      onEditingComplete: _commit,
+                      onSubmitted: (_) => _commit(),
                     ),
                   ),
+                  const SizedBox(width: 4),
                   Text(
                     unitLabel,
                     style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
@@ -223,9 +308,9 @@ class _RadiusModeContent extends StatelessWidget {
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
           ),
           child: Slider(
-            value: radiusKm.clamp(0.5, 10.0),
+            value: radiusKm.clamp(0.5, controller.maxRadiusKm),
             min: 0.5,
-            max: 10.0,
+            max: controller.maxRadiusKm,
             divisions: 95,
             onChanged: (val) => controller.setRadius(val, isUnitKm: true),
           ),
@@ -255,9 +340,9 @@ class _RadiusModeContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Text(
-                    'Teto Máx API: 8.0 km',
-                    style: TextStyle(
+                  Text(
+                    'Teto Máx API: ${controller.maxRadiusKm.toStringAsFixed(1)} km',
+                    style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: AppColors.warning,
@@ -265,7 +350,10 @@ class _RadiusModeContent extends StatelessWidget {
                   ),
                 ],
               ),
-              const Text('10.0 km', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+              Text(
+                '${controller.maxRadiusKm.toStringAsFixed(1)} km',
+                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+              ),
             ],
           ),
         ),
@@ -291,8 +379,8 @@ class _RadiusModeContent extends StatelessWidget {
               Expanded(
                 child: Text(
                   isExceeded
-                      ? 'O raio ultrapassou 8.0 km! A API bloqueou a simulação automaticamente por teto computacional em grade de alta densidade.'
-                      : 'Caso o raio ultrapasse 8.0 km, a API bloqueará a simulação automaticamente por teto computacional em grade de alta densidade.',
+                      ? 'O raio ultrapassou ${controller.maxRadiusKm.toStringAsFixed(1)} km! A API bloqueou a simulação automaticamente por teto computacional em grade de alta densidade.'
+                      : 'Caso o raio ultrapasse ${controller.maxRadiusKm.toStringAsFixed(1)} km, a API bloqueará a simulação automaticamente por teto computacional em grade de alta densidade.',
                   style: TextStyle(
                     fontSize: 11,
                     height: 1.35,
@@ -393,6 +481,21 @@ class _RadiusModeContent extends StatelessWidget {
     );
   }
 }
+
+class _SingleDecimalSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final separatorCount = newValue.text.split('').where((c) => c == '.' || c == ',').length;
+    if (separatorCount > 1) {
+      return oldValue;
+    }
+    return newValue;
+  }
+}
+
 class _PolygonModeContent extends StatelessWidget {
   final AreaDelimitationController controller;
 
