@@ -9,9 +9,11 @@ import '../../domain/models/area_delimitation_model.dart';
 class AreaDelimitationController extends ChangeNotifier {
   static AreaDelimitationConfig? _sharedConfig;
   static AreaDelimitationResult? _sharedResult;
+  static double? _sharedMaxRadiusKm;
 
   static AreaDelimitationConfig? get sharedConfig => _sharedConfig;
   static AreaDelimitationResult? get sharedResult => _sharedResult;
+  static double? get sharedMaxRadiusKm => _sharedMaxRadiusKm;
 
   static void setSharedConfig(AreaDelimitationConfig config) {
     _sharedConfig = config;
@@ -55,6 +57,7 @@ class AreaDelimitationController extends ChangeNotifier {
   String? _areaDelimitationError;
   bool _polygonPointOutOfBounds = false;
   Timer? _polygonDebounceTimer;
+  int _evaluationGeneration = 0;
 
   AreaDelimitationController({
     AreaDelimitationService? service,
@@ -82,11 +85,13 @@ class AreaDelimitationController extends ChangeNotifier {
 
   double get radiusKm => _config.radiusKm;
   bool get isUnitKm => _config.isUnitKm;
+
+  double get maxRadiusKm => _sharedMaxRadiusKm ?? AreaDelimitationService.maxRadiusKm;
   bool get defineClickingOnMap => _config.defineClickingOnMap;
   Set<CandidateAssetType> get selectedAssetTypes => _config.selectedAssetTypes;
 
   bool get isRadiusExceeded =>
-      _result?.isRadiusExceeded ?? (_config.radiusKm > 8.0);
+      _result?.isRadiusExceeded ?? (_config.radiusKm > maxRadiusKm);
   bool get intersectsBoundary => _result?.intersectsBoundary ?? false;
   double get boundaryOverlapPct => _result?.boundaryOverlapPct ?? 0.0;
 
@@ -116,9 +121,11 @@ class AreaDelimitationController extends ChangeNotifier {
   }
 
   Future<void> init() async {
+    unawaited(_loadRadiusCeiling()); 
     if (_sharedResult != null) {
       _result = _sharedResult;
       _config = _sharedConfig ?? _config;
+      _enforceRadiusCeiling(); 
       await _refreshBoundaryIfNeeded();
       notifyListeners();
       await evaluateArea();
@@ -133,6 +140,7 @@ class AreaDelimitationController extends ChangeNotifier {
       _result = cachedResult;
       _sharedConfig = cachedConfig;
       _sharedResult = cachedResult;
+      _enforceRadiusCeiling();
       await _refreshBoundaryIfNeeded();
       notifyListeners();
       await evaluateArea();
@@ -141,12 +149,31 @@ class AreaDelimitationController extends ChangeNotifier {
     if (cachedConfig != null) {
       _config = cachedConfig;
       _sharedConfig = cachedConfig;
+      _enforceRadiusCeiling(); 
     }
     await evaluateArea();
   }
 
-  /// Versões antigas salvavam candidatos fictícios (ids `sub-0`, `trafo-1`, `rel-2`,
-  /// `poste-3`) quando a API falhava. Esses resultados não devem ser reaproveitados.
+  Future<void> _loadRadiusCeiling() async {
+    if (_sharedMaxRadiusKm != null) return; 
+    final fetched = await _service.fetchMaxRadiusKm();
+    if (fetched == null) return;
+    _sharedMaxRadiusKm = fetched;
+    if (_enforceRadiusCeiling()) {
+      await evaluateArea();
+    } else {
+      notifyListeners(); 
+    }
+  }
+
+  bool _enforceRadiusCeiling() {
+    if (_config.radiusKm <= maxRadiusKm) return false;
+    _config = _config.copyWith(radiusKm: maxRadiusKm);
+    _sharedConfig = _config;
+    _storageService.saveAreaConfig(_config);
+    return true;
+  }
+
   static final RegExp _legacyMockId = RegExp(r'^(sub|trafo|rel|poste)-\d+$');
 
   bool _containsLegacyMockCandidates(AreaDelimitationResult result) {
@@ -177,14 +204,33 @@ class AreaDelimitationController extends ChangeNotifier {
     return LatLngBounds.fromPoints(_boundaryPolygon!);
   }
 
+  void _recenterIfOutsideKnownBoundary() {
+    final boundary = _boundaryPolygon;
+    if (boundary == null || boundary.length < 3) return;
+    if (isPointInsidePolygon(_config.centerLatitude, _config.centerLongitude, boundary)) {
+      return;
+    }
+    final resolved = resolvePolygonCenter(boundary);
+    _config = _config.copyWith(
+      centerLatitude: resolved.latitude,
+      centerLongitude: resolved.longitude,
+    );
+    _sharedConfig = _config;
+    _pointOutOfBounds = false;
+  }
+
   Future<void> evaluateArea() async {
+    final myGeneration = ++_evaluationGeneration;
     _isLoading = true;
     _areaDelimitationError = null;
     notifyListeners();
 
     try {
       await _refreshBoundaryIfNeeded();
-      _result = await _service.evaluateArea(_config);
+      _recenterIfOutsideKnownBoundary();
+      final result = await _service.evaluateArea(_config);
+      if (myGeneration != _evaluationGeneration) return;
+      _result = result;
       _pointOutOfBounds = false;
       _sharedConfig = _config;
       _sharedResult = _result;
@@ -193,14 +239,18 @@ class AreaDelimitationController extends ChangeNotifier {
         _storageService.saveAreaResult(_result!);
       }
     } on PointOutOfBoundsException {
+      if (myGeneration != _evaluationGeneration) return;
       _pointOutOfBounds = true;
       _result = null;
     } on AreaDelimitationException catch (e) {
+      if (myGeneration != _evaluationGeneration) return;
       _areaDelimitationError = e.message;
       _result = null;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (myGeneration == _evaluationGeneration) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

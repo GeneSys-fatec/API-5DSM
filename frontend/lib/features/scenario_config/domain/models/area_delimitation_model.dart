@@ -22,6 +22,38 @@ bool isPointInsidePolygon(double latitude, double longitude, List<LatLng> polygo
   return inside;
 }
 
+LatLng resolvePolygonCenter(List<LatLng> polygon) {
+  assert(polygon.length >= 3);
+
+  double signedArea = 0.0;
+  double centroidLat = 0.0;
+  double centroidLng = 0.0;
+  for (var i = 0; i < polygon.length; i++) {
+    final p0 = polygon[i];
+    final p1 = polygon[(i + 1) % polygon.length];
+    final cross = p0.longitude * p1.latitude - p1.longitude * p0.latitude;
+    signedArea += cross;
+    centroidLng += (p0.longitude + p1.longitude) * cross;
+    centroidLat += (p0.latitude + p1.latitude) * cross;
+  }
+  signedArea *= 0.5;
+
+  if (signedArea.abs() > 1e-12) {
+    final centroid = LatLng(centroidLat / (6 * signedArea), centroidLng / (6 * signedArea));
+    if (isPointInsidePolygon(centroid.latitude, centroid.longitude, polygon)) {
+      return centroid;
+    }
+  }
+
+  final avgLat = polygon.map((p) => p.latitude).reduce((a, b) => a + b) / polygon.length;
+  final avgLng = polygon.map((p) => p.longitude).reduce((a, b) => a + b) / polygon.length;
+  if (isPointInsidePolygon(avgLat, avgLng, polygon)) {
+    return LatLng(avgLat, avgLng);
+  }
+
+  return polygon.first;
+}
+
 enum CandidateAssetType {
   poste,
   trafo,

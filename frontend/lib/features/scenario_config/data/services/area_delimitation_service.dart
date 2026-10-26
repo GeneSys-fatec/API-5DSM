@@ -10,6 +10,37 @@ import '../models/api_models.dart';
 class AreaDelimitationService {
   static const double maxRadiusKm = 8.0;
 
+  Future<double?> fetchMaxRadiusKm() async {
+    final prefs = await SharedPreferences.getInstance();
+    var token = prefs.getString('auth_token');
+    if (token == null) {
+      token = await _attemptAutoLogin();
+    }
+    if (token == null) {
+      return null;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/scenario/search-area/config'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      final meters = (body['maxRadiusMeters'] as num?)?.toDouble();
+      return meters != null ? meters / 1000.0 : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<List<double>>?> fetchBdgdBounds(String importId) async {
     final prefs = await SharedPreferences.getInstance();
     var token = prefs.getString('auth_token');

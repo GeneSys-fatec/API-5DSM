@@ -3,6 +3,7 @@ package com.backend.tecsys.scenario.service;
 import com.backend.tecsys.bdgd.service.BdgdAssetService;
 import com.backend.tecsys.scenario.catalog.BdgdAssetCatalog;
 import com.backend.tecsys.scenario.dto.AssetDto;
+import com.backend.tecsys.scenario.dto.SearchAreaConfigResponse;
 import com.backend.tecsys.scenario.dto.SearchAreaRequest;
 import com.backend.tecsys.scenario.dto.SearchAreaResponse;
 import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
@@ -39,6 +40,12 @@ public class SearchAreaService {
         this.assetRepository = assetRepository;
         this.bdgdAssetService = bdgdAssetService;
         this.assetCatalog = assetCatalog;
+    }
+
+    public SearchAreaConfigResponse getRadiusConfig() {
+        return SearchAreaConfigResponse.builder()
+                .maxRadiusMeters(maxRadius)
+                .build();
     }
 
     public SearchAreaResponse processSearchArea(SearchAreaRequest request) {
