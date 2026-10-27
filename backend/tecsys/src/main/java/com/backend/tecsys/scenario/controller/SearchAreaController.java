@@ -1,6 +1,8 @@
 package com.backend.tecsys.scenario.controller;
 
+import com.backend.tecsys.scenario.exception.PointOutOfBoundsException;
 import com.backend.tecsys.scenario.service.SearchAreaService;
+import com.backend.tecsys.scenario.dto.SearchAreaConfigResponse;
 import com.backend.tecsys.scenario.dto.SearchAreaRequest;
 import com.backend.tecsys.scenario.dto.SearchAreaResponse;
 import jakarta.validation.Valid;
@@ -17,11 +19,21 @@ public class SearchAreaController {
         this.searchAreaService = searchAreaService;
     }
 
+    @GetMapping("/config")
+    public ResponseEntity<SearchAreaConfigResponse> getRadiusConfig() {
+        return ResponseEntity.ok(searchAreaService.getRadiusConfig());
+    }
+
     @PostMapping
     public ResponseEntity<SearchAreaResponse> delimitSearchArea(@Valid @RequestBody SearchAreaRequest request) {
         try {
             SearchAreaResponse response = searchAreaService.processSearchArea(request);
             return ResponseEntity.ok(response);
+        } catch (PointOutOfBoundsException e) {
+            return ResponseEntity.badRequest().body(SearchAreaResponse.builder()
+                    .validationStatus("ERROR_OUT_OF_BOUNDS")
+                    .message(e.getMessage())
+                    .build());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(SearchAreaResponse.builder()
                     .validationStatus("ERROR")

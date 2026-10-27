@@ -1,14 +1,18 @@
 package com.backend.tecsys.scenario.repository;
 
 import com.backend.tecsys.scenario.model.Asset;
+import com.backend.tecsys.scenario.model.PolygonPoint;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface IAssetRepository {
 
-    List<Asset> findByUtilityId(Long utilityId);
+    List<Asset> findByImportId(UUID importId);
 
-    List<Asset> findWithinRadius(double latitude, double longitude, double radiusMeters);
+    List<Asset> findWithinRadius(UUID importId, double latitude, double longitude, double radiusMeters);
 
-    List<Asset> findAllWithinRadius(double latitude, double longitude, double radiusMeters);
+    List<Asset> findAllWithinRadius(UUID importId, double latitude, double longitude, double radiusMeters);
+
+    List<Asset> findWithinPolygon(UUID importId, List<PolygonPoint> polygonPoints);
 }

@@ -1,9 +1,8 @@
-package com.backend.tecsys.radio.service;import com.backend.tecsys.radio.model.PropagationInput;
-import com.backend.tecsys.radio.model.TerrainProfile;
-
-
+package com.backend.tecsys.radio.service;
 import com.backend.tecsys.radio.exception.PropagationCalculationException;
 import com.backend.tecsys.radio.exception.UnavailableTerrainDataException;
+import com.backend.tecsys.radio.model.PropagationInput;
+import com.backend.tecsys.radio.model.TerrainProfile;
 import com.backend.tecsys.scenario.model.PropagationModelType;
 import org.springframework.stereotype.Component;
 
@@ -22,8 +21,8 @@ public class ItmLongleyRiceModel implements PropagationModel {
         TerrainProfile terrainProfile = input.terrainProfile();
         if (terrainProfile == null || !terrainProfile.isAvailable()) {
             throw new UnavailableTerrainDataException(
-                    "Dados de relevo indisponíveis para o cálculo ITM (Longley-Rice). "
-                            + "Informe um perfil de terreno para este cenário.");
+                    "Perfil de elevação indisponível para o cálculo ITM (Longley-Rice)."
+            );
         }
 
         double frequencyMhz = input.frequencyMhz();

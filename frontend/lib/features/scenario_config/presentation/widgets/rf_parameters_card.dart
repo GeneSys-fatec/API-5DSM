@@ -410,7 +410,7 @@ class RfParametersCard extends StatelessWidget {
                 _buildModelCard(
                   title: 'ITM (Longley-Rice Relevo)',
                   description:
-                      'Considera difração do terreno SRTM e clutter de vegetação densa.',
+                      'Usa SRTM público ou local; Copernicus GLO-90 (Open-Meteo) como alternativa.',
                   modelName: 'ITM (Longley-Rice Relevo)',
                   width: isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
                 ),

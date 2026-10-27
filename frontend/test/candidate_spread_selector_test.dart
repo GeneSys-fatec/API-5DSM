@@ -122,6 +122,7 @@ void main() {
 
     test('envia a area de busca da Etapa 1 quando informada', () {
       const request = SimulationRequest(
+        importId: 'import-1',
         name: 'x',
         regionName: 'y',
         coverageTargetPct: 90,
@@ -141,6 +142,7 @@ void main() {
 
     test('omite a area de busca quando nao informada', () {
       const request = SimulationRequest(
+        importId: 'import-1',
         name: 'x',
         regionName: 'y',
         coverageTargetPct: 90,

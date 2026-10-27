@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../data/services/area_delimitation_service.dart';
 import '../../data/services/scenario_storage_service.dart';
 import '../../domain/models/area_delimitation_model.dart';
@@ -6,9 +9,11 @@ import '../../domain/models/area_delimitation_model.dart';
 class AreaDelimitationController extends ChangeNotifier {
   static AreaDelimitationConfig? _sharedConfig;
   static AreaDelimitationResult? _sharedResult;
+  static double? _sharedMaxRadiusKm;
 
   static AreaDelimitationConfig? get sharedConfig => _sharedConfig;
   static AreaDelimitationResult? get sharedResult => _sharedResult;
+  static double? get sharedMaxRadiusKm => _sharedMaxRadiusKm;
 
   static void setSharedConfig(AreaDelimitationConfig config) {
     _sharedConfig = config;
@@ -46,6 +51,13 @@ class AreaDelimitationController extends ChangeNotifier {
   bool _isLoading = false;
   CandidateAsset? _selectedCandidate;
   String _activeMapLayer = 'vetor';
+  List<LatLng>? _boundaryPolygon;
+  String? _lastBoundaryImportId;
+  bool _pointOutOfBounds = false;
+  String? _areaDelimitationError;
+  bool _polygonPointOutOfBounds = false;
+  Timer? _polygonDebounceTimer;
+  int _evaluationGeneration = 0;
 
   AreaDelimitationController({
     AreaDelimitationService? service,
@@ -62,14 +74,24 @@ class AreaDelimitationController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   CandidateAsset? get selectedCandidate => _selectedCandidate;
   String get activeMapLayer => _activeMapLayer;
+  List<LatLng>? get boundaryPolygon => _boundaryPolygon;
+  bool get pointOutOfBounds => _pointOutOfBounds;
+  String? get areaDelimitationError => _areaDelimitationError;
+  bool get useDrawnPolygon => _config.useDrawnPolygon;
+  bool get polygonPointOutOfBounds => _polygonPointOutOfBounds;
+  List<LatLng> get drawnPolygonPoints => _config.drawnPolygonPoints
+      .map((pair) => LatLng(pair[0], pair[1]))
+      .toList();
 
   double get radiusKm => _config.radiusKm;
   bool get isUnitKm => _config.isUnitKm;
+
+  double get maxRadiusKm => _sharedMaxRadiusKm ?? AreaDelimitationService.maxRadiusKm;
   bool get defineClickingOnMap => _config.defineClickingOnMap;
   Set<CandidateAssetType> get selectedAssetTypes => _config.selectedAssetTypes;
 
   bool get isRadiusExceeded =>
-      _result?.isRadiusExceeded ?? (_config.radiusKm > 8.0);
+      _result?.isRadiusExceeded ?? (_config.radiusKm > maxRadiusKm);
   bool get intersectsBoundary => _result?.intersectsBoundary ?? false;
   double get boundaryOverlapPct => _result?.boundaryOverlapPct ?? 0.0;
 
@@ -93,52 +115,167 @@ class AreaDelimitationController extends ChangeNotifier {
 
   bool get canAdvance {
     if (_result == null) return false;
-    return _result!.isValid && filteredCandidates.isNotEmpty;
+    return _result!.isValid &&
+        _config.selectedAssetTypes.isNotEmpty &&
+        filteredCandidates.isNotEmpty;
   }
 
   Future<void> init() async {
+    unawaited(_loadRadiusCeiling()); 
     if (_sharedResult != null) {
       _result = _sharedResult;
       _config = _sharedConfig ?? _config;
+      _enforceRadiusCeiling(); 
+      await _refreshBoundaryIfNeeded();
       notifyListeners();
+      await evaluateArea();
       return;
     }
     final cachedConfig = await _storageService.loadAreaConfig();
     final cachedResult = await _storageService.loadAreaResult();
-    if (cachedConfig != null && cachedResult != null) {
+    if (cachedConfig != null &&
+        cachedResult != null &&
+        !_containsLegacyMockCandidates(cachedResult)) {
       _config = cachedConfig;
       _result = cachedResult;
       _sharedConfig = cachedConfig;
       _sharedResult = cachedResult;
+      _enforceRadiusCeiling();
+      await _refreshBoundaryIfNeeded();
       notifyListeners();
+      await evaluateArea();
       return;
+    }
+    if (cachedConfig != null) {
+      _config = cachedConfig;
+      _sharedConfig = cachedConfig;
+      _enforceRadiusCeiling(); 
     }
     await evaluateArea();
   }
 
+  Future<void> _loadRadiusCeiling() async {
+    if (_sharedMaxRadiusKm != null) return; 
+    final fetched = await _service.fetchMaxRadiusKm();
+    if (fetched == null) return;
+    _sharedMaxRadiusKm = fetched;
+    if (_enforceRadiusCeiling()) {
+      await evaluateArea();
+    } else {
+      notifyListeners(); 
+    }
+  }
+
+  bool _enforceRadiusCeiling() {
+    if (_config.radiusKm <= maxRadiusKm) return false;
+    _config = _config.copyWith(radiusKm: maxRadiusKm);
+    _sharedConfig = _config;
+    _storageService.saveAreaConfig(_config);
+    return true;
+  }
+
+  static final RegExp _legacyMockId = RegExp(r'^(sub|trafo|rel|poste)-\d+$');
+
+  bool _containsLegacyMockCandidates(AreaDelimitationResult result) {
+    return result.candidates.any((c) => _legacyMockId.hasMatch(c.id));
+  }
+
+  Future<void> _refreshBoundaryIfNeeded() async {
+    final importId = _config.bdgdImportId;
+    if (importId == null || importId.isEmpty) {
+      _boundaryPolygon = null;
+      _lastBoundaryImportId = null;
+      return;
+    }
+    if (importId == _lastBoundaryImportId) {
+      return;
+    }
+    final rawCoordinates = await _service.fetchBdgdBounds(importId);
+    _lastBoundaryImportId = importId;
+    _boundaryPolygon = rawCoordinates
+        ?.map((pair) => LatLng(pair[1], pair[0]))
+        .toList();
+  }
+
+  LatLngBounds? get boundaryLatLngBounds {
+    if (_boundaryPolygon == null || _boundaryPolygon!.isEmpty) {
+      return null;
+    }
+    return LatLngBounds.fromPoints(_boundaryPolygon!);
+  }
+
+  void _recenterIfOutsideKnownBoundary() {
+    final boundary = _boundaryPolygon;
+    if (boundary == null || boundary.length < 3) return;
+    if (isPointInsidePolygon(_config.centerLatitude, _config.centerLongitude, boundary)) {
+      return;
+    }
+    final resolved = resolvePolygonCenter(boundary);
+    _config = _config.copyWith(
+      centerLatitude: resolved.latitude,
+      centerLongitude: resolved.longitude,
+    );
+    _sharedConfig = _config;
+    _pointOutOfBounds = false;
+  }
+
   Future<void> evaluateArea() async {
+    final myGeneration = ++_evaluationGeneration;
     _isLoading = true;
+    _areaDelimitationError = null;
     notifyListeners();
 
     try {
-      _result = await _service.evaluateArea(_config);
+      await _refreshBoundaryIfNeeded();
+      _recenterIfOutsideKnownBoundary();
+      final result = await _service.evaluateArea(_config);
+      if (myGeneration != _evaluationGeneration) return;
+      _result = result;
+      _pointOutOfBounds = false;
       _sharedConfig = _config;
       _sharedResult = _result;
       _storageService.saveAreaConfig(_config);
       if (_result != null) {
         _storageService.saveAreaResult(_result!);
       }
+    } on PointOutOfBoundsException {
+      if (myGeneration != _evaluationGeneration) return;
+      _pointOutOfBounds = true;
+      _result = null;
+    } on AreaDelimitationException catch (e) {
+      if (myGeneration != _evaluationGeneration) return;
+      _areaDelimitationError = e.message;
+      _result = null;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (myGeneration == _evaluationGeneration) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
-  void setCenterCoordinates(double lat, double lng) {
+  static const Duration _polygonDebounceDuration = Duration(milliseconds: 400);
+
+  void _scheduleEvaluateArea() {
+    _polygonDebounceTimer?.cancel();
+    _polygonDebounceTimer = Timer(_polygonDebounceDuration, () {
+      evaluateArea();
+    });
+  }
+  bool setCenterCoordinates(double lat, double lng) {
+    if (_boundaryPolygon != null &&
+        !isPointInsidePolygon(lat, lng, _boundaryPolygon!)) {
+      _pointOutOfBounds = true;
+      notifyListeners();
+      return false;
+    }
+
+    _pointOutOfBounds = false;
     _config = _config.copyWith(centerLatitude: lat, centerLongitude: lng);
     _sharedConfig = _config;
     _selectedCandidate = null;
     evaluateArea();
+    return true;
   }
 
   void applyConfig(AreaDelimitationConfig newConfig) {
@@ -149,12 +286,97 @@ class AreaDelimitationController extends ChangeNotifier {
   }
 
   void onMapTap(double lat, double lng) {
-    if (_config.defineClickingOnMap) {
+    if (_config.useDrawnPolygon) {
+      addPolygonPoint(lat, lng);
+    } else if (_config.defineClickingOnMap) {
       setCenterCoordinates(lat, lng);
     } else {
       _selectedCandidate = null;
       notifyListeners();
     }
+  }
+
+  void setUseDrawnPolygon(bool value) {
+    if (_config.useDrawnPolygon == value) return;
+    _config = _config.copyWith(useDrawnPolygon: value);
+    _sharedConfig = _config;
+    _polygonPointOutOfBounds = false;
+    if (!value || _config.drawnPolygonPoints.length >= 3) {
+      evaluateArea();
+    } else {
+      _result = null;
+      notifyListeners();
+    }
+  }
+
+  bool addPolygonPoint(double lat, double lng) {
+    if (_boundaryPolygon != null &&
+        !isPointInsidePolygon(lat, lng, _boundaryPolygon!)) {
+      _polygonPointOutOfBounds = true;
+      notifyListeners();
+      return false;
+    }
+
+    _polygonPointOutOfBounds = false;
+    final updatedPoints = List<List<double>>.from(_config.drawnPolygonPoints)
+      ..add([lat, lng]);
+    _config = _config.copyWith(drawnPolygonPoints: updatedPoints);
+    _sharedConfig = _config;
+    if (updatedPoints.length >= 3) {
+      _scheduleEvaluateArea();
+    } else {
+      notifyListeners();
+    }
+    return true;
+  }
+
+  bool movePolygonPoint(int index, double lat, double lng) {
+    if (index < 0 || index >= _config.drawnPolygonPoints.length) {
+      return false;
+    }
+    if (_boundaryPolygon != null &&
+        !isPointInsidePolygon(lat, lng, _boundaryPolygon!)) {
+      _polygonPointOutOfBounds = true;
+      notifyListeners();
+      return false;
+    }
+
+    _polygonPointOutOfBounds = false;
+    final updatedPoints = List<List<double>>.from(_config.drawnPolygonPoints);
+    updatedPoints[index] = [lat, lng];
+    _config = _config.copyWith(drawnPolygonPoints: updatedPoints);
+    _sharedConfig = _config;
+    if (updatedPoints.length >= 3) {
+      _scheduleEvaluateArea();
+    } else {
+      notifyListeners();
+    }
+    return true;
+  }
+
+  void removePolygonPoint(int index) {
+    if (index < 0 || index >= _config.drawnPolygonPoints.length) {
+      return;
+    }
+    final updatedPoints = List<List<double>>.from(_config.drawnPolygonPoints)
+      ..removeAt(index);
+    _config = _config.copyWith(drawnPolygonPoints: updatedPoints);
+    _sharedConfig = _config;
+    _polygonPointOutOfBounds = false;
+    if (updatedPoints.length >= 3) {
+      _scheduleEvaluateArea();
+    } else {
+      _result = null;
+      notifyListeners();
+    }
+  }
+
+  void clearDrawnPolygon() {
+    _config = _config.copyWith(drawnPolygonPoints: const []);
+    _sharedConfig = _config;
+    _polygonPointOutOfBounds = false;
+    _result = null;
+    notifyListeners();
   }
 
   void setAddressQuery(String query) {
@@ -194,6 +416,19 @@ class AreaDelimitationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectAllAssetTypes(Iterable<CandidateAssetType> types) {
+    _config = _config.copyWith(selectedAssetTypes: types.toSet());
+    _sharedConfig = _config;
+    notifyListeners();
+  }
+
+  void deselectAllAssetTypes() {
+    _config = _config.copyWith(selectedAssetTypes: <CandidateAssetType>{});
+    _sharedConfig = _config;
+    _selectedCandidate = null;
+    notifyListeners();
+  }
+
   void toggleAssetType(CandidateAssetType type) {
     final current = Set<CandidateAssetType>.from(_config.selectedAssetTypes);
     if (current.contains(type)) {
@@ -218,5 +453,11 @@ class AreaDelimitationController extends ChangeNotifier {
   void setMapLayer(String layer) {
     _activeMapLayer = layer;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _polygonDebounceTimer?.cancel();
+    super.dispose();
   }
 }

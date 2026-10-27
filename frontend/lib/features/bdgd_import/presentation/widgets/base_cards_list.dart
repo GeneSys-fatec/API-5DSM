@@ -6,7 +6,8 @@ import '../../models/bdgd_base.dart';
 class BaseCardsList extends StatelessWidget {
   final List<BdgdBase> bases;
   final ValueChanged<BdgdBase>? onSelectBase;
-  const BaseCardsList({super.key, required this.bases, this.onSelectBase});
+  final ValueChanged<BdgdBase>? onEditBase;
+  const BaseCardsList({super.key, required this.bases, this.onSelectBase, this.onEditBase});
 
   @override
   Widget build(BuildContext context) {
@@ -63,33 +64,42 @@ class BaseCardsList extends StatelessWidget {
                       '${b.versaoBase} · ${b.ativosMapeados > 0 ? '${formatThousands(b.ativosMapeados)} pts' : (b.status == 'processando' ? 'Em processamento...' : '0 pts')}',
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
-                    Text(
-                      b.projecao,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                    ),
                     const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton.icon(
-                        onPressed: (b.status == 'concluido' || b.status == 'concluído')
-                            ? () => onSelectBase?.call(b)
-                            : null,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                        label: const Text(
-                          'Simular Cenário',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: AppColors.border,
-                          disabledForegroundColor: AppColors.textMuted,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (onEditBase != null && b.id != null) ...[
+                          TextButton.icon(
+                            onPressed: () => onEditBase?.call(b),
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text(
+                              'Editar grupo',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        ElevatedButton.icon(
+                          onPressed: (b.status == 'concluido' || b.status == 'concluído')
+                              ? () => onSelectBase?.call(b)
+                              : null,
+                          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                          label: const Text(
+                            'Simular Cenário',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: AppColors.border,
+                            disabledForegroundColor: AppColors.textMuted,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),

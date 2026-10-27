@@ -12,8 +12,11 @@ import 'package:frontend/features/scenario_config/domain/models/area_delimitatio
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockSimulationService extends SimulationService {
+  SimulationRequest? lastRequest;
+
   @override
   Future<SimulationResponse> runSimulationWithAuth(SimulationRequest request) async {
+    lastRequest = request;
     return SimulationResponse(
       scenarioId: 1,
       status: 'concluido',
@@ -33,6 +36,9 @@ class MockSimulationService extends SimulationService {
 }
 
 class MockAreaDelimitationService extends AreaDelimitationService {
+  @override
+  Future<List<List<double>>?> fetchBdgdBounds(String importId) async => null;
+
   @override
   Future<AreaDelimitationResult> evaluateArea(AreaDelimitationConfig config) async {
     return AreaDelimitationResult(
@@ -191,6 +197,53 @@ void main() {
       expect(controller.rxSensitivityError, isNull);
       expect(controller.isValid, isTrue);
     });
+
+    test('Aceita potência TX negativa em dBm quando supera a sensibilidade RX', () {
+      controller.txPowerController.text = '-10';
+      controller.rxSensitivityController.text = '-120';
+
+      expect(controller.txPowerError, isNull);
+      expect(controller.rxSensitivityError, isNull);
+      expect(controller.isValid, isTrue);
+    });
+  });
+
+  test('Envia cada modelo de propagacao e a potencia TX configurada', () async {
+    AreaDelimitationController.resetSharedState();
+    AreaDelimitationController.setSharedConfig(
+      const AreaDelimitationConfig(bdgdImportId: 'import-test-1'),
+    );
+    final areaController = AreaDelimitationController(service: MockAreaDelimitationService());
+    await areaController.init();
+    addTearDown(areaController.dispose);
+
+    final simulationService = MockSimulationService();
+    final controller = ScenarioConfigController(
+      simulationService: simulationService,
+    );
+    addTearDown(controller.dispose);
+
+    const cases = {
+      'Okumura-Hata Suburbano': 'OKUMURA_HATA_SUBURBAN',
+      '3GPP TR 38.901 Rural Macro': 'THREE_GPP_RURAL_MACRO',
+      'ITM (Longley-Rice Relevo)': 'ITM_LONGLEY_RICE',
+    };
+
+    const transmitPowers = [-10, 10, 30];
+    var index = 0;
+    for (final entry in cases.entries) {
+      final transmitPower = transmitPowers[index];
+      controller.setPropagationModel(entry.key);
+      controller.txPowerController.text = '$transmitPower';
+
+      expect(await controller.calculateScenario(), isTrue);
+      expect(simulationService.lastRequest?.propagationModel, entry.value);
+      expect(
+        simulationService.lastRequest?.rfParameter.transmitPowerDbm,
+        transmitPower.toDouble(),
+      );
+      index++;
+    }
   });
 
   group('ScenarioConfigScreen Widget Tests', () {
@@ -216,6 +269,10 @@ void main() {
       expect(find.text('ALTURA DO GATEWAY'), findsOneWidget);
       expect(find.text('ALTURA DO RECEPTOR'), findsOneWidget);
       expect(find.text('Okumura-Hata Suburbano'), findsOneWidget);
+      expect(find.text('3GPP TR 38.901 Rural Macro'), findsOneWidget);
+      expect(find.text('ITM (Longley-Rice Relevo)'), findsOneWidget);
+      expect(find.text('Two-Ray Ground'), findsNothing);
+      expect(find.text('Free Space'), findsNothing);
 
       expect(
         find.text('Metas de Cobertura e Restrições de Orçamento'),
@@ -272,6 +329,9 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       AreaDelimitationController.resetSharedState();
+      AreaDelimitationController.setSharedConfig(
+        const AreaDelimitationConfig(bdgdImportId: 'import-test-1'),
+      );
       final areaController = AreaDelimitationController(service: MockAreaDelimitationService());
       await areaController.init();
 

@@ -1,0 +1,81 @@
+{
+  "name": "ETL TECSYS (import local)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Antes de ativar este workflow\n\n1. Configure as variaveis de ambiente do processo onde o n8n roda:\n   - `ETL_PYTHON_EXE` — caminho completo do python.exe/python3 que tem fiona, geopandas, gdal, etc. instalados (o mesmo venv usado pelo ETL).\n   - `ETL_MAIN_PY` — caminho completo para `ETL/main.py` neste repositorio.\n2. Depois de importar, abra o node **Execute Command** e confira se os caminhos resolvidos fazem sentido para a sua maquina.\n3. Ative o workflow (toggle no topo) para o Webhook ficar escutando em producao.",
+        "height": 320,
+        "width": 460
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -280
+      ],
+      "id": "a1b2c3d4-0001-4a11-8c21-000000000001",
+      "name": "Leia-me"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "get-etl-data",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        240
+      ],
+      "id": "a1b2c3d4-0002-4a11-8c21-000000000002",
+      "name": "Webhook",
+      "webhookId": "a1b2c3d4-0002-4a11-8c21-000000000099"
+    },
+    {
+      "parameters": {
+        "command": "=\"{{$env.ETL_PYTHON_EXE}}\" \"{{$env.ETL_MAIN_PY}}\" \"{{$json.body.gdb_path}}\" \"{{$json.body.distribuidora}}\" \"{{$json.body.regiao}}\" --import-id \"{{$json.body.import_id}}\" --layers SUB UCBT UCMT POSTE SSDBT SSDMT SSDAT"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        176,
+        240
+      ],
+      "id": "a1b2c3d4-0003-4a11-8c21-000000000003",
+      "name": "Execute Command"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "a1b2c3d4-0000-4a11-8c21-000000000000",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "id": "bdgdEtlTecsysImport01",
+  "tags": []
+}

@@ -1,5 +1,3 @@
-library scenario_results_models;
-
 import 'dart:convert';
 
 class GatewayPoint {
@@ -12,6 +10,10 @@ class GatewayPoint {
   final int linkedAssets;
   final double avgFadeMarginDb;
   final double coverageRadiusMeters;
+  final String? address;
+  final String? municipio;
+  final String? coverageGeometryGeoJson;
+  final List<String> shadowedAssetKeys;
 
   const GatewayPoint({
     required this.id,
@@ -23,6 +25,10 @@ class GatewayPoint {
     required this.linkedAssets,
     required this.avgFadeMarginDb,
     required this.coverageRadiusMeters,
+    this.address,
+    this.municipio,
+    this.coverageGeometryGeoJson,
+    this.shadowedAssetKeys = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -36,6 +42,10 @@ class GatewayPoint {
       'linkedAssets': linkedAssets,
       'avgFadeMarginDb': avgFadeMarginDb,
       'coverageRadiusMeters': coverageRadiusMeters,
+      if (address != null) 'address': address,
+      if (municipio != null) 'municipio': municipio,
+      'coverageGeometryGeoJson': coverageGeometryGeoJson,
+      'shadowedAssetKeys': shadowedAssetKeys,
     };
   }
 
@@ -49,7 +59,14 @@ class GatewayPoint {
       txPowerDbm: (map['txPowerDbm'] as num?)?.toDouble() ?? 21.0,
       linkedAssets: (map['linkedAssets'] as num?)?.toInt() ?? 0,
       avgFadeMarginDb: (map['avgFadeMarginDb'] as num?)?.toDouble() ?? 14.0,
-      coverageRadiusMeters: (map['coverageRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      coverageRadiusMeters:
+          (map['coverageRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      address: map['address'] as String? ?? map['endereco'] as String?,
+      municipio: map['municipio'] as String? ?? map['cidade'] as String?,
+      coverageGeometryGeoJson: map['coverageGeometryGeoJson'] as String?,
+      shadowedAssetKeys: List<String>.from(
+        map['shadowedAssetKeys'] as List? ?? const [],
+      ),
     );
   }
 }
@@ -59,12 +76,30 @@ class ScenarioParameters {
   final int gatewayCount;
   final double txPowerDbm;
   final String propagationModel;
+  final double? frequencyMhz;
+  final double? receiverSensitivityDbm;
+  final double? antennaHeightM;
+  final double? deviceHeightM;
+  final double? antennaGainDbi;
+  final double? systemLossDb;
+  final double? coverageTargetPct;
+  final int? maxGateways;
+  final double? gatewayUnitCost;
 
   const ScenarioParameters({
     required this.feederName,
     required this.gatewayCount,
     required this.txPowerDbm,
     required this.propagationModel,
+    this.frequencyMhz,
+    this.receiverSensitivityDbm,
+    this.antennaHeightM,
+    this.deviceHeightM,
+    this.antennaGainDbi,
+    this.systemLossDb,
+    this.coverageTargetPct,
+    this.maxGateways,
+    this.gatewayUnitCost,
   });
 
   Map<String, dynamic> toMap() {
@@ -73,6 +108,15 @@ class ScenarioParameters {
       'gatewayCount': gatewayCount,
       'txPowerDbm': txPowerDbm,
       'propagationModel': propagationModel,
+      'frequencyMhz': frequencyMhz,
+      'receiverSensitivityDbm': receiverSensitivityDbm,
+      'antennaHeightM': antennaHeightM,
+      'deviceHeightM': deviceHeightM,
+      'antennaGainDbi': antennaGainDbi,
+      'systemLossDb': systemLossDb,
+      'coverageTargetPct': coverageTargetPct,
+      'maxGateways': maxGateways,
+      'gatewayUnitCost': gatewayUnitCost,
     };
   }
 
@@ -82,8 +126,50 @@ class ScenarioParameters {
       gatewayCount: (map['gatewayCount'] as num?)?.toInt() ?? 0,
       txPowerDbm: (map['txPowerDbm'] as num?)?.toDouble() ?? 21.0,
       propagationModel: map['propagationModel'] as String? ?? '',
+      frequencyMhz: (map['frequencyMhz'] as num?)?.toDouble(),
+      receiverSensitivityDbm: (map['receiverSensitivityDbm'] as num?)
+          ?.toDouble(),
+      antennaHeightM: (map['antennaHeightM'] as num?)?.toDouble(),
+      deviceHeightM: (map['deviceHeightM'] as num?)?.toDouble(),
+      antennaGainDbi: (map['antennaGainDbi'] as num?)?.toDouble(),
+      systemLossDb: (map['systemLossDb'] as num?)?.toDouble(),
+      coverageTargetPct: (map['coverageTargetPct'] as num?)?.toDouble(),
+      maxGateways: (map['maxGateways'] as num?)?.toInt(),
+      gatewayUnitCost: (map['gatewayUnitCost'] as num?)?.toDouble(),
     );
   }
+}
+
+class AssetPoint {
+  final String assetKey;
+  final String type;
+  final double lat;
+  final double lng;
+  final bool covered;
+
+  const AssetPoint({
+    required this.assetKey,
+    this.type = 'POSTE',
+    required this.lat,
+    required this.lng,
+    required this.covered,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'assetKey': assetKey,
+    'type': type,
+    'lat': lat,
+    'lng': lng,
+    'covered': covered,
+  };
+
+  factory AssetPoint.fromMap(Map<String, dynamic> map) => AssetPoint(
+    assetKey: map['assetKey'] as String? ?? '',
+    type: map['type'] as String? ?? 'POSTE',
+    lat: (map['lat'] as num?)?.toDouble() ?? 0,
+    lng: (map['lng'] as num?)?.toDouble() ?? 0,
+    covered: map['covered'] as bool? ?? false,
+  );
 }
 
 class ScenarioResults {
@@ -91,16 +177,18 @@ class ScenarioResults {
   final int connectedAssets;
   final int totalAssets;
   final double implementationCost;
-  final double avgRssiDbm;
+  final double? avgRssiDbm;
   final List<GatewayPoint> gateways;
+  final List<AssetPoint> assets;
 
   const ScenarioResults({
     required this.coveragePercent,
     required this.connectedAssets,
     required this.totalAssets,
     required this.implementationCost,
-    required this.avgRssiDbm,
+    this.avgRssiDbm,
     required this.gateways,
+    this.assets = const [],
   });
 
   int get assetsInShadow => totalAssets - connectedAssets;
@@ -113,19 +201,25 @@ class ScenarioResults {
       'implementationCost': implementationCost,
       'avgRssiDbm': avgRssiDbm,
       'gateways': gateways.map((g) => g.toMap()).toList(),
+      'assets': assets.map((asset) => asset.toMap()).toList(),
     };
   }
 
   factory ScenarioResults.fromMap(Map<String, dynamic> map) {
     final rawGateways = map['gateways'] as List<dynamic>? ?? [];
+    final rawAssets = map['assets'] as List<dynamic>? ?? [];
     return ScenarioResults(
       coveragePercent: (map['coveragePercent'] as num?)?.toDouble() ?? 0.0,
       connectedAssets: (map['connectedAssets'] as num?)?.toInt() ?? 0,
       totalAssets: (map['totalAssets'] as num?)?.toInt() ?? 0,
-      implementationCost: (map['implementationCost'] as num?)?.toDouble() ?? 0.0,
-      avgRssiDbm: (map['avgRssiDbm'] as num?)?.toDouble() ?? -120.0,
+      implementationCost:
+          (map['implementationCost'] as num?)?.toDouble() ?? 0.0,
+      avgRssiDbm: (map['avgRssiDbm'] as num?)?.toDouble(),
       gateways: rawGateways
           .map((g) => GatewayPoint.fromMap(g as Map<String, dynamic>))
+          .toList(),
+      assets: rawAssets
+          .map((asset) => AssetPoint.fromMap(asset as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -134,6 +228,7 @@ class ScenarioResults {
 class SimulationScenario {
   final String id;
   final String code;
+  final String? name;
   final String region;
   final double centerLat;
   final double centerLng;
@@ -145,6 +240,7 @@ class SimulationScenario {
   const SimulationScenario({
     required this.id,
     required this.code,
+    this.name,
     required this.region,
     required this.centerLat,
     required this.centerLng,
@@ -154,10 +250,37 @@ class SimulationScenario {
     required this.results,
   });
 
+  SimulationScenario copyWith({
+    String? id,
+    String? code,
+    String? name,
+    String? region,
+    double? centerLat,
+    double? centerLng,
+    double? searchRadiusMeters,
+    DateTime? executedAt,
+    ScenarioParameters? parameters,
+    ScenarioResults? results,
+  }) {
+    return SimulationScenario(
+      id: id ?? this.id,
+      code: code ?? this.code,
+      name: name ?? this.name,
+      region: region ?? this.region,
+      centerLat: centerLat ?? this.centerLat,
+      centerLng: centerLng ?? this.centerLng,
+      searchRadiusMeters: searchRadiusMeters ?? this.searchRadiusMeters,
+      executedAt: executedAt ?? this.executedAt,
+      parameters: parameters ?? this.parameters,
+      results: results ?? this.results,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'code': code,
+      'name': name,
       'region': region,
       'centerLat': centerLat,
       'centerLng': centerLng,
@@ -174,10 +297,12 @@ class SimulationScenario {
     return SimulationScenario(
       id: map['id'] as String? ?? '',
       code: map['code'] as String? ?? '',
+      name: map['name'] as String?,
       region: map['region'] as String? ?? '',
       centerLat: (map['centerLat'] as num?)?.toDouble() ?? 0.0,
       centerLng: (map['centerLng'] as num?)?.toDouble() ?? 0.0,
-      searchRadiusMeters: (map['searchRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      searchRadiusMeters:
+          (map['searchRadiusMeters'] as num?)?.toDouble() ?? 0.0,
       executedAt: map['executedAt'] != null
           ? DateTime.tryParse(map['executedAt'] as String) ?? DateTime.now()
           : DateTime.now(),

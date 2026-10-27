@@ -4,7 +4,76 @@ import 'package:frontend/features/scenario_config/data/services/area_delimitatio
 import 'package:frontend/features/scenario_config/domain/models/area_delimitation_model.dart';
 import 'package:frontend/features/scenario_config/presentation/controllers/area_delimitation_controller.dart';
 import 'package:frontend/features/scenario_config/presentation/screens/area_delimitation_screen.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _FakeAreaDelimitationService extends AreaDelimitationService {
+  final List<List<double>>? boundsOverride;
+
+  _FakeAreaDelimitationService({this.boundsOverride});
+
+  @override
+  Future<List<List<double>>?> fetchBdgdBounds(String importId) async {
+    return boundsOverride;
+  }
+
+  @override
+  Future<AreaDelimitationResult> evaluateArea(AreaDelimitationConfig config) async {
+    final isExceeded = config.radiusKm > AreaDelimitationService.maxRadiusKm;
+    if (isExceeded) {
+      return const AreaDelimitationResult(
+        isValid: false,
+        isRadiusExceeded: true,
+        intersectsBoundary: false,
+        boundaryOverlapPct: 0.0,
+        candidates: [],
+        countsByType: {},
+      );
+    }
+    final candidates = <CandidateAsset>[
+      CandidateAsset(
+        id: 'fake-poste-1',
+        assetKey: 'FAKE-POSTE-01',
+        type: CandidateAssetType.poste,
+        latitude: config.centerLatitude,
+        longitude: config.centerLongitude,
+      ),
+      CandidateAsset(
+        id: 'fake-poste-2',
+        assetKey: 'FAKE-POSTE-02',
+        type: CandidateAssetType.poste,
+        latitude: config.centerLatitude,
+        longitude: config.centerLongitude,
+      ),
+      CandidateAsset(
+        id: 'fake-trafo-1',
+        assetKey: 'FAKE-TRAFO-01',
+        type: CandidateAssetType.trafo,
+        latitude: config.centerLatitude,
+        longitude: config.centerLongitude,
+      ),
+      CandidateAsset(
+        id: 'fake-sub-1',
+        assetKey: 'FAKE-SUB-01',
+        type: CandidateAssetType.subestacao,
+        latitude: config.centerLatitude,
+        longitude: config.centerLongitude,
+      ),
+    ];
+    final counts = <CandidateAssetType, int>{
+      for (final type in CandidateAssetType.values)
+        type: candidates.where((c) => c.type == type).length,
+    };
+    return AreaDelimitationResult(
+      isValid: true,
+      isRadiusExceeded: false,
+      intersectsBoundary: false,
+      boundaryOverlapPct: 0.0,
+      candidates: candidates,
+      countsByType: counts,
+    );
+  }
+}
 
 void main() {
   setUp(() {
@@ -23,27 +92,56 @@ void main() {
         expect(config.isUnitKm, true);
         expect(config.defineClickingOnMap, false);
         expect(config.selectedAssetTypes.length, 4);
+        expect(config.bdgdImportId, isNull);
       },
     );
 
     test(
-      'AreaDelimitationService avalia raio valido e detecta interceptacao de borda em 3.5 km',
-      () async {
-        final service = AreaDelimitationService();
-        const config = AreaDelimitationConfig(radiusKm: 3.5);
+      'Serializa e restaura bdgdImportId via toMap/fromMap',
+      () {
+        const config = AreaDelimitationConfig(bdgdImportId: 'import-123');
+        final restored = AreaDelimitationConfig.fromMap(config.toMap());
 
-        final result = await service.evaluateArea(config);
-
-        expect(result.isValid, true);
-        expect(result.isRadiusExceeded, false);
-        expect(result.intersectsBoundary, true);
-        expect(result.boundaryOverlapPct, 12.0);
-        expect(result.countFor(CandidateAssetType.poste), 342);
-        expect(result.countFor(CandidateAssetType.trafo), 88);
-        expect(result.countFor(CandidateAssetType.religador), 24);
-        expect(result.countFor(CandidateAssetType.subestacao), 2);
+        expect(restored.bdgdImportId, 'import-123');
       },
     );
+
+    test(
+      'copyWith preserva bdgdImportId quando nao informado',
+      () {
+        const config = AreaDelimitationConfig(bdgdImportId: 'import-123');
+        final updated = config.copyWith(radiusKm: 5.0);
+
+        expect(updated.bdgdImportId, 'import-123');
+        expect(updated.radiusKm, 5.0);
+      },
+    );
+
+    test('isPointInsidePolygon detecta ponto dentro do poligono', () {
+      final square = [
+        const LatLng(0.0, 0.0),
+        const LatLng(0.0, 10.0),
+        const LatLng(10.0, 10.0),
+        const LatLng(10.0, 0.0),
+      ];
+
+      expect(isPointInsidePolygon(5.0, 5.0, square), true);
+    });
+
+    test('isPointInsidePolygon detecta ponto fora do poligono', () {
+      final square = [
+        const LatLng(0.0, 0.0),
+        const LatLng(0.0, 10.0),
+        const LatLng(10.0, 10.0),
+        const LatLng(10.0, 0.0),
+      ];
+
+      expect(isPointInsidePolygon(50.0, 50.0, square), false);
+    });
+
+    test('isPointInsidePolygon aceita qualquer ponto quando poligono e invalido', () {
+      expect(isPointInsidePolygon(5.0, 5.0, const [LatLng(0.0, 0.0)]), true);
+    });
 
     test(
       'AreaDelimitationService bloqueia raio quando excede o teto de 8.0 km',
@@ -62,7 +160,7 @@ void main() {
 
   group('AreaDelimitationController State Tests', () {
     test('Atualiza coordenadas centrais e recalculada area', () async {
-      final controller = AreaDelimitationController();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
       await controller.init();
 
       expect(controller.config.centerLatitude, -22.9068);
@@ -86,7 +184,7 @@ void main() {
     });
 
     test('Filtra candidatos ao desmarcar classes de ativos', () async {
-      final controller = AreaDelimitationController();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
       await controller.init();
 
       final initialCount = controller.filteredCandidates.length;
@@ -104,7 +202,7 @@ void main() {
     test(
       'Valida canAdvance quando raio esta dentro ou fora do limite',
       () async {
-        final controller = AreaDelimitationController();
+        final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
         await controller.init();
 
         expect(controller.canAdvance, true);
@@ -127,7 +225,7 @@ void main() {
       'Preserva configuracao compartilhada entre instancias do controlador',
       () async {
         AreaDelimitationController.resetSharedState();
-        final controller1 = AreaDelimitationController();
+        final controller1 = AreaDelimitationController(service: _FakeAreaDelimitationService());
         await controller1.init();
 
         controller1.setRadius(5.5, isUnitKm: true);
@@ -145,7 +243,146 @@ void main() {
     );
   });
 
-  group('AreaDelimitationScreen Widget Tests', () {
+group('AreaDelimitationController Polygon Drawing Tests', () {
+    test('addPolygonPoint adiciona pontos e so avalia area com 3+ pontos', () async {
+      AreaDelimitationController.resetSharedState();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
+      await controller.init();
+      controller.setUseDrawnPolygon(true);
+
+      controller.addPolygonPoint(-22.90, -47.06);
+      expect(controller.drawnPolygonPoints.length, 1);
+      expect(controller.result, isNull);
+
+      controller.addPolygonPoint(-22.91, -47.07);
+      expect(controller.drawnPolygonPoints.length, 2);
+      expect(controller.result, isNull);
+
+      controller.addPolygonPoint(-22.92, -47.08);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(controller.drawnPolygonPoints.length, 3);
+      expect(controller.result, isNotNull);
+    });
+
+    test('movePolygonPoint atualiza a posicao de um vertice existente', () async {
+      AreaDelimitationController.resetSharedState();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
+      await controller.init();
+      controller.setUseDrawnPolygon(true);
+
+      controller.addPolygonPoint(-22.90, -47.06);
+      controller.addPolygonPoint(-22.91, -47.07);
+      controller.addPolygonPoint(-22.92, -47.08);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      final moved = controller.movePolygonPoint(0, -22.80, -47.00);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      expect(moved, true);
+      expect(controller.drawnPolygonPoints.first.latitude, -22.80);
+      expect(controller.drawnPolygonPoints.first.longitude, -47.00);
+    });
+
+    test('removePolygonPoint remove um vertice e invalida resultado se restar menos de 3', () async {
+      AreaDelimitationController.resetSharedState();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
+      await controller.init();
+      controller.setUseDrawnPolygon(true);
+
+      controller.addPolygonPoint(-22.90, -47.06);
+      controller.addPolygonPoint(-22.91, -47.07);
+      controller.addPolygonPoint(-22.92, -47.08);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(controller.result, isNotNull);
+
+      controller.removePolygonPoint(0);
+
+      expect(controller.drawnPolygonPoints.length, 2);
+      expect(controller.result, isNull);
+    });
+
+    test('clearDrawnPolygon remove todos os pontos e zera o resultado', () async {
+      AreaDelimitationController.resetSharedState();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
+      await controller.init();
+      controller.setUseDrawnPolygon(true);
+
+      controller.addPolygonPoint(-22.90, -47.06);
+      controller.addPolygonPoint(-22.91, -47.07);
+      controller.addPolygonPoint(-22.92, -47.08);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      controller.clearDrawnPolygon();
+
+      expect(controller.drawnPolygonPoints, isEmpty);
+      expect(controller.result, isNull);
+    });
+
+    test('addPolygonPoint rejeita ponto fora do limite da BDGD', () async {
+      AreaDelimitationController.resetSharedState();
+      final controller = AreaDelimitationController(
+        service: _FakeAreaDelimitationService(
+          boundsOverride: [
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [10.0, 10.0],
+            [0.0, 10.0],
+          ],
+        ),
+        initialConfig: const AreaDelimitationConfig(bdgdImportId: 'import-123'),
+      );
+      await controller.init();
+      controller.setUseDrawnPolygon(true);
+
+      final accepted = controller.addPolygonPoint(50.0, 50.0);
+
+      expect(accepted, false);
+      expect(controller.polygonPointOutOfBounds, true);
+      expect(controller.drawnPolygonPoints, isEmpty);
+    });
+
+    test('addPolygonPoint aceita ponto dentro do limite da BDGD', () async {
+      AreaDelimitationController.resetSharedState();
+      final controller = AreaDelimitationController(
+        service: _FakeAreaDelimitationService(
+          boundsOverride: [
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [10.0, 10.0],
+            [0.0, 10.0],
+          ],
+        ),
+        initialConfig: const AreaDelimitationConfig(bdgdImportId: 'import-123'),
+      );
+      await controller.init();
+      controller.setUseDrawnPolygon(true);
+
+      final accepted = controller.addPolygonPoint(5.0, 5.0);
+
+      expect(accepted, true);
+      expect(controller.polygonPointOutOfBounds, false);
+      expect(controller.drawnPolygonPoints.length, 1);
+    });
+
+    test('setUseDrawnPolygon(false) volta ao modo raio e reavalia a area', () async {
+      AreaDelimitationController.resetSharedState();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
+      await controller.init();
+      controller.setUseDrawnPolygon(true);
+      controller.addPolygonPoint(-22.90, -47.06);
+      controller.addPolygonPoint(-22.91, -47.07);
+      controller.addPolygonPoint(-22.92, -47.08);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      controller.setUseDrawnPolygon(false);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      expect(controller.useDrawnPolygon, false);
+      expect(controller.result, isNotNull);
+    });
+  });
+
+    group('AreaDelimitationScreen Widget Tests', () {
     testWidgets('Renderiza Stepper, os tres cards principais e o mapa', (
       tester,
     ) async {
@@ -156,7 +393,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      final controller = AreaDelimitationController();
+      final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
       await controller.init();
 
       await tester.pumpWidget(
@@ -172,7 +409,7 @@ void main() {
 
       expect(find.text('1. Delimitação de Área & Candidatos'), findsWidgets);
       expect(find.text('Ponto Central da Simulação'), findsOneWidget);
-      expect(find.text('Raio da Área de Busca'), findsOneWidget);
+      expect(find.text('Área de Busca'), findsOneWidget);
       expect(find.text('Ativos Candidatos Identificados'), findsOneWidget);
       expect(find.text('Definir Clicando no Mapa'), findsOneWidget);
       expect(find.textContaining('Locais'), findsOneWidget);
@@ -193,7 +430,7 @@ void main() {
           tester.view.resetDevicePixelRatio();
         });
 
-        final controller = AreaDelimitationController();
+        final controller = AreaDelimitationController(service: _FakeAreaDelimitationService());
         await controller.init();
 
         await tester.pumpWidget(
