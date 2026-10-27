@@ -2,6 +2,7 @@ package com.backend.tecsys.scenario.repository;
 
 import com.backend.tecsys.radio.model.RfCoordinate;
 import com.backend.tecsys.scenario.model.GatewayCoverage;
+import com.backend.tecsys.scenario.model.PropagationModelType;
 import com.backend.tecsys.scenario.model.Scenario;
 import com.backend.tecsys.scenario.model.ScenarioSelectedGateway;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,17 @@ class ScenarioSnapshotGatewayTest {
         coverage.getReceivedPowerDbmByAssetKey().put("a", -100.0);
         coverage.getReceivedPowerDbmByAssetKey().put("b", -110.0);
         assertEquals(-105.0, coverage.averageReceivedPowerDbm());
+    }
+
+    @Test
+    void recoversPropagationModelFromSnapshotWhenRfParameterRowIsMissing() {
+        // Sem parametro_rf_id o modelo so existe no snapshot; sem le-lo o historico reabre em branco
+        // e o relatorio PDF (que exige o modelo) e rejeitado.
+        assertEquals(PropagationModelType.ITM_LONGLEY_RICE,
+                PostgresScenarioRepository.snapshotPropagationModel(Map.of("propagationModel", "ITM_LONGLEY_RICE")));
+        assertNull(PostgresScenarioRepository.snapshotPropagationModel(Map.of()));
+        assertNull(PostgresScenarioRepository.snapshotPropagationModel(Map.of("propagationModel", " ")));
+        assertNull(PostgresScenarioRepository.snapshotPropagationModel(Map.of("propagationModel", "INEXISTENTE")));
     }
 
     /** Acesso ao metodo de pacote do repositorio sem precisar de JdbcTemplate. */

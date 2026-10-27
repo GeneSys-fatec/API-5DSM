@@ -412,6 +412,9 @@ public class PostgresScenarioRepository implements IScenarioRepository {
                     && scenario.getCoverageRadiusMeters() == null) {
                 scenario.setCoverageRadiusMeters(radius.doubleValue());
             }
+            if (scenario.getPropagationModel() == null) {
+                scenario.setPropagationModel(snapshotPropagationModel(snapshot));
+            }
             if (snapshot.get("averageRssiDbm") instanceof Number rssi) {
                 scenario.setAverageRssiDbm(rssi.doubleValue());
             }
@@ -436,6 +439,22 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    /**
+     * Quando o registro de parametros de RF nao foi gravado (parametro_rf_id nulo), o modelo de propagacao
+     * so existe no snapshot do cenario. Sem ele o historico reabre com o modelo em branco e o relatorio
+     * (que exige o modelo) e rejeitado.
+     */
+    static PropagationModelType snapshotPropagationModel(Map<String, Object> snapshot) {
+        if (snapshot.get("propagationModel") instanceof String name && !name.isBlank()) {
+            try {
+                return PropagationModelType.fromValue(name);
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /** Reanexa a cada gateway carregado o resultado calculado (geometria, contagens, RSSI), casando pelas coordenadas. */

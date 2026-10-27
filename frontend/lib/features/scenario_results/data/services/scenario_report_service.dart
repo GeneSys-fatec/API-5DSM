@@ -9,6 +9,45 @@ import 'package:frontend/features/scenario_results/models/scenario_results_model
 import 'report_file_saver.dart';
 
 class ScenarioReportService {
+  /// Corpo enviado ao backend para gerar o PDF. O modelo de propagação é obrigatório lá; cenários
+  /// reabertos do histórico podem não ter o modelo, então envia um texto em vez de vazio.
+  static Map<String, dynamic> buildReportPayload({
+    required SimulationScenario scenario,
+    required String mapImageBase64,
+  }) {
+    final parameters = scenario.parameters;
+    final results = scenario.results;
+    final propagationModel = parameters.propagationModel.trim();
+    return {
+      'scenarioName': scenario.name ?? parameters.feederName,
+      'regionName': scenario.region,
+      'mapImageBase64': mapImageBase64,
+      'propagationModel': propagationModel.isEmpty
+          ? 'Não informado'
+          : propagationModel,
+      'frequencyMhz': parameters.frequencyMhz,
+      'txPowerDbm': parameters.txPowerDbm,
+      'antennaGainDbi': parameters.antennaGainDbi,
+      'receiverSensitivityDbm': parameters.receiverSensitivityDbm,
+      'antennaHeightM': parameters.antennaHeightM,
+      'deviceHeightM': parameters.deviceHeightM,
+      'systemLossDb': parameters.systemLossDb,
+      'coverageTargetPct': parameters.coverageTargetPct,
+      'maxGateways': parameters.maxGateways,
+      'totalCoveragePct': results.coveragePercent,
+      'gatewayCount': parameters.gatewayCount,
+      'totalAssetCount': results.totalAssets,
+      'connectedAssetCount': results.connectedAssets,
+      'shadowedAssetCount': results.assetsInShadow,
+      'totalEstimatedCost': results.implementationCost,
+      'averageRssiDbm': results.avgRssiDbm,
+      'gatewayUnitCost': parameters.gatewayUnitCost,
+      'searchRadiusMeters': scenario.searchRadiusMeters > 0
+          ? scenario.searchRadiusMeters
+          : null,
+    };
+  }
+
   Future<bool> exportReport({
     required SimulationScenario scenario,
     required Uint8List mapImageBytes,
@@ -31,8 +70,6 @@ class ScenarioReportService {
       );
     }
 
-    final parameters = scenario.parameters;
-    final results = scenario.results;
     final response = await http
         .post(
           Uri.parse('${ApiConfig.baseUrl}/simulations/$scenarioId/report'),
@@ -41,32 +78,12 @@ class ScenarioReportService {
             'Authorization': 'Bearer $token',
             'Accept': 'application/pdf, application/json',
           },
-          body: jsonEncode({
-            'scenarioName': scenario.name ?? parameters.feederName,
-            'regionName': scenario.region,
-            'mapImageBase64': base64Encode(mapImageBytes),
-            'propagationModel': parameters.propagationModel,
-            'frequencyMhz': parameters.frequencyMhz,
-            'txPowerDbm': parameters.txPowerDbm,
-            'antennaGainDbi': parameters.antennaGainDbi,
-            'receiverSensitivityDbm': parameters.receiverSensitivityDbm,
-            'antennaHeightM': parameters.antennaHeightM,
-            'deviceHeightM': parameters.deviceHeightM,
-            'systemLossDb': parameters.systemLossDb,
-            'coverageTargetPct': parameters.coverageTargetPct,
-            'maxGateways': parameters.maxGateways,
-            'totalCoveragePct': results.coveragePercent,
-            'gatewayCount': parameters.gatewayCount,
-            'totalAssetCount': results.totalAssets,
-            'connectedAssetCount': results.connectedAssets,
-            'shadowedAssetCount': results.assetsInShadow,
-            'totalEstimatedCost': results.implementationCost,
-            'averageRssiDbm': results.avgRssiDbm,
-            'gatewayUnitCost': parameters.gatewayUnitCost,
-            'searchRadiusMeters': scenario.searchRadiusMeters > 0
-                ? scenario.searchRadiusMeters
-                : null,
-          }),
+          body: jsonEncode(
+            buildReportPayload(
+              scenario: scenario,
+              mapImageBase64: base64Encode(mapImageBytes),
+            ),
+          ),
         )
         .timeout(const Duration(seconds: 60));
 
