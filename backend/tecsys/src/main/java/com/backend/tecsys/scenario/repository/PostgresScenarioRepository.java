@@ -4,6 +4,7 @@ import com.backend.tecsys.radio.model.RfParameter;
 import com.backend.tecsys.scenario.exception.ScenarioPersistenceException;
 import com.backend.tecsys.scenario.model.PropagationModelType;
 import com.backend.tecsys.scenario.model.Scenario;
+import com.backend.tecsys.scenario.model.ScenarioAssetLocation;
 import com.backend.tecsys.scenario.model.ScenarioAssetCoverage;
 import com.backend.tecsys.scenario.model.ScenarioIndicator;
 import com.backend.tecsys.scenario.model.ScenarioSelectedGateway;
@@ -196,12 +197,27 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             if (scenario.getCoverageRadiusMeters() != null) {
                 snapshot.put("coverageRadiusMeters", scenario.getCoverageRadiusMeters());
             }
+            if (scenario.getAverageRssiDbm() != null) {
+                snapshot.put("averageRssiDbm", scenario.getAverageRssiDbm());
+            }
             if (scenario.getSelectedGateways() != null && !scenario.getSelectedGateways().isEmpty()) {
                 List<Map<String, Object>> gateways = new java.util.ArrayList<>();
                 for (ScenarioSelectedGateway gateway : scenario.getSelectedGateways()) {
                     Map<String, Object> g = new HashMap<>();
                     g.put("candidateId", gateway.getCandidateId());
                     g.put("coverageRadiusMeters", gateway.getCoverageRadiusMeters());
+                    // Coordenadas identificam o gateway ao reabrir (o candidateId gravado em
+                    // cenario_gateway_selecionado e o do candidato persistido, nao o original).
+                    if (gateway.getCoordinate() != null) {
+                        g.put("latitude", gateway.getCoordinate().latitude());
+                        g.put("longitude", gateway.getCoordinate().longitude());
+                    }
+                    g.put("assetKey", gateway.getAssetKey());
+                    g.put("coverageGeometryGeoJson", gateway.getCoverageGeometryGeoJson());
+                    g.put("coveredAssetCount", gateway.getCoveredAssetCount());
+                    g.put("averageRssiDbm", gateway.getAverageRssiDbm());
+                    g.put("averageLinkMarginDb", gateway.getAverageLinkMarginDb());
+                    g.put("shadowedAssetKeys", gateway.getShadowedAssetKeys());
                     gateways.add(g);
                 }
                 snapshot.put("selectedGateways", gateways);
@@ -396,7 +412,11 @@ public class PostgresScenarioRepository implements IScenarioRepository {
                     && scenario.getCoverageRadiusMeters() == null) {
                 scenario.setCoverageRadiusMeters(radius.doubleValue());
             }
+            if (snapshot.get("averageRssiDbm") instanceof Number rssi) {
+                scenario.setAverageRssiDbm(rssi.doubleValue());
+            }
             if (snapshot.get("selectedGateways") instanceof List<?> gateways) {
+                applySnapshotGatewayResults(scenario, gateways);
                 Map<Long, Double> radiusByCandidate = new HashMap<>();
                 for (Object o : gateways) {
                     if (o instanceof Map<?, ?> g
@@ -415,6 +435,46 @@ public class PostgresScenarioRepository implements IScenarioRepository {
                 }
             }
         } catch (Exception ignored) {
+        }
+    }
+
+    /** Reanexa a cada gateway carregado o resultado calculado (geometria, contagens, RSSI), casando pelas coordenadas. */
+    static void applySnapshotGatewayResults(Scenario scenario, List<?> snapshotGateways) {
+        if (scenario.getSelectedGateways() == null) {
+            return;
+        }
+        final double tolerance = 1e-6;
+        for (ScenarioSelectedGateway gateway : scenario.getSelectedGateways()) {
+            if (gateway.getCoordinate() == null) {
+                continue;
+            }
+            for (Object o : snapshotGateways) {
+                if (!(o instanceof Map<?, ?> g)
+                        || !(g.get("latitude") instanceof Number lat)
+                        || !(g.get("longitude") instanceof Number lon)) {
+                    continue;
+                }
+                if (Math.abs(lat.doubleValue() - gateway.getCoordinate().latitude()) > tolerance
+                        || Math.abs(lon.doubleValue() - gateway.getCoordinate().longitude()) > tolerance) {
+                    continue;
+                }
+                gateway.setAssetKey(g.get("assetKey") instanceof String v ? v : null);
+                gateway.setCoverageGeometryGeoJson(
+                        g.get("coverageGeometryGeoJson") instanceof String v ? v : null);
+                gateway.setCoveredAssetCount(
+                        g.get("coveredAssetCount") instanceof Number v ? v.intValue() : null);
+                gateway.setAverageRssiDbm(
+                        g.get("averageRssiDbm") instanceof Number v ? v.doubleValue() : null);
+                gateway.setAverageLinkMarginDb(
+                        g.get("averageLinkMarginDb") instanceof Number v ? v.doubleValue() : null);
+                if (g.get("shadowedAssetKeys") instanceof List<?> keys) {
+                    gateway.setShadowedAssetKeys(keys.stream().map(String::valueOf).toList());
+                }
+                if (g.get("coverageRadiusMeters") instanceof Number r && r.doubleValue() > 0) {
+                    gateway.setCoverageRadiusMeters(r.doubleValue());
+                }
+                break;
+            }
         }
     }
 
@@ -447,6 +507,43 @@ public class PostgresScenarioRepository implements IScenarioRepository {
         }
     }
 
+    private static final List<String> BDGD_ASSET_TABLES =
+            List.of("poste", "sub", "ucbt", "ucmt", "ssdbt", "ssdmt", "ssdat");
+
+    @Override
+    public List<ScenarioAssetLocation> findAssetLocations(Long scenarioId) {
+        try {
+            List<String> tables = BDGD_ASSET_TABLES.stream()
+                    .filter(table -> Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                                    + "WHERE table_schema = 'bdgd' AND table_name = ?)",
+                            Boolean.class, table)))
+                    .toList();
+            if (tables.isEmpty()) {
+                return List.of();
+            }
+            String union = tables.stream()
+                    .map(table -> "SELECT asset_key, tipo_ativo, geometry FROM bdgd." + table)
+                    .collect(java.util.stream.Collectors.joining(" UNION ALL "));
+            String sql = "SELECT c.ativo_key, c.coberto, g.candidato_gateway_id, a.tipo_ativo, "
+                    + "ST_Y(ST_Centroid(a.geometry)) AS lat, ST_X(ST_Centroid(a.geometry)) AS lon "
+                    + "FROM app.cenario_cobertura_ativo c "
+                    + "JOIN (" + union + ") a ON a.asset_key = c.ativo_key "
+                    + "LEFT JOIN app.cenario_gateway_selecionado g ON g.id = c.gateway_selecionado_id "
+                    + "WHERE c.cenario_id = ?";
+            return jdbcTemplate.query(sql, (rs, rowNum) -> new ScenarioAssetLocation(
+                    rs.getString("ativo_key"),
+                    rs.getString("tipo_ativo"),
+                    rs.getDouble("lat"),
+                    rs.getDouble("lon"),
+                    rs.getBoolean("coberto"),
+                    rs.getObject("candidato_gateway_id") != null ? rs.getLong("candidato_gateway_id") : null),
+                    scenarioId);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
     private List<ScenarioAssetCoverage> loadAssetCoverages(Long scenarioId) {
         try {
             return jdbcTemplate.query(SELECT_COVERAGES_BY_SCENARIO, (rs, rowNum) -> {
@@ -469,14 +566,31 @@ public class PostgresScenarioRepository implements IScenarioRepository {
         }
     }
 
+    /**
+     * app.cenario.distribuidora_id e obrigatorio e referencia app.distribuidora. Se a tabela estiver
+     * vazia (base recem-criada ou limpa), cria uma distribuidora padrao para o cenario poder ser salvo.
+     */
+    private void ensureDefaultUtilityExists() {
+        jdbcTemplate.update(
+                "INSERT INTO app.distribuidora (nome, sigla) "
+                        + "SELECT 'Distribuidora Padrao', 'PADRAO' "
+                        + "WHERE NOT EXISTS (SELECT 1 FROM app.distribuidora)");
+    }
+
     private Long insertScenario(Scenario scenario) {
+        ensureDefaultUtilityExists();
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
             PreparedStatement statement = connection.prepareStatement(INSERT_SCENARIO, new String[]{"id"});
             statement.setString(1, scenario.getName());
             statement.setLong(2, scenario.getUserId());
-            statement.setLong(3, scenario.getUtilityId());
+            // Usuario sem distribuidora (null): o COALESCE do SQL usa a primeira distribuidora cadastrada.
+            if (scenario.getUtilityId() != null) {
+                statement.setLong(3, scenario.getUtilityId());
+            } else {
+                statement.setNull(3, Types.BIGINT);
+            }
             statement.setString(4, scenario.getRegionName());
             statement.setString(5, buildAreaWkt(scenario));
             statement.setBigDecimal(6, BigDecimal.valueOf(scenario.getCoverageTargetPct()));
@@ -551,11 +665,9 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             List<ScenarioAssetCoverage> assetCoverages,
             Map<Long, Long> selectedGatewayIdByCandidate) {
 
-        List<ScenarioAssetCoverage> toInsert = assetCoverages.size() > 500
-                ? assetCoverages.subList(0, 500)
-                : assetCoverages;
-
-        jdbcTemplate.batchUpdate(INSERT_ASSET_COVERAGE, toInsert, 100, (statement, coverage) -> {
+        // Grava a cobertura de TODOS os ativos avaliados: e ela que permite reabrir o resultado completo
+        // pelo historico. (Antes havia um corte em 500, que fazia o historico mostrar so os 500 primeiros.)
+        jdbcTemplate.batchUpdate(INSERT_ASSET_COVERAGE, assetCoverages, 1000, (statement, coverage) -> {
             Long selectedGatewayId = coverage.getSelectedCandidateId() != null
                     ? selectedGatewayIdByCandidate.get(coverage.getSelectedCandidateId())
                     : null;

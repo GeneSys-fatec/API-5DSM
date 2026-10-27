@@ -31,6 +31,7 @@ public class Scenario {
     private RfParameter rfParameter;
     private Long rfParameterId;
     private Double coverageRadiusMeters;
+    private Double averageRssiDbm;
 
     @Builder.Default
     private List<ScenarioSelectedGateway> selectedGateways = new ArrayList<>();

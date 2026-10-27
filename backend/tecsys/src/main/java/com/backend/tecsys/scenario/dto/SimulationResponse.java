@@ -111,5 +111,17 @@ public class SimulationResponse {
 
         @Schema(description = "Ativos bloqueados por obstrução de relevo.")
         private List<String> shadowedAssetKeys;
+
+        @Schema(description = "Chave do ativo (poste, subestação...) onde o gateway foi instalado.")
+        private String assetKey;
+
+        @Schema(description = "Quantidade de ativos que este gateway cobre individualmente.", example = "420")
+        private int coveredAssetCount;
+
+        @Schema(description = "Potência média recebida (dBm) nos ativos cobertos por este gateway.")
+        private Double averageRssiDbm;
+
+        @Schema(description = "Margem de enlace média (dB) em relação à sensibilidade do receptor.")
+        private Double averageLinkMarginDb;
     }
 }

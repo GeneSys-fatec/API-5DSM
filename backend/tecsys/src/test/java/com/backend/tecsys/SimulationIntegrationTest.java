@@ -79,6 +79,11 @@ class SimulationIntegrationTest {
                 .andExpect(jsonPath("$.gatewayUnitCost").isNumber())
                 .andExpect(jsonPath("$.averageRssiDbm").exists())
                 .andExpect(jsonPath("$.assets").isArray())
+                .andExpect(jsonPath("$.assets[0].type").isNotEmpty())
+                .andExpect(jsonPath("$.selectedGateways[0].coveredAssetCount").isNumber())
+                .andExpect(jsonPath("$.selectedGateways[0].coverageRadiusMeters").isNumber())
+                .andExpect(jsonPath("$.selectedGateways[0].averageRssiDbm").isNumber())
+                .andExpect(jsonPath("$.selectedGateways[0].averageLinkMarginDb").isNumber())
                 .andExpect(jsonPath("$.processingTimeMs").isNumber())
                 .andExpect(jsonPath("$.propagationModel").value("OKUMURA_HATA_SUBURBAN"));
     }

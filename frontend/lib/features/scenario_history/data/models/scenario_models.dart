@@ -52,6 +52,13 @@ class SelectedGateway {
   final double? longitude;
   final double? coverageRadiusMeters;
   final bool manuallyAdjusted;
+  final int? linkedAssets;
+  final String? assetKey;
+  final String? coverageGeometryGeoJson;
+  final int? coveredAssetCount;
+  final double? averageRssiDbm;
+  final double? averageLinkMarginDb;
+  final List<String> shadowedAssetKeys;
 
   const SelectedGateway({
     this.candidateId,
@@ -59,6 +66,13 @@ class SelectedGateway {
     this.longitude,
     this.coverageRadiusMeters,
     this.manuallyAdjusted = false,
+    this.linkedAssets,
+    this.assetKey,
+    this.coverageGeometryGeoJson,
+    this.coveredAssetCount,
+    this.averageRssiDbm,
+    this.averageLinkMarginDb,
+    this.shadowedAssetKeys = const [],
   });
 
   factory SelectedGateway.fromJson(Map<String, dynamic> json) {
@@ -68,6 +82,15 @@ class SelectedGateway {
       longitude: (json['longitude'] as num?)?.toDouble(),
       coverageRadiusMeters: (json['coverageRadiusMeters'] as num?)?.toDouble(),
       manuallyAdjusted: json['manuallyAdjusted'] as bool? ?? false,
+      linkedAssets: (json['linkedAssets'] as num?)?.toInt(),
+      assetKey: json['assetKey'] as String?,
+      coverageGeometryGeoJson: json['coverageGeometryGeoJson'] as String?,
+      coveredAssetCount: (json['coveredAssetCount'] as num?)?.toInt(),
+      averageRssiDbm: (json['averageRssiDbm'] as num?)?.toDouble(),
+      averageLinkMarginDb: (json['averageLinkMarginDb'] as num?)?.toDouble(),
+      shadowedAssetKeys: List<String>.from(
+        json['shadowedAssetKeys'] as List? ?? const [],
+      ),
     );
   }
 }
@@ -148,6 +171,8 @@ class ScenarioDetail {
   final DateTime? processedAt;
   final List<SelectedGateway> selectedGateways;
   final ScenarioIndicator? indicator;
+  final List<ScenarioDetailAsset> assets;
+  final double? averageRssiDbm;
 
   const ScenarioDetail({
     required this.id,
@@ -164,6 +189,8 @@ class ScenarioDetail {
     this.processedAt,
     this.selectedGateways = const [],
     this.indicator,
+    this.assets = const [],
+    this.averageRssiDbm,
   });
 
   factory ScenarioDetail.fromJson(Map<String, dynamic> json) {
@@ -191,7 +218,33 @@ class ScenarioDetail {
       indicator: json['indicator'] != null
           ? ScenarioIndicator.fromJson(json['indicator'] as Map<String, dynamic>)
           : null,
+      assets: (json['assets'] as List<dynamic>? ?? const [])
+          .map((e) => ScenarioDetailAsset.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      averageRssiDbm: (json['averageRssiDbm'] as num?)?.toDouble(),
     );
+  }
+
+  /// Converte o WKT `POLYGON((lon lat, lon lat, ...))` em vértices [lat, lng], sem repetir o ponto de fechamento.
+  static List<List<double>> parsePolygonWkt(String? wkt) {
+    if (wkt == null) return const [];
+    final match = RegExp(r'POLYGON\s*\(\((.*)\)\)', caseSensitive: false).firstMatch(wkt);
+    if (match == null) return const [];
+    final points = <List<double>>[];
+    for (final pair in match.group(1)!.split(',')) {
+      final parts = pair.trim().split(RegExp(r'\s+'));
+      if (parts.length < 2) continue;
+      final lng = double.tryParse(parts[0]);
+      final lat = double.tryParse(parts[1]);
+      if (lat == null || lng == null) continue;
+      points.add([lat, lng]);
+    }
+    if (points.length > 1 &&
+        points.first[0] == points.last[0] &&
+        points.first[1] == points.last[1]) {
+      points.removeLast();
+    }
+    return points.length >= 3 ? points : const [];
   }
 
   SimulationScenario toSimulationScenario() {
@@ -199,51 +252,112 @@ class ScenarioDetail {
     final gateways = selectedGateways
         .where((g) => g.latitude != null && g.longitude != null)
         .toList();
+    final searchPolygon = parsePolygonWkt(areaWkt);
 
-    final centerLat = gateways.isEmpty
-        ? 0.0
-        : gateways.map((g) => g.latitude!).reduce((a, b) => a + b) / gateways.length;
-    final centerLng = gateways.isEmpty
-        ? 0.0
-        : gateways.map((g) => g.longitude!).reduce((a, b) => a + b) / gateways.length;
+    double average(Iterable<double> values) =>
+        values.isEmpty ? 0.0 : values.reduce((a, b) => a + b) / values.length;
+
+    // Centro da área de busca: média dos vértices do polígono salvo; sem ele, média dos gateways.
+    final centerLat = searchPolygon.isNotEmpty
+        ? average(searchPolygon.map((p) => p[0]))
+        : average(gateways.map((g) => g.latitude!));
+    final centerLng = searchPolygon.isNotEmpty
+        ? average(searchPolygon.map((p) => p[1]))
+        : average(gateways.map((g) => g.longitude!));
+
+    final connectedAssets = assets.where((a) => a.covered).length;
 
     return SimulationScenario(
       id: id.toString(),
       code: name,
+      name: name,
       region: regionName,
       centerLat: centerLat,
       centerLng: centerLng,
+      searchPolygon: searchPolygon,
       executedAt: processedAt ?? DateTime.now(),
       parameters: ScenarioParameters(
         feederName: name,
         gatewayCount: indicator?.usedGatewayCount ?? gateways.length,
         txPowerDbm: rf?.transmitPowerDbm ?? 21.0,
         propagationModel: propagationModel ?? '',
+        frequencyMhz: rf?.frequencyMhz,
+        receiverSensitivityDbm: rf?.receiverSensitivityDbm,
+        antennaHeightM: rf?.antennaHeightM,
+        deviceHeightM: rf?.deviceHeightM,
+        antennaGainDbi: rf?.antennaGainDbi,
+        systemLossDb: rf?.systemLossDb,
+        coverageTargetPct: coverageTargetPct,
+        maxGateways: maxGateways,
+        gatewayUnitCost: gatewayUnitCost,
       ),
       results: ScenarioResults(
         coveragePercent: indicator?.totalCoveragePct ?? 0.0,
-        connectedAssets: 0,
-        totalAssets: 0,
+        connectedAssets: connectedAssets,
+        totalAssets: assets.length,
         implementationCost: indicator?.totalEstimatedCost ?? 0.0,
-        avgRssiDbm: rf?.receiverSensitivityDbm ?? -120.0,
+        avgRssiDbm: averageRssiDbm,
         gateways: gateways
             .asMap()
             .entries
             .map(
               (entry) => GatewayPoint(
                 id: 'GW-${entry.value.candidateId ?? entry.key + 1}',
-                posteId: 'Candidato ${entry.value.candidateId ?? entry.key + 1}',
+                posteId: entry.value.assetKey ??
+                    'Candidato ${entry.value.candidateId ?? entry.key + 1}',
                 lat: entry.value.latitude!,
                 lng: entry.value.longitude!,
                 antennaHeight: rf?.antennaHeightM ?? 6.0,
                 txPowerDbm: rf?.transmitPowerDbm ?? 21.0,
-                linkedAssets: 0,
-                avgFadeMarginDb: rf?.systemLossDb ?? 0.0,
+                linkedAssets:
+                    entry.value.coveredAssetCount ?? entry.value.linkedAssets ?? 0,
+                avgFadeMarginDb: entry.value.averageLinkMarginDb != null
+                    ? (entry.value.averageLinkMarginDb! * 10).roundToDouble() / 10
+                    : rf?.systemLossDb ?? 0.0,
                 coverageRadiusMeters: entry.value.coverageRadiusMeters ?? 0.0,
+                coverageGeometryGeoJson: entry.value.coverageGeometryGeoJson,
+                shadowedAssetKeys: entry.value.shadowedAssetKeys,
+              ),
+            )
+            .toList(),
+        assets: assets
+            .map(
+              (asset) => AssetPoint(
+                assetKey: asset.assetKey,
+                lat: asset.latitude,
+                lng: asset.longitude,
+                covered: asset.covered,
+                type: asset.type,
               ),
             )
             .toList(),
       ),
+    );
+  }
+}
+
+class ScenarioDetailAsset {
+  final String assetKey;
+  final String type;
+  final double latitude;
+  final double longitude;
+  final bool covered;
+
+  const ScenarioDetailAsset({
+    required this.assetKey,
+    required this.type,
+    required this.latitude,
+    required this.longitude,
+    required this.covered,
+  });
+
+  factory ScenarioDetailAsset.fromJson(Map<String, dynamic> json) {
+    return ScenarioDetailAsset(
+      assetKey: json['assetKey'] as String? ?? '',
+      type: json['type'] as String? ?? 'POSTE',
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      covered: json['covered'] as bool? ?? false,
     );
   }
 }

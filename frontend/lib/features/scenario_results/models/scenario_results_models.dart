@@ -233,6 +233,9 @@ class SimulationScenario {
   final double centerLat;
   final double centerLng;
   final double searchRadiusMeters;
+
+  /// Vértices [lat, lng] do polígono manual da área de busca; vazio quando a busca foi circular.
+  final List<List<double>> searchPolygon;
   final DateTime executedAt;
   final ScenarioParameters parameters;
   final ScenarioResults results;
@@ -245,6 +248,7 @@ class SimulationScenario {
     required this.centerLat,
     required this.centerLng,
     this.searchRadiusMeters = 0.0,
+    this.searchPolygon = const [],
     required this.executedAt,
     required this.parameters,
     required this.results,
@@ -258,6 +262,7 @@ class SimulationScenario {
     double? centerLat,
     double? centerLng,
     double? searchRadiusMeters,
+    List<List<double>>? searchPolygon,
     DateTime? executedAt,
     ScenarioParameters? parameters,
     ScenarioResults? results,
@@ -270,6 +275,7 @@ class SimulationScenario {
       centerLat: centerLat ?? this.centerLat,
       centerLng: centerLng ?? this.centerLng,
       searchRadiusMeters: searchRadiusMeters ?? this.searchRadiusMeters,
+      searchPolygon: searchPolygon ?? this.searchPolygon,
       executedAt: executedAt ?? this.executedAt,
       parameters: parameters ?? this.parameters,
       results: results ?? this.results,
@@ -285,6 +291,7 @@ class SimulationScenario {
       'centerLat': centerLat,
       'centerLng': centerLng,
       'searchRadiusMeters': searchRadiusMeters,
+      'searchPolygon': searchPolygon,
       'executedAt': executedAt.toIso8601String(),
       'parameters': parameters.toMap(),
       'results': results.toMap(),
@@ -303,6 +310,13 @@ class SimulationScenario {
       centerLng: (map['centerLng'] as num?)?.toDouble() ?? 0.0,
       searchRadiusMeters:
           (map['searchRadiusMeters'] as num?)?.toDouble() ?? 0.0,
+      searchPolygon: (map['searchPolygon'] as List<dynamic>? ?? const [])
+          .map(
+            (point) => (point as List<dynamic>)
+                .map((value) => (value as num).toDouble())
+                .toList(),
+          )
+          .toList(),
       executedAt: map['executedAt'] != null
           ? DateTime.tryParse(map['executedAt'] as String) ?? DateTime.now()
           : DateTime.now(),

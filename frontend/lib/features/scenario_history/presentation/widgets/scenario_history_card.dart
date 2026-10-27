@@ -168,11 +168,6 @@ class _ScenarioDetails extends StatelessWidget {
               icon: Icons.router_outlined,
               text: '${scenario.usedGatewayCount ?? 0} Gateways',
             ),
-            if (scenario.totalEstimatedCost != null)
-              _MetaRow(
-                icon: Icons.payments_outlined,
-                text: _formatAmount(scenario.totalEstimatedCost!),
-              ),
             if (scenario.coverageTargetPct != null)
               _MetaRow(
                 icon: Icons.flag_outlined,
@@ -187,15 +182,6 @@ class _ScenarioDetails extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _formatAmount(double value) {
-    final formatter = NumberFormat.currency(
-      locale: 'pt_BR',
-      symbol: 'R\$ ',
-      decimalDigits: 2,
-    );
-    return formatter.format(value);
   }
 }
 

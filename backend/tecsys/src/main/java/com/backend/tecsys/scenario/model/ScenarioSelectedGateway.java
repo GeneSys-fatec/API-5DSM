@@ -18,4 +18,12 @@ public class ScenarioSelectedGateway {
     private double coverageRadiusMeters;
     private boolean manuallyAdjusted;
     private int selectionOrder;
+
+    // Resultado calculado na simulação; persistido no snapshot do cenário para reabrir o resultado idêntico.
+    private String assetKey;
+    private String coverageGeometryGeoJson;
+    private Integer coveredAssetCount;
+    private Double averageRssiDbm;
+    private Double averageLinkMarginDb;
+    private java.util.List<String> shadowedAssetKeys;
 }

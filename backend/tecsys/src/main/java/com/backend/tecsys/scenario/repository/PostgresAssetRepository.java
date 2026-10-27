@@ -164,7 +164,7 @@ public class PostgresAssetRepository implements IAssetRepository {
                 + ") assets WHERE ST_Contains("
                 + "ST_SetSRID(ST_GeomFromText(?), 4326), "
                 + "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)) "
-                + "ORDER BY asset_key LIMIT 5000";
+                + "ORDER BY asset_key";
     }
 
     private String buildPolygonWkt(List<PolygonPoint> polygonPoints) {

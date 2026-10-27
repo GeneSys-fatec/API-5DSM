@@ -280,6 +280,8 @@ class ScenarioConfigController extends ChangeNotifier {
       _lastSimulationResult = response;
 
       final config = AreaDelimitationController.sharedConfig;
+      final usedPolygon = (config?.useDrawnPolygon ?? false) &&
+          (config?.drawnPolygonPoints.length ?? 0) >= 3;
       final defaultLat = response.selectedGateways.isNotEmpty
           ? response.selectedGateways.first.latitude.toString()
           : '-22.9068';
@@ -291,6 +293,11 @@ class ScenarioConfigController extends ChangeNotifier {
         centerLng: config?.centerLongitude.toString() ?? defaultLng,
         regionName: config?.address ?? 'Campinas - SP',
         searchRadiusMeters: config?.radiusMeters ?? 0.0,
+        searchPolygon: usedPolygon
+            ? config!.drawnPolygonPoints
+                .map((point) => [point[0], point[1]])
+                .toList()
+            : const [],
       );
 
       await _storageService.saveLastSimulationScenario(scenario);

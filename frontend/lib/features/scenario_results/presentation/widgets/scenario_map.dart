@@ -11,7 +11,8 @@ import 'map_layer_toggle_bar.dart';
 import 'map_layer_type.dart';
 
 LatLngBounds? computeScenarioViewBounds(SimulationScenario scenario) {
-  if (scenario.searchRadiusMeters <= 0) return null;
+  final hasPolygon = scenario.searchPolygon.length >= 3;
+  if (!hasPolygon && scenario.searchRadiusMeters <= 0) return null;
 
   var minLat = double.infinity;
   var maxLat = -double.infinity;
@@ -32,7 +33,13 @@ LatLngBounds? computeScenarioViewBounds(SimulationScenario scenario) {
     maxLng = math.max(maxLng, lng + dLng);
   }
 
-  include(scenario.centerLat, scenario.centerLng, scenario.searchRadiusMeters);
+  if (hasPolygon) {
+    for (final point in scenario.searchPolygon) {
+      include(point[0], point[1], 0);
+    }
+  } else {
+    include(scenario.centerLat, scenario.centerLng, scenario.searchRadiusMeters);
+  }
   for (final gw in scenario.results.gateways) {
     include(gw.lat, gw.lng, gw.coverageRadiusMeters);
   }
@@ -371,7 +378,9 @@ class _ScenarioMapState extends State<ScenarioMap> {
     final center = LatLng(widget.scenario.centerLat, widget.scenario.centerLng);
     final gateways = widget.scenario.results.gateways;
     final searchRadius = widget.scenario.searchRadiusMeters;
-    final hasSearchArea = searchRadius > 0;
+    final searchPolygon = widget.scenario.searchPolygon;
+    final hasPolygon = searchPolygon.length >= 3;
+    final hasSearchArea = hasPolygon || searchRadius > 0;
     final viewBounds = computeScenarioViewBounds(widget.scenario);
     final isMobile = MediaQuery.sizeOf(context).width < 600;
     final hasAssets = widget.scenario.results.assets.isNotEmpty;
@@ -422,7 +431,24 @@ class _ScenarioMapState extends State<ScenarioMap> {
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.tecsys.api5dsm',
                         ),
-                      if (hasSearchArea &&
+                      if (hasPolygon &&
+                          _activeLayers.contains(MapLayerType.searchArea))
+                        PolygonLayer(
+                          polygons: [
+                            Polygon(
+                              points: searchPolygon
+                                  .map((point) => LatLng(point[0], point[1]))
+                                  .toList(),
+                              color: Colors.deepOrange.withValues(alpha: 0.05),
+                              borderColor: Colors.deepOrange.withValues(
+                                alpha: 0.85,
+                              ),
+                              borderStrokeWidth: 2,
+                            ),
+                          ],
+                        ),
+                      if (!hasPolygon &&
+                          hasSearchArea &&
                           _activeLayers.contains(MapLayerType.searchArea))
                         CircleLayer(
                           circles: [
@@ -503,7 +529,10 @@ class _ScenarioMapState extends State<ScenarioMap> {
                     Positioned(
                       right: 8,
                       bottom: 24,
-                      child: _SearchAreaLegend(radiusMeters: searchRadius),
+                      child: _SearchAreaLegend(
+                        radiusMeters: searchRadius,
+                        isPolygon: hasPolygon,
+                      ),
                     ),
                   Positioned(
                     left: isMobile ? 12 : 16,
@@ -870,8 +899,9 @@ class _AssetsMapLegendState extends State<_AssetsMapLegend> {
 
 class _SearchAreaLegend extends StatelessWidget {
   final double radiusMeters;
+  final bool isPolygon;
 
-  const _SearchAreaLegend({required this.radiusMeters});
+  const _SearchAreaLegend({required this.radiusMeters, this.isPolygon = false});
 
   @override
   Widget build(BuildContext context) {
@@ -902,7 +932,7 @@ class _SearchAreaLegend extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            'Área de busca (raio $label)',
+            isPolygon ? 'Área de busca (polígono manual)' : 'Área de busca (raio $label)',
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
           ),
         ],
