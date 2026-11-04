@@ -27,6 +27,10 @@ public class ScenarioService {
         return scenarioRepository.findById(id);
     }
 
+    public List<ScenarioAssetLocation> getAssetLocations(Long scenarioId) {
+        return scenarioRepository.findAssetLocations(scenarioId);
+    }
+
     public void deleteScenario(Long id) {
         scenarioRepository.deleteById(id);
     }

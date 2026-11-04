@@ -76,11 +76,21 @@ public class SimulationController {
         List<SimulationResponse.SelectedGatewayResponse> selectedGateways = new ArrayList<>();
         for (var coverage : outcome.selectedCoverages()) {
             GatewayCandidate candidate = coverage.getCandidate();
+            Double averageRssi = coverage.averageReceivedPowerDbm();
+            Double averageMargin = averageRssi == null || outcome.rfParameter() == null
+                    ? null
+                    : averageRssi - outcome.rfParameter().getReceiverSensitivityDbm();
             selectedGateways.add(SimulationResponse.SelectedGatewayResponse.builder()
                     .candidateId(candidate.getId())
+                    .assetKey(candidate.getAssetKey())
                     .latitude(candidate.getCoordinate().latitude())
                     .longitude(candidate.getCoordinate().longitude())
-                    .coverageRadiusMeters(outcome.coverageRadiusMeters())
+                    .coverageRadiusMeters(coverage.getCoverageRadiusMeters() > 0
+                            ? coverage.getCoverageRadiusMeters()
+                            : outcome.coverageRadiusMeters())
+                    .coveredAssetCount(coverage.getCoveredAssetKeys().size())
+                    .averageRssiDbm(averageRssi)
+                    .averageLinkMarginDb(averageMargin)
                     .coverageGeometryGeoJson(coverage.getCoverageGeometryGeoJson())
                     .shadowedAssetKeys(new ArrayList<>(coverage.getShadowedAssetKeys()))
                     .build());
@@ -89,6 +99,7 @@ public class SimulationController {
         List<SimulationResponse.AssetLocationResponse> assets = outcome.assets().stream()
                 .map(asset -> SimulationResponse.AssetLocationResponse.builder()
                         .assetKey(asset.assetKey())
+                        .type(asset.type())
                         .latitude(asset.latitude())
                         .longitude(asset.longitude())
                         .covered(coveredAssetKeys.contains(asset.assetKey()))
