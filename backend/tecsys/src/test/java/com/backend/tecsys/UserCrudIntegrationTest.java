@@ -2,6 +2,7 @@ package com.backend.tecsys;
 
 import com.backend.tecsys.auth.dto.CreateUserRequest;
 import com.backend.tecsys.auth.dto.LoginRequest;
+import com.backend.tecsys.auth.dto.ProfileUpdateRequest;
 import com.backend.tecsys.auth.dto.UpdateUserRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -242,6 +243,47 @@ class UserCrudIntegrationTest {
                         .content(objectMapper.writeValueAsString(new LoginRequest("update.teste@tecsys.com", "NovaSenha@456"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty());
+    }
+
+    @Test
+    void shouldReadAndUpdateAuthenticatedUserProfile() throws Exception {
+        mockMvc.perform(get("/users/me")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Administrador Tecsys"));
+
+        ProfileUpdateRequest request = ProfileUpdateRequest.builder()
+                .nome("Administrador Atualizado")
+                .avatarUrl("https://example.com/avatar.jpg")
+                .build();
+
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Administrador Atualizado"))
+                .andExpect(jsonPath("$.avatarUrl").value("https://example.com/avatar.jpg"))
+                .andExpect(jsonPath("$.password").doesNotExist());
+
+        ProfileUpdateRequest relativeRequest = ProfileUpdateRequest.builder()
+                .nome("Administrador Com Foto Local")
+                .avatarUrl("/users/1/avatar?v=123456")
+                .build();
+
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(relativeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Administrador Com Foto Local"))
+                .andExpect(jsonPath("$.avatarUrl").value("/users/1/avatar?v=123456"));
+
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"\",\"avatarUrl\":\"https://example.com/avatar.jpg\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

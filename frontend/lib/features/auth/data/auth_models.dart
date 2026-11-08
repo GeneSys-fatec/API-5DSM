@@ -2,12 +2,14 @@ class UserData {
   final int id;
   final String name;
   final String email;
+  final String? avatarUrl;
   final String? role;
 
   const UserData({
     required this.id,
     required this.name,
     required this.email,
+    this.avatarUrl,
     this.role,
   });
 
@@ -16,6 +18,7 @@ class UserData {
       id: (json['id'] as num).toInt(),
       name: (json['nome'] ?? json['name'] ?? '') as String,
       email: (json['email'] ?? '') as String,
+      avatarUrl: json['avatarUrl'] as String?,
       role: (json['papel'] ?? json['role']) as String?,
     );
   }
@@ -24,6 +27,7 @@ class UserData {
         'id': id,
         'name': name,
         'email': email,
+        if (avatarUrl != null) 'avatarUrl': avatarUrl,
         if (role != null) 'role': role,
       };
 }

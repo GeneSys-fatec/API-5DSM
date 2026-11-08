@@ -1,6 +1,7 @@
 package com.backend.tecsys.auth.service;
 
 import com.backend.tecsys.auth.dto.CreateUserRequest;
+import com.backend.tecsys.auth.dto.ProfileUpdateRequest;
 import com.backend.tecsys.auth.dto.UpdateUserRequest;
 import com.backend.tecsys.auth.dto.UserResponse;
 import com.backend.tecsys.auth.exception.EmailAlreadyExistsException;
@@ -67,6 +68,33 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não encontrado."));
 
         return UserResponse.fromUser(user);
+    }
+
+    public UserResponse getProfile(User currentUser) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ForbiddenOperationException("Usuário não autenticado.");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário autenticado não encontrado."));
+        return UserResponse.fromUser(user);
+    }
+
+    public UserResponse updateProfile(ProfileUpdateRequest request, User currentUser) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ForbiddenOperationException("Usuário não autenticado.");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário autenticado não encontrado."));
+        user.setName(request.getNome().trim());
+        user.setAvatarUrl(request.getAvatarUrl() == null || request.getAvatarUrl().isBlank()
+                ? null
+                : request.getAvatarUrl().trim());
+        user.setUpdatedAt(LocalDateTime.now());
+
+        User updated = userRepository.update(user);
+        return UserResponse.fromUser(updated);
     }
 
     public List<UserResponse> getAllUsers(User currentUser) {
