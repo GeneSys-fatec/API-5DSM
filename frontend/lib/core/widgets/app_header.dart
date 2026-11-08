@@ -8,7 +8,6 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final String? userEmail;
   final VoidCallback? onMenuTap;
   final VoidCallback? onHelpTap;
-  final VoidCallback? onLogout;
 
   const AppHeader({
     super.key,
@@ -17,7 +16,6 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.userEmail,
     this.onMenuTap,
     this.onHelpTap,
-    this.onLogout,
   });
 
   @override
@@ -48,7 +46,10 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                     onPressed: onMenuTap,
                     tooltip: 'Abrir menu',
                   ),
-                _Avatar(name: userName, radius: isMobile ? 18 : 22),
+                _Avatar(
+                  name: userName,
+                  radius: isMobile ? 18 : 22,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _UserInfo(
@@ -56,16 +57,12 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                     email: userEmail,
                   ),
                 ),
-                if (onHelpTap != null) ...[
+                if (onHelpTap != null)
                   IconButton(
                     icon: const Icon(Icons.help_outline_rounded, color: AppColors.primary),
                     onPressed: onHelpTap,
                     tooltip: 'Tutorial & Ajuda desta tela',
                   ),
-                  const SizedBox(width: 8),
-                ],
-                const SizedBox(width: 12),
-                _LogoutButton(compact: isMobile, onPressed: onLogout),
               ],
             ),
           ),
@@ -87,7 +84,10 @@ class _Avatar extends StatelessWidget {
   final String name;
   final double radius;
 
-  const _Avatar({required this.name, required this.radius});
+  const _Avatar({
+    required this.name,
+    required this.radius,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -143,39 +143,6 @@ class _UserInfo extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _LogoutButton extends StatelessWidget {
-  final bool compact;
-  final VoidCallback? onPressed;
-
-  const _LogoutButton({required this.compact, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    if (compact) {
-      return IconButton(
-        onPressed: onPressed,
-        tooltip: 'Sair',
-        icon: const Icon(Icons.logout_rounded, size: 18),
-        color: AppColors.textSecondary,
-      );
-    }
-
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.logout_rounded, size: 18),
-      label: const Text('Sair'),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.textSecondary,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
     );
   }
 }

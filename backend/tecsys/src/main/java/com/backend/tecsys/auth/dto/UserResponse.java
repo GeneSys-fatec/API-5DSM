@@ -26,6 +26,9 @@ public class UserResponse {
     @Schema(description = "E-mail do usuário", example = "joao.silva@tecsys.com")
     private String email;
 
+    @Schema(description = "URL da foto do perfil", example = "https://exemplo.com/avatar.jpg")
+    private String avatarUrl;
+
     @Schema(description = "Papel/permissão do usuário no sistema", example = "ENGENHEIRO")
     private String role;
 
@@ -60,6 +63,7 @@ public class UserResponse {
                 .id(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
+                .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

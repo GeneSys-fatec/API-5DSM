@@ -1,6 +1,7 @@
 package com.backend.tecsys.auth.controller;
 
 import com.backend.tecsys.auth.dto.CreateUserRequest;
+import com.backend.tecsys.auth.dto.ProfileUpdateRequest;
 import com.backend.tecsys.auth.dto.UpdateUserRequest;
 import com.backend.tecsys.auth.dto.UserResponse;
 import com.backend.tecsys.auth.model.User;
@@ -119,6 +120,29 @@ public class UserController {
             @AuthenticationPrincipal User currentUser) {
         UserResponse user = userService.getUserById(id, currentUser);
         return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/me")
+    @Operation(
+            summary = "Consultar meu perfil",
+            description = "Retorna os dados personalizáveis do usuário autenticado.",
+            security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    public ResponseEntity<UserResponse> getProfile(
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(userService.getProfile(currentUser));
+    }
+
+    @PutMapping("/me")
+    @Operation(
+            summary = "Atualizar meu perfil",
+            description = "Atualiza o nome de exibição e a URL do avatar do usuário autenticado.",
+            security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    public ResponseEntity<UserResponse> updateProfile(
+            @Valid @RequestBody ProfileUpdateRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(userService.updateProfile(request, currentUser));
     }
 
     @PutMapping("/{id}")
