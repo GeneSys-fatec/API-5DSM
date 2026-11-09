@@ -83,10 +83,7 @@ class ScenarioWizardStepper extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final showPills = constraints.maxWidth >= 900;
-          return Row(
+      child: Row(
             children: [
               Flexible(
                 child: _StepBadge(
@@ -122,16 +119,7 @@ class ScenarioWizardStepper extends StatelessWidget {
                   onTap: onStep2Tap,
                 ),
               ),
-              if (showPills && showSystemPills) ...[
-                const SizedBox(width: 16),
-                const Spacer(),
-                _SystemContextPills(
-                  baseName: baseName ?? 'ENERGISA (SUL / SE)',
-                ),
-              ],
             ],
-          );
-        },
       ),
     );
   }
@@ -261,68 +249,4 @@ class _StepBadge extends StatelessWidget {
   }
 }
 
-class _SystemContextPills extends StatelessWidget {
-  final String baseName;
-  const _SystemContextPills({this.baseName = 'ENERGISA (SUL / SE)'});
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.layers_rounded,
-              color: AppColors.primaryPurple,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textPrimary,
-                ),
-                children: [
-                  const TextSpan(
-                    text: 'Base: ',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                  TextSpan(
-                    text: baseName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.statusGreenLight,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.circle, color: AppColors.statusGreen, size: 8),
-              SizedBox(width: 6),
-              Text(
-                'Motor GIS Ativo',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.statusGreen,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
