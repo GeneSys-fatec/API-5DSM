@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/scenario_config/presentation/widgets/scenario_wizard_stepper.dart';
 
 void main() {
-  testWidgets('ScenarioWizardStepper does not display Datum but keeps Base and Motor GIS', (tester) async {
+  testWidgets('ScenarioWizardStepper does not display Base or Motor GIS', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -19,14 +19,14 @@ void main() {
       ),
     );
 
-    // Deve conter Base e Motor GIS Ativo
+    // Não deve conter Base nem Motor GIS Ativo
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is RichText && widget.text.toPlainText().contains('Base: CHESP (GOIAS)'),
+        (widget) => widget is RichText && widget.text.toPlainText().contains('Base:'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('Motor GIS Ativo'), findsOneWidget);
+    expect(find.text('Motor GIS Ativo'), findsNothing);
 
     // NÃO deve conter o campo Datum ou menções ao SIRGAS no cabeçalho
     expect(
