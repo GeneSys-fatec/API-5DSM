@@ -81,8 +81,85 @@ void main() {
       expect(find.text('Sair da Conta'), findsOneWidget);
 
       expect(find.text('URL da foto / avatar'), findsNothing);
+      expect(find.text('Segurança da Conta'), findsOneWidget);
+      expect(find.text('Alterar E-mail'), findsOneWidget);
+      expect(find.text('Alterar Senha'), findsOneWidget);
       expect(find.text('Informações do Sistema'), findsOneWidget);
       expect(find.text('Servidor de API'), findsOneWidget);
+    });
+
+    testWidgets('SettingsScreen abre diálogo de alteração de e-mail ao clicar no botão', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Alterar E-mail'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alterar E-mail'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Novo e-mail'), findsOneWidget);
+      expect(find.text('Senha atual'), findsOneWidget);
+      expect(find.text('Salvar e-mail'), findsOneWidget);
+      expect(find.text('Cancelar'), findsOneWidget);
+
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Salvar e-mail'), findsNothing);
+    });
+
+    testWidgets('SettingsScreen abre diálogo de alteração de senha ao clicar no botão', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Alterar Senha'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alterar Senha'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Senha atual'), findsOneWidget);
+      expect(find.text('Nova senha'), findsOneWidget);
+      expect(find.text('Confirmar nova senha'), findsOneWidget);
+      expect(find.text('Salvar senha'), findsOneWidget);
+      expect(find.text('Cancelar'), findsOneWidget);
+
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Salvar senha'), findsNothing);
+    });
+
+    testWidgets('SettingsScreen valida regras de cadastro e alterna visibilidade da nova senha', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Alterar Senha'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alterar Senha'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Ver senha'), findsNWidgets(2));
+
+      await tester.enterText(find.widgetWithText(TextFormField, 'Nova senha'), 'abcdef');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Confirmar nova senha'), 'abcdef');
+      await tester.tap(find.text('Salvar senha'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Use letras e números'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Ver senha').first);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Ocultar senha'), findsOneWidget);
     });
   });
 }

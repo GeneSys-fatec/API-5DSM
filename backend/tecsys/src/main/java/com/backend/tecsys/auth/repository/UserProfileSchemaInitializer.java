@@ -38,6 +38,9 @@ public class UserProfileSchemaInitializer {
         """);
 
         jdbcTemplate.execute("ALTER TABLE app.usuario ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(1000)");
+        try {
+            jdbcTemplate.execute("ALTER TABLE app.usuario ALTER COLUMN distribuidora_id DROP NOT NULL");
+        } catch (Exception ignored) {}
 
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS app.refresh_token (
@@ -50,6 +53,14 @@ public class UserProfileSchemaInitializer {
             )
         """);
 
+        try {
+            jdbcTemplate.execute("""
+                INSERT INTO app.distribuidora (id, nome, sigla)
+                VALUES (1, 'Tecsys Energia', 'TECSYS')
+                ON CONFLICT (sigla) DO NOTHING
+            """);
+        } catch (Exception ignored) {}
+
         jdbcTemplate.execute("""
             INSERT INTO app.usuario (nome, email, avatar_url, senha_hash, papel, distribuidora_id)
             VALUES (
@@ -58,7 +69,7 @@ public class UserProfileSchemaInitializer {
                 NULL,
                 '$2a$10$to.TrijT0G.k6sg2Op3pFubVG//r54MwJBP4whsPG7oGc24USOrdy',
                 'admin',
-                NULL
+                COALESCE((SELECT id FROM app.distribuidora WHERE sigla = 'TECSYS'), (SELECT id FROM app.distribuidora LIMIT 1))
             )
             ON CONFLICT (email) DO NOTHING
         """);

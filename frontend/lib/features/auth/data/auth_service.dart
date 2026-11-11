@@ -127,7 +127,7 @@ class AuthService {
     throw const AuthException('Erro ao buscar dados do usuário.');
   }
 
-  Future<UserData> updateProfile({required String name, String? avatarUrl}) async {
+  Future<UserData> updateProfile({required String name}) async {
     final token = await getToken();
     if (token == null) {
       throw const AuthException('Sessão expirada. Faça login novamente.');
@@ -141,7 +141,6 @@ class AuthService {
       },
       body: jsonEncode({
         'nome': name,
-        'avatarUrl': avatarUrl ?? '',
       }),
     );
 
@@ -157,6 +156,77 @@ class AuthService {
       errorMessage = (data['error'] ?? data['message'] ?? errorMessage) as String;
     } catch (_) {}
     throw AuthException(errorMessage);
+  }
+
+  Future<UserData> changeEmail({required String newEmail, required String password}) async {
+    final token = await getToken();
+    if (token == null) {
+      throw const AuthException('Sessão expirada. Faça login novamente.');
+    }
+
+    final response = await http.put(
+      Uri.parse('${ApiConfig.baseUrl}/users/me/email'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'novoEmail': newEmail.trim(),
+        'senha': password,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final user = UserData.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      await _saveUser(user);
+      return user;
+    }
+
+    String errorMessage = 'Erro ao alterar o e-mail.';
+    String? errorCode;
+    try {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      errorMessage = (data['message'] ?? data['error'] ?? errorMessage) as String;
+      errorCode = data['code'] as String?;
+    } catch (_) {}
+    throw AuthException(errorMessage, code: errorCode);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final token = await getToken();
+    if (token == null) {
+      throw const AuthException('Sessão expirada. Faça login novamente.');
+    }
+
+    final response = await http.put(
+      Uri.parse('${ApiConfig.baseUrl}/users/me/password'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'senhaAtual': currentPassword,
+        'novaSenha': newPassword,
+        'confirmarNovaSenha': confirmPassword,
+      }),
+    );
+
+    if (response.statusCode == 204 || response.statusCode == 200) {
+      return;
+    }
+
+    String errorMessage = 'Erro ao alterar a senha.';
+    String? errorCode;
+    try {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      errorMessage = (data['message'] ?? data['error'] ?? errorMessage) as String;
+      errorCode = data['code'] as String?;
+    } catch (_) {}
+    throw AuthException(errorMessage, code: errorCode);
   }
 
   Future<String?> getToken() async {
@@ -235,7 +305,8 @@ class AuthService {
 
 class AuthException implements Exception {
   final String message;
-  const AuthException(this.message);
+  final String? code;
+  const AuthException(this.message, {this.code});
 
   @override
   String toString() => message;

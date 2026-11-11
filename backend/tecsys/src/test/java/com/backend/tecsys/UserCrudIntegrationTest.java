@@ -1,5 +1,7 @@
 package com.backend.tecsys;
 
+import com.backend.tecsys.auth.dto.ChangeEmailRequest;
+import com.backend.tecsys.auth.dto.ChangePasswordRequest;
 import com.backend.tecsys.auth.dto.CreateUserRequest;
 import com.backend.tecsys.auth.dto.LoginRequest;
 import com.backend.tecsys.auth.dto.ProfileUpdateRequest;
@@ -254,7 +256,6 @@ class UserCrudIntegrationTest {
 
         ProfileUpdateRequest request = ProfileUpdateRequest.builder()
                 .nome("Administrador Atualizado")
-                .avatarUrl("https://example.com/avatar.jpg")
                 .build();
 
         mockMvc.perform(put("/users/me")
@@ -263,27 +264,166 @@ class UserCrudIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nome").value("Administrador Atualizado"))
-                .andExpect(jsonPath("$.avatarUrl").value("https://example.com/avatar.jpg"))
                 .andExpect(jsonPath("$.password").doesNotExist());
 
-        ProfileUpdateRequest relativeRequest = ProfileUpdateRequest.builder()
-                .nome("Administrador Com Foto Local")
-                .avatarUrl("/users/1/avatar?v=123456")
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldChangeEmailSuccessfully() throws Exception {
+        // Criar usuário para teste de troca de e-mail
+        CreateUserRequest createReq = CreateUserRequest.builder()
+                .nome("Usuario Troca Email")
+                .email("email.orig@tecsys.com")
+                .senha("Senha@123")
+                .confirmarSenha("Senha@123")
                 .build();
 
-        mockMvc.perform(put("/users/me")
-                        .header("Authorization", "Bearer " + adminToken)
+        mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(relativeRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nome").value("Administrador Com Foto Local"))
-                .andExpect(jsonPath("$.avatarUrl").value("/users/1/avatar?v=123456"));
+                        .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isCreated());
 
-        mockMvc.perform(put("/users/me")
-                        .header("Authorization", "Bearer " + adminToken)
+        MvcResult loginRes = mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"\",\"avatarUrl\":\"https://example.com/avatar.jpg\"}"))
-                .andExpect(status().isBadRequest());
+                        .content(objectMapper.writeValueAsString(new LoginRequest("email.orig@tecsys.com", "Senha@123"))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String token = objectMapper.readTree(loginRes.getResponse().getContentAsString()).get("token").asText();
+
+        // 1. Falha com senha errada
+        ChangeEmailRequest wrongPassReq = ChangeEmailRequest.builder()
+                .novoEmail("email.novo@tecsys.com")
+                .senha("SenhaErrada@999")
+                .build();
+
+        mockMvc.perform(put("/users/me/email")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(wrongPassReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("A senha informada está incorreta."));
+
+        // 2. Falha com e-mail já existente
+        ChangeEmailRequest dupEmailReq = ChangeEmailRequest.builder()
+                .novoEmail("admin@tecsys.com")
+                .senha("Senha@123")
+                .build();
+
+        mockMvc.perform(put("/users/me/email")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dupEmailReq)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("O e-mail informado já está em uso por outro usuário."));
+
+        // 3. Sucesso com senha correta
+        ChangeEmailRequest okReq = ChangeEmailRequest.builder()
+                .novoEmail("email.novo@tecsys.com")
+                .senha("Senha@123")
+                .build();
+
+        mockMvc.perform(put("/users/me/email")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(okReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("email.novo@tecsys.com"));
+
+        // Verifica que login com novo e-mail funciona
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("email.novo@tecsys.com", "Senha@123"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldChangePasswordSuccessfullyAndRevokeTokens() throws Exception {
+        CreateUserRequest createReq = CreateUserRequest.builder()
+                .nome("Usuario Troca Senha")
+                .email("senha.teste@tecsys.com")
+                .senha("SenhaAntiga@123")
+                .confirmarSenha("SenhaAntiga@123")
+                .build();
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isCreated());
+
+        MvcResult loginRes = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("senha.teste@tecsys.com", "SenhaAntiga@123"))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String token = objectMapper.readTree(loginRes.getResponse().getContentAsString()).get("token").asText();
+        String refreshToken = objectMapper.readTree(loginRes.getResponse().getContentAsString()).get("refreshToken").asText();
+
+        // 1. Falha com senha atual incorreta
+        ChangePasswordRequest wrongCurrentReq = ChangePasswordRequest.builder()
+                .senhaAtual("SenhaInvalida@000")
+                .novaSenha("NovaSenha@789")
+                .confirmarNovaSenha("NovaSenha@789")
+                .build();
+
+        mockMvc.perform(put("/users/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(wrongCurrentReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("A senha atual informada está incorreta."));
+
+        // 2. Falha com confirmação diferente
+        ChangePasswordRequest mismatchReq = ChangePasswordRequest.builder()
+                .senhaAtual("SenhaAntiga@123")
+                .novaSenha("NovaSenha@789")
+                .confirmarNovaSenha("OutraCoisa@999")
+                .build();
+
+        mockMvc.perform(put("/users/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mismatchReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("A confirmação da nova senha não confere com a senha informada."));
+
+        // 3. Sucesso na troca de senha
+        ChangePasswordRequest okReq = ChangePasswordRequest.builder()
+                .senhaAtual("SenhaAntiga@123")
+                .novaSenha("NovaSenha@789")
+                .confirmarNovaSenha("NovaSenha@789")
+                .build();
+
+        mockMvc.perform(put("/users/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(okReq)))
+                .andExpect(status().isNoContent());
+
+        // Refresh token anterior deve ter sido revogado
+        mockMvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isUnauthorized());
+
+        // Login com senha antiga deve falhar
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("senha.teste@tecsys.com", "SenhaAntiga@123"))))
+                .andExpect(status().isUnauthorized());
+
+        // Login com nova senha deve funcionar
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("senha.teste@tecsys.com", "NovaSenha@789"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty());
     }
 
     @Test
