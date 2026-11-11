@@ -26,14 +26,12 @@ const NavItem kManualNavItem = NavItem(
 class AppNavbar extends StatelessWidget {
   final String currentRoute;
   final ValueChanged<String> onSelect;
-  final bool syncConnected;
   final VoidCallback? onLogout;
 
   const AppNavbar({
     super.key,
     required this.currentRoute,
     required this.onSelect,
-    this.syncConnected = true,
     this.onLogout,
   });
 
@@ -43,8 +41,6 @@ class AppNavbar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _Logo(),
-        _SyncStatus(connected: syncConnected),
-        const SizedBox(height: 8),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -85,44 +81,6 @@ class _Logo extends StatelessWidget {
         children: [
           Image.asset('assets/images/logo.png', height: 32),
         ],
-      ),
-    );
-  }
-}
-
-class _SyncStatus extends StatelessWidget {
-  final bool connected;
-  const _SyncStatus({required this.connected});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = connected ? AppColors.success : AppColors.vermelhoErro;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundLight,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                connected ? 'BDGD Sincronizado' : 'BDGD Offline',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const Text('v4.2.1', style: TextStyle(fontSize: 11, color: Color(0xFF9A9DB3))),
-          ],
-        ),
       ),
     );
   }
