@@ -56,6 +56,12 @@ class BdgdExternalDataServiceTest {
                             },
                             {
                                 "IdcDistribuicao": "1",
+                                "IdcAtivo": "A",
+                                "SigPessoa": "ANATEL",
+                                "NomRazaoSocial": "AGENCIA NACIONAL DE TELECOMUNICACOES"
+                            },
+                            {
+                                "IdcDistribuicao": "1",
                                 "IdcAtivo": "I",
                                 "SigPessoa": "INATIVA D",
                                 "NomRazaoSocial": "INATIVA DISTRIBUIDORA"
@@ -72,6 +78,7 @@ class BdgdExternalDataServiceTest {
         assertTrue(distributors.contains("COOPERATIVA ENERGETICA EXEMPLO"));
         assertFalse(distributors.contains("GERADORA X"));
         assertFalse(distributors.contains("INATIVA D"));
+        assertFalse(distributors.contains("ANATEL"));
     }
 
     @Test
@@ -87,6 +94,8 @@ class BdgdExternalDataServiceTest {
         assertNotNull(distributors);
         assertTrue(distributors.size() >= 100);
         assertTrue(distributors.contains("CPFL-PAULISTA"));
+        assertFalse(distributors.contains("ANATEL"), "ANATEL não deve constar na lista de distribuidoras");
+        assertFalse(distributors.contains("ADASA"), "ADASA não deve constar na lista de distribuidoras");
     }
 
     @Test
