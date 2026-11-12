@@ -43,7 +43,7 @@ class ScenarioHistoryController extends ChangeNotifier {
     if (_searchQuery.trim().isEmpty) return _scenarios;
     final q = _searchQuery.trim().toLowerCase();
     return _scenarios.where((s) {
-      return s.name.toLowerCase().contains(q);
+      return s.displayName.toLowerCase().contains(q);
     }).toList();
   }
 

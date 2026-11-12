@@ -27,11 +27,13 @@ class ScenarioSummary {
     this.processedAt,
   });
 
+  String get displayName => name.trim().isEmpty ? 'Cenário $id' : name.trim();
+
   factory ScenarioSummary.fromJson(Map<String, dynamic> json) {
     return ScenarioSummary(
       id: (json['id'] as num).toInt(),
-      name: json['name'] as String? ?? '',
-      regionName: json['regionName'] as String? ?? '',
+      name: (json['name'] as String? ?? '').trim(),
+      regionName: (json['regionName'] as String? ?? '').trim(),
       coverageTargetPct: (json['coverageTargetPct'] as num?)?.toDouble(),
       maxGateways: (json['maxGateways'] as num?)?.toInt(),
       propagationModel: json['propagationModel'] as String?,
@@ -193,12 +195,14 @@ class ScenarioDetail {
     this.averageRssiDbm,
   });
 
+  String get displayName => name.trim().isEmpty ? 'Cenário $id' : name.trim();
+
   factory ScenarioDetail.fromJson(Map<String, dynamic> json) {
     final rawGateways = json['selectedGateways'] as List<dynamic>? ?? const [];
     return ScenarioDetail(
       id: (json['id'] as num).toInt(),
-      name: json['name'] as String? ?? '',
-      regionName: json['regionName'] as String? ?? '',
+      name: (json['name'] as String? ?? '').trim(),
+      regionName: (json['regionName'] as String? ?? '').trim(),
       areaWkt: json['areaWkt'] as String?,
       coverageTargetPct: (json['coverageTargetPct'] as num?)?.toDouble(),
       maxGateways: (json['maxGateways'] as num?)?.toInt(),
@@ -266,18 +270,20 @@ class ScenarioDetail {
         : average(gateways.map((g) => g.longitude!));
 
     final connectedAssets = assets.where((a) => a.covered).length;
+    final trimmedName = name.trim();
+    final resolvedName = displayName;
 
     return SimulationScenario(
       id: id.toString(),
-      code: name,
-      name: name,
+      code: resolvedName,
+      name: trimmedName.isEmpty ? null : trimmedName,
       region: regionName,
       centerLat: centerLat,
       centerLng: centerLng,
       searchPolygon: searchPolygon,
       executedAt: processedAt ?? DateTime.now(),
       parameters: ScenarioParameters(
-        feederName: name,
+        feederName: resolvedName,
         gatewayCount: indicator?.usedGatewayCount ?? gateways.length,
         txPowerDbm: rf?.transmitPowerDbm ?? 21.0,
         propagationModel: propagationModel ?? '',

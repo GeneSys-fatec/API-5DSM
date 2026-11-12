@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:frontend/features/scenario_history/data/models/scenario_models.dart';
 import 'package:frontend/features/scenario_history/data/services/saved_scenario_service.dart';
 import 'package:frontend/features/scenario_history/presentation/controllers/scenario_history_controller.dart';
@@ -86,6 +87,9 @@ class FakeSavedScenarioService implements SavedScenarioService {
   FakeSavedScenarioService({this.scenarios = const [], this.listError});
 
   @override
+  http.Client? get httpClient => null;
+
+  @override
   Future<List<ScenarioSummary>> listScenarios({String? regionName}) async {
     if (listError != null) throw listError!;
     filterUsed = regionName;
@@ -98,6 +102,22 @@ class FakeSavedScenarioService implements SavedScenarioService {
     detailCalls++;
     if (listError != null) throw listError!;
     return ScenarioDetail.fromJson(_detailJson());
+  }
+
+  @override
+  Future<ScenarioSummary> updateScenario(
+    int id, {
+    required String name,
+    String? regionName,
+  }) async {
+    if (listError != null) throw listError!;
+    return ScenarioSummary.fromJson(
+      _summaryJson(
+        id: id,
+        name: name.trim(),
+        regionName: regionName ?? 'Centro',
+      ),
+    );
   }
 
   @override

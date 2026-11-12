@@ -114,7 +114,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     await _storageService.saveLastSimulationScenario(simScenario);
     if (!mounted) return;
 
-    Navigator.of(context).pushNamed('/results', arguments: simScenario);
+    await Navigator.of(context).pushNamed('/results', arguments: simScenario);
+    if (mounted) {
+      await _controller.loadScenarios();
+    }
   }
 
   Future<void> _handleReuseConfig(ScenarioSummary scenario) async {
@@ -171,7 +174,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _handleDuplicate(ScenarioSummary scenario) async {
     final newName = await showDialog<String>(
       context: context,
-      builder: (ctx) => _DuplicateScenarioDialog(suggestedName: '${scenario.name} (cópia)'),
+      builder: (ctx) => _DuplicateScenarioDialog(suggestedName: '${scenario.displayName} (cópia)'),
     );
 
     if (newName == null || !mounted) return;
@@ -187,7 +190,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Excluir Cenário'),
         content: Text(
-          'Deseja realmente excluir o cenário "${scenario.name.isEmpty ? scenario.id : scenario.name}"? '
+          'Deseja realmente excluir o cenário "${scenario.displayName}"? '
           'Esta ação não pode ser desfeita.',
         ),
         actions: [

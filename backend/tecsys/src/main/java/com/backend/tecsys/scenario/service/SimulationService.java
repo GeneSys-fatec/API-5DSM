@@ -121,7 +121,7 @@ public class SimulationService {
                 selection.targetReached());
 
         Scenario scenario = Scenario.builder()
-                .name(command.scenarioName())
+                .name(command.scenarioName().trim())
                 .userId(userId)
                 .utilityId(utilityId)
                 .regionName(command.regionName())

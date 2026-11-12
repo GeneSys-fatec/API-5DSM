@@ -17,6 +17,8 @@ public interface IScenarioRepository {
 
     void deleteById(Long id);
 
+    Scenario updateMetadata(Long id, String name, String regionName);
+
     /** Ativos avaliados no cenário, com coordenadas, para reconstruir o mapa de resultados. */
     default List<ScenarioAssetLocation> findAssetLocations(Long scenarioId) {
         return List.of();

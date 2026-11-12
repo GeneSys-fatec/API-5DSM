@@ -69,4 +69,17 @@ public class MockScenarioRepository implements IScenarioRepository {
     public void deleteById(Long id) {
         scenarios.remove(id);
     }
+
+    @Override
+    public Scenario updateMetadata(Long id, String name, String regionName) {
+        Scenario existing = scenarios.get(id);
+        if (existing == null) {
+            return null;
+        }
+        existing.setName(name.trim());
+        if (regionName != null && !regionName.isBlank()) {
+            existing.setRegionName(regionName.trim());
+        }
+        return existing;
+    }
 }
