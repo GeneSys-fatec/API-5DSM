@@ -1,6 +1,9 @@
 package com.backend.tecsys.auth.service;
 
+import com.backend.tecsys.auth.dto.ChangeEmailRequest;
+import com.backend.tecsys.auth.dto.ChangePasswordRequest;
 import com.backend.tecsys.auth.dto.CreateUserRequest;
+import com.backend.tecsys.auth.dto.ProfileUpdateRequest;
 import com.backend.tecsys.auth.dto.UpdateUserRequest;
 import com.backend.tecsys.auth.dto.UserResponse;
 import com.backend.tecsys.auth.exception.EmailAlreadyExistsException;
@@ -67,6 +70,81 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não encontrado."));
 
         return UserResponse.fromUser(user);
+    }
+
+    public UserResponse getProfile(User currentUser) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ForbiddenOperationException("Usuário não autenticado.");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário autenticado não encontrado."));
+        return UserResponse.fromUser(user);
+    }
+
+    public UserResponse updateProfile(ProfileUpdateRequest request, User currentUser) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ForbiddenOperationException("Usuário não autenticado.");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário autenticado não encontrado."));
+        user.setName(request.getNome().trim());
+        user.setUpdatedAt(LocalDateTime.now());
+
+        User updated = userRepository.update(user);
+        return UserResponse.fromUser(updated);
+    }
+
+    public UserResponse changeEmail(ChangeEmailRequest request, User currentUser) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ForbiddenOperationException("Usuário não autenticado.");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário autenticado não encontrado."));
+
+        if (!passwordEncoder.matches(request.getSenha(), user.getPassword())) {
+            throw new PasswordMismatchException("A senha informada está incorreta.");
+        }
+
+        String newEmail = request.getNovoEmail().trim().toLowerCase();
+        if (newEmail.equalsIgnoreCase(user.getEmail())) {
+            return UserResponse.fromUser(user);
+        }
+
+        if (userRepository.existsByEmail(newEmail)) {
+            throw new EmailAlreadyExistsException("O e-mail informado já está em uso por outro usuário.");
+        }
+
+        user.setEmail(newEmail);
+        user.setUpdatedAt(LocalDateTime.now());
+        User updated = userRepository.update(user);
+        log.info("E-mail do usuário ID {} atualizado para {}.", user.getId(), newEmail);
+        return UserResponse.fromUser(updated);
+    }
+
+    public void changePassword(ChangePasswordRequest request, User currentUser) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ForbiddenOperationException("Usuário não autenticado.");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário autenticado não encontrado."));
+
+        if (!passwordEncoder.matches(request.getSenhaAtual(), user.getPassword())) {
+            throw new PasswordMismatchException("A senha atual informada está incorreta.");
+        }
+
+        if (request.getConfirmarNovaSenha() == null || !request.getNovaSenha().equals(request.getConfirmarNovaSenha())) {
+            throw new PasswordMismatchException("A confirmação da nova senha não confere com a senha informada.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNovaSenha()));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.update(user);
+        refreshTokenService.revokeAllForUser(user.getId());
+        log.info("Senha do usuário ID {} alterada com sucesso.", user.getId());
     }
 
     public List<UserResponse> getAllUsers(User currentUser) {

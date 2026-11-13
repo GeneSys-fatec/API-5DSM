@@ -1,6 +1,9 @@
 package com.backend.tecsys.auth.controller;
 
+import com.backend.tecsys.auth.dto.ChangeEmailRequest;
+import com.backend.tecsys.auth.dto.ChangePasswordRequest;
 import com.backend.tecsys.auth.dto.CreateUserRequest;
+import com.backend.tecsys.auth.dto.ProfileUpdateRequest;
 import com.backend.tecsys.auth.dto.UpdateUserRequest;
 import com.backend.tecsys.auth.dto.UserResponse;
 import com.backend.tecsys.auth.model.User;
@@ -119,6 +122,54 @@ public class UserController {
             @AuthenticationPrincipal User currentUser) {
         UserResponse user = userService.getUserById(id, currentUser);
         return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/me")
+    @Operation(
+            summary = "Consultar meu perfil",
+            description = "Retorna os dados personalizáveis do usuário autenticado.",
+            security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    public ResponseEntity<UserResponse> getProfile(
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(userService.getProfile(currentUser));
+    }
+
+    @PutMapping("/me")
+    @Operation(
+            summary = "Atualizar meu perfil",
+            description = "Atualiza o nome de exibição do usuário autenticado.",
+            security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    public ResponseEntity<UserResponse> updateProfile(
+            @Valid @RequestBody ProfileUpdateRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(userService.updateProfile(request, currentUser));
+    }
+
+    @PutMapping("/me/email")
+    @Operation(
+            summary = "Alterar meu e-mail",
+            description = "Atualiza o e-mail do usuário autenticado mediante confirmação da senha atual.",
+            security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    public ResponseEntity<UserResponse> changeEmail(
+            @Valid @RequestBody ChangeEmailRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(userService.changeEmail(request, currentUser));
+    }
+
+    @PutMapping("/me/password")
+    @Operation(
+            summary = "Alterar minha senha",
+            description = "Atualiza a senha do usuário autenticado mediante validação da senha atual e confirmação da nova senha.",
+            security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
+        userService.changePassword(request, currentUser);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}")

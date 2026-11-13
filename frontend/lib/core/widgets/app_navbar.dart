@@ -14,7 +14,7 @@ const List<NavItem> kNavItems = [
   NavItem(label: 'Configuração de Cenário', icon: Icons.tune_rounded, route: '/scenario'),
   NavItem(label: 'Resultados & Cobertura', icon: Icons.wifi_tethering_rounded, route: '/results'),
   NavItem(label: 'Histórico de Simulações', icon: Icons.history_rounded, route: '/history'),
-  // NavItem(label: 'Configurações do Sistema', icon: Icons.settings_rounded, route: '/settings'),
+  NavItem(label: 'Perfil', icon: Icons.person_outline_rounded, route: '/settings'),
 ];
 
 const NavItem kManualNavItem = NavItem(
@@ -26,11 +26,13 @@ const NavItem kManualNavItem = NavItem(
 class AppNavbar extends StatelessWidget {
   final String currentRoute;
   final ValueChanged<String> onSelect;
+  final VoidCallback? onLogout;
 
   const AppNavbar({
     super.key,
     required this.currentRoute,
     required this.onSelect,
+    this.onLogout,
   });
 
   @override
@@ -51,6 +53,11 @@ class AppNavbar extends StatelessWidget {
                 .toList(),
           ),
         ),
+        if (onLogout != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: _LogoutTile(onTap: onLogout!),
+          ),
         const Divider(height: 1, color: AppColors.border),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
@@ -72,7 +79,7 @@ class _Logo extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
       child: Row(
         children: [
-            Image.asset('assets/images/logo.png', height: 32),
+          Image.asset('assets/images/logo.png', height: 32),
         ],
       ),
     );
@@ -118,6 +125,43 @@ class _NavTile extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoutTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _LogoutTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 20, color: AppColors.danger),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Sair da conta',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.danger,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
