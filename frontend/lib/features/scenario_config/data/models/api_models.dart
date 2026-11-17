@@ -272,6 +272,10 @@ class SelectedGatewayResponse {
   final String? municipio;
   final String? coverageGeometryGeoJson;
   final List<String> shadowedAssetKeys;
+  final String? assetKey;
+  final int? coveredAssetCount;
+  final double? averageRssiDbm;
+  final double? averageLinkMarginDb;
 
   const SelectedGatewayResponse({
     required this.candidateId,
@@ -282,6 +286,10 @@ class SelectedGatewayResponse {
     this.municipio,
     this.coverageGeometryGeoJson,
     this.shadowedAssetKeys = const [],
+    this.assetKey,
+    this.coveredAssetCount,
+    this.averageRssiDbm,
+    this.averageLinkMarginDb,
   });
 
   factory SelectedGatewayResponse.fromMap(Map<String, dynamic> map) {
@@ -296,6 +304,10 @@ class SelectedGatewayResponse {
       shadowedAssetKeys: List<String>.from(
         map['shadowedAssetKeys'] as List? ?? const [],
       ),
+      assetKey: map['assetKey'] as String?,
+      coveredAssetCount: (map['coveredAssetCount'] as num?)?.toInt(),
+      averageRssiDbm: (map['averageRssiDbm'] as num?)?.toDouble(),
+      averageLinkMarginDb: (map['averageLinkMarginDb'] as num?)?.toDouble(),
     );
   }
 }
@@ -418,30 +430,28 @@ class SimulationResponse {
     required String centerLng,
     required String regionName,
     double searchRadiusMeters = 0.0,
+    List<List<double>> searchPolygon = const [],
   }) {
     double rfNumber(String key, double fallback) {
       final value = rfParameter[key];
       return value is num ? value.toDouble() : fallback;
     }
 
-    final gateways = selectedGateways.map((gw) {
-      final candidateIndex = gw.candidateId - 1;
-      final assetKey =
-          candidateIndex >= 0 && candidateIndex < coveredAssetKeys.length
-          ? coveredAssetKeys[candidateIndex]
-          : 'GW-${gw.candidateId}';
+    double roundTo1(double value) => (value * 10).roundToDouble() / 10;
 
+    final gateways = selectedGateways.map((gw) {
       return GatewayPoint(
         id: 'GW-${gw.candidateId}',
-        posteId: assetKey,
+        posteId: gw.assetKey ?? 'GW-${gw.candidateId}',
         lat: gw.latitude,
         lng: gw.longitude,
         antennaHeight: rfNumber('antennaHeightM', 6.0),
         txPowerDbm: rfNumber('transmitPowerDbm', 21.0),
-        linkedAssets: selectedGateways.isEmpty
-            ? 0
-            : (coveredAssetKeys.length / selectedGateways.length).round(),
-        avgFadeMarginDb: rfNumber('systemLossDb', 14.0),
+        // Valores calculados pela simulação para este gateway (e não médias globais).
+        linkedAssets: gw.coveredAssetCount ?? 0,
+        avgFadeMarginDb: gw.averageLinkMarginDb != null
+            ? roundTo1(gw.averageLinkMarginDb!)
+            : rfNumber('systemLossDb', 14.0),
         coverageRadiusMeters: gw.coverageRadiusMeters,
         address: gw.address,
         municipio: gw.municipio ?? (regionName.isNotEmpty ? regionName : null),
@@ -469,6 +479,7 @@ class SimulationResponse {
               ? selectedGateways.first.longitude
               : -47.0616),
       searchRadiusMeters: searchRadiusMeters,
+      searchPolygon: searchPolygon,
       executedAt: DateTime.now(),
       parameters: ScenarioParameters(
         feederName: regionName,

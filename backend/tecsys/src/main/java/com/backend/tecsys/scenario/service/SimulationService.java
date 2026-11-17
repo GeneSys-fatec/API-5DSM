@@ -98,7 +98,7 @@ public class SimulationService {
 
         Set<String> coveredAssetKeys = selection.coveredAssetKeys();
         Double averageRssiDbm = calculateAverageRssi(selection.selectedCoverages());
-        List<ScenarioSelectedGateway> selectedGateways = buildSelectedGateways(selection.selectedCoverages());
+        List<ScenarioSelectedGateway> selectedGateways = buildSelectedGateways(selection.selectedCoverages(), command.rfParameter());
         List<ScenarioAssetCoverage> assetCoverages = buildAssetCoverages(assets, coveredAssetKeys, selection.selectedCoverages());
 
         int processingTimeMs = (int) (System.currentTimeMillis() - startedAt);
@@ -132,6 +132,7 @@ public class SimulationService {
                 .status("concluido")
                 .processingTimeMs(processingTimeMs)
                 .areaWkt(buildSearchAreaWkt(command))
+                .averageRssiDbm(averageRssiDbm)
                 .rfParameter(command.rfParameter())
                 .coverageRadiusMeters(coverageRadiusMeters)
                 .selectedGateways(selectedGateways)
@@ -175,12 +176,28 @@ public class SimulationService {
                 assets.stream()
                         .map(asset -> new AssetLocation(
                                 asset.getAssetKey(),
+                                asset.getAssetType(),
                                 asset.getCoordinate().latitude(),
                                 asset.getCoordinate().longitude()))
                         .toList());
     }
     
     private String buildSearchAreaWkt(SimulationCommand command) {
+        if (command.hasSearchPolygon()) {
+            // Polígono manual: grava o próprio polígono (e não o círculo, que também vem na requisição).
+            List<PolygonPoint> ring = new ArrayList<>(command.searchPolygonPoints());
+            if (!ring.get(0).equals(ring.get(ring.size() - 1))) {
+                ring.add(ring.get(0));
+            }
+            StringBuilder polygon = new StringBuilder("POLYGON((");
+            for (int i = 0; i < ring.size(); i++) {
+                if (i > 0) {
+                    polygon.append(", ");
+                }
+                polygon.append(ring.get(i).longitude()).append(' ').append(ring.get(i).latitude());
+            }
+            return polygon.append("))").toString();
+        }
         if (!command.hasSearchArea()) {
             return null;
         }
@@ -315,17 +332,27 @@ public class SimulationService {
         }
     }
 
-    private List<ScenarioSelectedGateway> buildSelectedGateways(List<GatewayCoverage> selectedCoverages) {
+    private List<ScenarioSelectedGateway> buildSelectedGateways(
+            List<GatewayCoverage> selectedCoverages, RfParameter rfParameter) {
         List<ScenarioSelectedGateway> selectedGateways = new ArrayList<>();
         int order = 0;
 
         for (GatewayCoverage coverage : selectedCoverages) {
+            Double averageRssi = coverage.averageReceivedPowerDbm();
             selectedGateways.add(ScenarioSelectedGateway.builder()
                     .candidateId(coverage.getCandidate().getId())
                     .coordinate(coverage.getCandidate().getCoordinate())
                     .coverageRadiusMeters(coverage.getCoverageRadiusMeters())
                     .manuallyAdjusted(false)
                     .selectionOrder(++order)
+                    .assetKey(coverage.getCandidate().getAssetKey())
+                    .coverageGeometryGeoJson(coverage.getCoverageGeometryGeoJson())
+                    .coveredAssetCount(coverage.coveredCount())
+                    .averageRssiDbm(averageRssi)
+                    .averageLinkMarginDb(averageRssi == null || rfParameter == null
+                            ? null
+                            : averageRssi - rfParameter.getReceiverSensitivityDbm())
+                    .shadowedAssetKeys(new ArrayList<>(coverage.getShadowedAssetKeys()))
                     .build());
         }
 
@@ -449,6 +476,6 @@ public class SimulationService {
         }
     }
 
-    public record AssetLocation(String assetKey, double latitude, double longitude) {
+    public record AssetLocation(String assetKey, String type, double latitude, double longitude) {
     }
 }

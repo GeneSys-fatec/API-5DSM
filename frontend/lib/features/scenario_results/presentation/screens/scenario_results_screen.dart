@@ -148,6 +148,10 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
       SnackBar(
         backgroundColor: const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
+        // Com "action", o Flutter mantém o SnackBar na tela até o usuário dispensar (persist = true
+        // por padrão). Sem isto a barra verde nunca sumia sozinha.
+        persist: false,
+        duration: const Duration(seconds: 5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         content: Row(
           children: [

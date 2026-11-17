@@ -219,7 +219,26 @@ class AreaDelimitationController extends ChangeNotifier {
     _pointOutOfBounds = false;
   }
 
+  /// Descarta o resultado atual e invalida qualquer avaliação em andamento ou agendada,
+  /// para que uma busca antiga (ex.: a circular) não volte a preencher a tela depois.
+  void _discardCurrentResult() {
+    _polygonDebounceTimer?.cancel();
+    _evaluationGeneration++;
+    _isLoading = false;
+    _result = null;
+    _sharedResult = null;
+    _selectedCandidate = null;
+    _areaDelimitationError = null;
+    notifyListeners();
+  }
+
   Future<void> evaluateArea() async {
+    // Modo polígono sem os 3 pontos mínimos: não há área para buscar. Sem este guard o serviço
+    // caía na busca circular e trazia de volta os candidatos do ponto central.
+    if (_config.useDrawnPolygon && _config.drawnPolygonPoints.length < 3) {
+      _discardCurrentResult();
+      return;
+    }
     final myGeneration = ++_evaluationGeneration;
     _isLoading = true;
     _areaDelimitationError = null;
@@ -304,8 +323,7 @@ class AreaDelimitationController extends ChangeNotifier {
     if (!value || _config.drawnPolygonPoints.length >= 3) {
       evaluateArea();
     } else {
-      _result = null;
-      notifyListeners();
+      _discardCurrentResult();
     }
   }
 
@@ -366,8 +384,7 @@ class AreaDelimitationController extends ChangeNotifier {
     if (updatedPoints.length >= 3) {
       _scheduleEvaluateArea();
     } else {
-      _result = null;
-      notifyListeners();
+      _discardCurrentResult();
     }
   }
 
@@ -375,8 +392,7 @@ class AreaDelimitationController extends ChangeNotifier {
     _config = _config.copyWith(drawnPolygonPoints: const []);
     _sharedConfig = _config;
     _polygonPointOutOfBounds = false;
-    _result = null;
-    notifyListeners();
+    _discardCurrentResult();
   }
 
   void setAddressQuery(String query) {

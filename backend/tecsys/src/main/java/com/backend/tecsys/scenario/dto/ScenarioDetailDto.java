@@ -61,6 +61,28 @@ public class ScenarioDetailDto {
     @Schema(description = "Indicadores do cenário.")
     private ScenarioIndicatorDto indicator;
 
+    @Schema(description = "Ativos avaliados no cenário, com posição e se foram cobertos.")
+    private List<AssetDto> assets;
+
+    @Schema(description = "Potência média recebida (dBm) considerando o melhor gateway de cada ativo coberto.")
+    private Double averageRssiDbm;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Schema(description = "Ativo avaliado no cenário.")
+    public static class AssetDto {
+        @Schema(description = "Chave do ativo.")
+        private String assetKey;
+        @Schema(description = "Tipo do ativo (camada BDGD).", example = "POSTE")
+        private String type;
+        private double latitude;
+        private double longitude;
+        @Schema(description = "Ativo coberto por algum gateway?")
+        private boolean covered;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -77,6 +99,20 @@ public class ScenarioDetailDto {
         private Double coverageRadiusMeters;
         @Schema(description = "Ajustado manualmente?", example = "false")
         private Boolean manuallyAdjusted;
+        @Schema(description = "Quantidade de ativos cobertos atribuídos a este gateway.", example = "420")
+        private Integer linkedAssets;
+        @Schema(description = "Chave do ativo onde o gateway foi instalado.")
+        private String assetKey;
+        @Schema(description = "Geometria GeoJSON da cobertura efetiva calculada na simulação.")
+        private String coverageGeometryGeoJson;
+        @Schema(description = "Ativos que este gateway cobre individualmente.", example = "420")
+        private Integer coveredAssetCount;
+        @Schema(description = "Potência média recebida (dBm) nos ativos cobertos.")
+        private Double averageRssiDbm;
+        @Schema(description = "Margem de enlace média (dB).")
+        private Double averageLinkMarginDb;
+        @Schema(description = "Ativos bloqueados por obstrução de relevo.")
+        private List<String> shadowedAssetKeys;
     }
 
     @Data

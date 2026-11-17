@@ -35,7 +35,7 @@ class TecsysApp extends StatelessWidget {
         '/scenario/rf': (_) => const AuthGuard(child: ScenarioConfigScreen()),
         '/history': (_) => const AuthGuard(child: HistoryScreen()),
         '/manual': (_) => const ManualScreen(),
-        // '/settings': (_) => const AuthGuard(child: SettingsScreen()),
+        '/settings': (_) => const AuthGuard(child: SettingsScreen()),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/manual') {

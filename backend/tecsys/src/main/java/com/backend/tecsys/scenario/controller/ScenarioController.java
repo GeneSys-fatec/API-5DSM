@@ -5,6 +5,7 @@ import com.backend.tecsys.scenario.dto.*;
 import com.backend.tecsys.scenario.dto.SimulationRequest;
 import com.backend.tecsys.scenario.model.PropagationModelType;
 import com.backend.tecsys.scenario.model.Scenario;
+import com.backend.tecsys.scenario.model.ScenarioAssetLocation;
 import com.backend.tecsys.scenario.model.ScenarioIndicator;
 import com.backend.tecsys.scenario.model.ScenarioSelectedGateway;
 import com.backend.tecsys.scenario.service.ScenarioService;
@@ -123,6 +124,23 @@ public class ScenarioController {
         }
 
         ScenarioDetailDto dto = toDetailDto(scenario);
+        List<ScenarioAssetLocation> locations = scenarioService.getAssetLocations(id);
+        dto.setAssets(locations.stream()
+                .map(l -> ScenarioDetailDto.AssetDto.builder()
+                        .assetKey(l.assetKey())
+                        .type(l.type())
+                        .latitude(l.latitude())
+                        .longitude(l.longitude())
+                        .covered(l.covered())
+                        .build())
+                .toList());
+        if (dto.getSelectedGateways() != null) {
+            for (ScenarioDetailDto.SelectedGatewayDto gateway : dto.getSelectedGateways()) {
+                gateway.setLinkedAssets((int) locations.stream()
+                        .filter(l -> l.covered() && java.util.Objects.equals(l.gatewayCandidateId(), gateway.getCandidateId()))
+                        .count());
+            }
+        }
         return ResponseEntity.ok(dto);
     }
 
@@ -208,6 +226,12 @@ public class ScenarioController {
                         .longitude(g.getCoordinate() != null ? g.getCoordinate().longitude() : null)
                         .coverageRadiusMeters(g.getCoverageRadiusMeters())
                         .manuallyAdjusted(g.isManuallyAdjusted())
+                        .assetKey(g.getAssetKey())
+                        .coverageGeometryGeoJson(g.getCoverageGeometryGeoJson())
+                        .coveredAssetCount(g.getCoveredAssetCount())
+                        .averageRssiDbm(g.getAverageRssiDbm())
+                        .averageLinkMarginDb(g.getAverageLinkMarginDb())
+                        .shadowedAssetKeys(g.getShadowedAssetKeys())
                         .build());
             }
         }
@@ -238,6 +262,7 @@ public class ScenarioController {
                 .processedAt(scenario.getProcessedAt())
                 .selectedGateways(gateways)
                 .indicator(indicatorDto)
+                .averageRssiDbm(scenario.getAverageRssiDbm())
                 .build();
     }
 }
