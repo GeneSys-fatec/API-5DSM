@@ -320,10 +320,9 @@ class AreaDelimitationController extends ChangeNotifier {
     _config = _config.copyWith(useDrawnPolygon: value);
     _sharedConfig = _config;
     _polygonPointOutOfBounds = false;
+    _discardCurrentResult();
     if (!value || _config.drawnPolygonPoints.length >= 3) {
       evaluateArea();
-    } else {
-      _discardCurrentResult();
     }
   }
 
