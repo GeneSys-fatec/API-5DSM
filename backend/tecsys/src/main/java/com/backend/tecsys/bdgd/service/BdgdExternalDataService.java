@@ -29,6 +29,21 @@ public class BdgdExternalDataService {
     private static final Duration CACHE_DURATION = Duration.ofHours(24);
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(8);
 
+    private static final Set<String> NON_ELECTRIC_SIGLAS = Set.of(
+            "ANATEL", "ADASA", "ETENE", "EEVP",
+            "VDB III", "ROSARIO", "BUIQUE", "GYBR X", "GYBR XIII",
+            "SENTO SE VIII", "SENTO SE XI", "SENTO SE XIII", "SENTO SE XIV", "VSA VIII"
+    );
+
+    private static final List<String> NON_ELECTRIC_TERMS = List.of(
+            "PARQUE SOLAR", "COMPLEXO SOLAR", "ENERGIA SOLAR", "FOTOVOLTAICA", "UFV",
+            "VENTOS DE", "PARQUE EOLICO", "EOLICA", "EOLICO", "ENERGIAS RENOVAVEIS",
+            "TRANSMISSORA", "TRANSMISSAO", "CONSTRUTORA", "CONSULTORIA",
+            "INVESTIMENTOS", "PARTICIPACOES", "EMPREENDIMENTO ENERGETICO", "CONFEDERACAO",
+            "AGENCIA REGULADORA", "AGENCIA NACIONAL", "BOQUEIRAO ENERGIA", "CANDEIAS ENERGIA",
+            "SOLTEC BRASIL", "PHOENIX ENERGIAS"
+    );
+
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
@@ -124,6 +139,11 @@ public class BdgdExternalDataService {
                     }
                     String sigla = r.path("SigPessoa").asText("").strip();
                     String razao = r.path("NomRazaoSocial").asText("").strip();
+
+                    if (!isElectricDistributor(sigla, razao)) {
+                        continue;
+                    }
+
                     if (!sigla.isEmpty()) {
                         names.add(sigla);
                     } else if (!razao.isEmpty()) {
@@ -138,6 +158,21 @@ public class BdgdExternalDataService {
             log.error("Erro ao analisar JSON da ANEEL", e);
         }
         return null;
+    }
+
+    private boolean isElectricDistributor(String sigla, String razao) {
+        if (sigla != null && NON_ELECTRIC_SIGLAS.contains(sigla.toUpperCase(Locale.ROOT).strip())) {
+            return false;
+        }
+        if (razao != null) {
+            String upper = razao.toUpperCase(Locale.ROOT);
+            for (String term : NON_ELECTRIC_TERMS) {
+                if (upper.contains(term)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     public void loadFallbackData() {
