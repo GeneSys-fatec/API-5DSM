@@ -69,6 +69,11 @@ public class GlobalExceptionHandler {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.FORBIDDEN, "FORBIDDEN");
         }
 
+        @ExceptionHandler(com.backend.tecsys.auth.service.PasswordResetService.InvalidTokenException.class)
+        public ResponseEntity<Map<String, Object>> handleInvalidTokenException(com.backend.tecsys.auth.service.PasswordResetService.InvalidTokenException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_RESET_TOKEN");
+        }
+
         @ExceptionHandler(InvalidBdgdUploadException.class)
         public ResponseEntity<Map<String, Object>> handleInvalidBdgdUpload(InvalidBdgdUploadException ex) {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_UPLOAD");
