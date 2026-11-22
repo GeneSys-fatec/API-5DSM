@@ -39,6 +39,11 @@ public class GlobalExceptionHandler {
                                 "timestamp", LocalDateTime.now().toString()));
         }
 
+        @ExceptionHandler(IllegalArgumentException.class)
+        public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+
         @ExceptionHandler(AuthService.AuthenticationException.class)
         public ResponseEntity<Map<String, Object>> handleAuthenticationException(AuthService.AuthenticationException ex) {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED);

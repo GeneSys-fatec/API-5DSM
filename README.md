@@ -71,12 +71,14 @@ Dado um conjunto de pontos que precisam de cobertura e um conjunto potencialment
 | ID | Prioridade | User Story | Sprint |
 |---|---|---|---|
 | **US01** | Alta | Como usuário, quero importar as BDGDs, para poder realizar simulações em determinada região. | 1 |
-| **US02** | Alta | Como usuário, quero definir a area do cenário no mapa a meta mínima de cobertura e o número máximo de gateways antes de rodar um cenário, para garantir que a simulação respeite os limites e objetivos definidos. | 1 |
-| **US03** | Alta | Como usuário, quero visualizar os ativos elétricos combinados com a RF em um mapa, para poder visualizar quantos ativos a RF está cobrindo. | 1 |
-| **US04** | Alta | Como usuário, quero ver indicadores de qualidade (% de cobertura por tipo de ativo, nº de gateways, custo, tempo de processamento) ao final de um cenário, para avaliar a qualidade e a viabilidade da simulação. | 1 |
-| **US05** | Média | Como usuário, quero salvar e revisitar cenários anteriores organizados por região, para comparar resultados e reaproveitar simulações já realizadas. | 2 |
-| **US06** | Média | Como usuário, quero exportar os resultados de um cenário (mapa + indicadores) em um relatório, para compartilhar com o parceiro. | 2 |
-| **US07** | Baixa | Como usuário, quero acessar um manual do sistema, para entender como utilizar as principais funcionalidades. | 3 |
+| **US02** | Alta | Como usuário, quero definir um ponto central e um raio de atuação dentro da área da BDGD importada, para delimitar a área de busca onde o sistema vai avaliar candidatos a gateway e calcular a cobertura de RF de cada um. | 1 |
+| **US03** | Alta | Como usuário, quero definir a meta mínima de cobertura e o número máximo de gateways antes de rodar um cenário, para garantir que a simulação respeite os limites e objetivos definidos. | 1 |
+| **US04** | Alta | Como usuário, quero ajustar os parâmetros de propagação de RF (frequência, potência de transmissão, sensibilidade do receptor, altura do gateway e altura do dispositivo) antes de rodar um cenário, para que a simulação reflita as características reais do enlace de rádio. | 1 |
+| **US05** | Alta | Como usuário, quero visualizar os ativos elétricos combinados com a RF em um mapa, para poder visualizar quantos ativos a RF está cobrindo. | 2 |
+| **US06** | Alta | Como usuário, quero ver indicadores de qualidade (% de cobertura por tipo de ativo, nº de gateways, custo, tempo de processamento) ao final de um cenário, para avaliar a qualidade e a viabilidade da simulação. | 2 |
+| **US07** | Média | Como usuário, quero salvar e revisitar cenários anteriores organizados por região, para comparar resultados e reaproveitar simulações já realizadas. | 2 |
+| **US08** | Média | Como usuário, quero exportar os resultados de um cenário (mapa + indicadores) em um relatório, para compartilhar com o parceiro. | 2 |
+| **US09** | Baixa | Como usuário, quero acessar um manual do sistema, para entender como utilizar as principais funcionalidades. | 2 |
 
 <br>
 
@@ -109,8 +111,8 @@ Uma tarefa é considerada **pronta** quando:
 
 | Sprint | Previsão | Status | Relatório | Vídeo do Projeto |
 |---|---|---|---|---|
-| 1 | 07/09/2026 - 27/09/2026 | ✅ Concluído | [Ver Relatório](https://github.com/GeneSys-fatec/API-5DSM/blob/docs-sprint-1/README.md) | [Ver Vídeo](https://youtu.be/1CPARC5iv88) |
-| 2 | 05/10/2026 - 25/10/2026 | Em breve | Ver Relatório | Ver Vídeo |
+| 1 | 07/09/2026 - 27/09/2026 | ✅ Concluída | [Ver Relatório](https://github.com/GeneSys-fatec/API-5DSM/blob/docs-sprint-1/README.md) | [Ver Vídeo](https://youtu.be/1CPARC5iv88) |
+| 2 | 05/10/2026 - 25/10/2026 | ✅ Concluída | [Ver Relatório](https://github.com/GeneSys-fatec/API-5DSM/blob/docs-sprint-2/README.md) | [Ver Vídeo](https://youtu.be/7XUs_1N08q8) |
 | 3 | 02/11/2026 - 22/11/2026 | Em breve | Ver Relatório | Ver Vídeo |
 
 <br>
@@ -139,13 +141,69 @@ As seguintes ferramentas, linguagens, bibliotecas e tecnologias foram usadas na 
 
 <span id="instalacao">
 
-## ⬇ Guia de Instalação
+## ⬇️ Guia de Instalação
 
 Este guia oferece instruções detalhadas sobre como baixar, configurar e executar este projeto em sua máquina local.
 
 ### Pré-requisitos
 - **VSCode**: Editor de código para visualização e edição do projeto. [Baixe o VSCode](https://code.visualstudio.com/download)
-- **PostgreSQL**: Banco de dados para armazenar informações necessárias ao sistema. [Baixe o PostgreSQL](https://www.postgresql.org/download/)
+- **Docker Desktop**: Executa o banco PostgreSQL, o backend e o Adminer. [Baixe o Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- **Flutter**: Necessário para executar o frontend. [Baixe o Flutter](https://docs.flutter.dev/get-started/install)
+
+### Instalação no Windows
+
+Abra o PowerShell e execute:
+
+```powershell
+git clone https://github.com/GeneSys-fatec/API-5DSM.git
+cd API-5DSM
+Copy-Item .env.example .env
+docker compose -f docker-compose.dev.yml up -d --build
+```
+
+Confira o estado dos containers:
+
+```powershell
+docker compose -f docker-compose.dev.yml ps
+```
+
+Para executar o frontend Flutter em uma janela separada do PowerShell:
+
+```powershell
+cd frontend
+flutter doctor
+flutter pub get
+flutter run -d chrome
+```
+
+Para executar em um emulador Android, deixe um dispositivo iniciado no Android
+Studio e use:
+
+```powershell
+flutter devices
+flutter run
+```
+
+No emulador Android, o frontend usa `10.0.2.2:8080` para acessar o backend local.
+Em Chrome, Windows, macOS ou Linux, usa `localhost:8080`.
+
+### Importar uma BDGD
+
+O ETL é executado sob demanda. Com os containers principais ativos, execute na
+raiz do projeto:
+
+```powershell
+docker compose -f docker-compose.dev.yml --profile etl build etl
+docker compose -f docker-compose.dev.yml --profile etl run --rm `
+  -v "C:\caminho\para\pasta\com\gdb:/data" `
+  etl python main.py /data/nome_do_arquivo.gdb DISTRIBUIDORA REGIAO
+```
+
+Substitua o caminho do arquivo `.gdb`, a distribuidora e a região pelos valores
+corretos. O procedimento completo, incluindo testes e comandos para encerrar o
+ambiente, está em [COMO_RODAR_DOCKER.md](COMO_RODAR_DOCKER.md).
+
+<br>
 
 <span id="equipe">
 

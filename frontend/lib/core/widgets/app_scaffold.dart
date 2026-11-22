@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../features/auth/data/auth_models.dart';
 import '../../../features/auth/data/auth_service.dart';
 import '../../features/manual/presentation/widgets/contextual_help_dialog.dart';
 import 'app_footer.dart';
@@ -37,15 +38,36 @@ class _AppScaffoldState extends State<AppScaffold> {
   @override
   void initState() {
     super.initState();
+    AuthService.currentUserNotifier.addListener(_onUserChanged);
     _loadUser();
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserChanged);
+    super.dispose();
+  }
+
+  void _onUserChanged() {
+    final user = AuthService.currentUserNotifier.value;
+    if (!mounted || user == null) return;
+    setState(() {
+      _applyUserData(user);
+    });
+  }
+
+  void _applyUserData(UserData user) {
+    if (user.name.trim().isNotEmpty) {
+      _userName = user.name.trim();
+    }
+    _userEmail = user.email;
   }
 
   Future<void> _loadUser() async {
     final user = await _authService.getSavedUser();
     if (!mounted || user == null) return;
     setState(() {
-      if (user.name.isNotEmpty) _userName = user.name;
-      _userEmail = user.email;
+      _applyUserData(user);
     });
   }
 
@@ -76,6 +98,7 @@ class _AppScaffoldState extends State<AppScaffold> {
                 child: AppNavbar(
                   currentRoute: widget.currentRoute,
                   onSelect: (r) => _handleSelect(context, r),
+                  onLogout: _handleLogout,
                 ),
               ),
             ),
@@ -93,6 +116,7 @@ class _AppScaffoldState extends State<AppScaffold> {
                 child: AppNavbar(
                   currentRoute: widget.currentRoute,
                   onSelect: (r) => _handleSelect(context, r),
+                  onLogout: _handleLogout,
                 ),
               ),
             ),
@@ -110,7 +134,6 @@ class _AppScaffoldState extends State<AppScaffold> {
                       userEmail: _userEmail,
                       onMenuTap: () => Scaffold.of(innerContext).openDrawer(),
                       onHelpTap: helpCallback,
-                      onLogout: _handleLogout,
                     ),
                     Expanded(
                       child: SingleChildScrollView(

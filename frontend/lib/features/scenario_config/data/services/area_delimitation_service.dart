@@ -214,7 +214,7 @@ class AreaDelimitationService {
     }
 
     final selectedCodes = config.selectedAssetTypes.expand((t) => t.allFilterCodes).toList();
-    final request = config.useDrawnPolygon && config.drawnPolygonPoints.length >= 3
+    final request = config.useDrawnPolygon
         ? SearchAreaRequest(
             importId: config.bdgdImportId!,
             latitude: config.centerLatitude,
