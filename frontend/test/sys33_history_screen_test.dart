@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:frontend/features/scenario_history/data/models/scenario_models.dart';
 import 'package:frontend/features/scenario_history/data/services/saved_scenario_service.dart';
 import 'package:frontend/features/scenario_history/presentation/controllers/scenario_history_controller.dart';
@@ -11,8 +12,12 @@ class FakeSavedScenarioService implements SavedScenarioService {
   String? filterUsed;
   final List<int> deletedIds = [];
   final List<String> duplicatedNames = [];
+  final List<Map<String, dynamic>> updatedScenarios = [];
 
   FakeSavedScenarioService({this.scenarios = const [], this.listError});
+
+  @override
+  http.Client? get httpClient => null;
 
   @override
   Future<List<ScenarioSummary>> listScenarios({String? regionName}) async {
@@ -52,6 +57,43 @@ class FakeSavedScenarioService implements SavedScenarioService {
         'targetReached': false,
       },
     });
+  }
+
+  @override
+  Future<ScenarioSummary> updateScenario(
+    int id, {
+    required String name,
+    String? regionName,
+  }) async {
+    if (listError != null) throw listError!;
+    updatedScenarios.add({'id': id, 'name': name, 'regionName': regionName});
+    final index = scenarios.indexWhere((s) => s.id == id);
+    final existing = index >= 0
+        ? scenarios[index]
+        : _summary(id: id, name: name, regionName: regionName ?? '');
+    final updated = ScenarioSummary(
+      id: existing.id,
+      name: name.trim(),
+      regionName: (regionName != null && regionName.trim().isNotEmpty)
+          ? regionName.trim()
+          : existing.regionName,
+      coverageTargetPct: existing.coverageTargetPct,
+      maxGateways: existing.maxGateways,
+      propagationModel: existing.propagationModel,
+      status: existing.status,
+      totalCoveragePct: existing.totalCoveragePct,
+      usedGatewayCount: existing.usedGatewayCount,
+      totalEstimatedCost: existing.totalEstimatedCost,
+      processedAt: existing.processedAt,
+    );
+    if (index >= 0) {
+      scenarios = [
+        ...scenarios.sublist(0, index),
+        updated,
+        ...scenarios.sublist(index + 1),
+      ];
+    }
+    return updated;
   }
 
   @override
@@ -303,5 +345,21 @@ void main() {
 
     expect(find.text('Cenário Centro Alfa'), findsNothing);
     expect(find.text('Simulação Norte Beta'), findsOneWidget);
+  });
+
+  testWidgets('exibe valor padrao apenas quando cenario salvo nao possui nome', (tester) async {
+    await pump(
+      tester,
+      FakeSavedScenarioService(scenarios: [
+        _summary(id: 10, name: 'Cenário Personalizado', regionName: 'Centro'),
+        _summary(id: 11, name: '', regionName: 'Centro'),
+        _summary(id: 12, name: '   ', regionName: 'Norte'),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cenário Personalizado'), findsOneWidget);
+    expect(find.text('Cenário 11'), findsOneWidget);
+    expect(find.text('Cenário 12'), findsOneWidget);
   });
 }

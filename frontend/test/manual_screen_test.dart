@@ -122,7 +122,7 @@ void main() {
       await tester.tap(prevButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Acesso seguro à plataforma e gerenciamento de perfil'), findsOneWidget);
+      expect(find.text('Acesso seguro à plataforma, perfil do usuário e encerramento de sessão'), findsOneWidget);
     });
 
     testWidgets('Renderiza em layout mobile com chips horizontais', (tester) async {

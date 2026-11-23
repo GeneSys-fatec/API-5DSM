@@ -14,7 +14,7 @@ const List<NavItem> kNavItems = [
   NavItem(label: 'Configuração de Cenário', icon: Icons.tune_rounded, route: '/scenario'),
   NavItem(label: 'Resultados & Cobertura', icon: Icons.wifi_tethering_rounded, route: '/results'),
   NavItem(label: 'Histórico de Simulações', icon: Icons.history_rounded, route: '/history'),
-  // NavItem(label: 'Configurações do Sistema', icon: Icons.settings_rounded, route: '/settings'),
+  NavItem(label: 'Perfil', icon: Icons.person_outline_rounded, route: '/settings'),
 ];
 
 const NavItem kManualNavItem = NavItem(
@@ -26,13 +26,13 @@ const NavItem kManualNavItem = NavItem(
 class AppNavbar extends StatelessWidget {
   final String currentRoute;
   final ValueChanged<String> onSelect;
-  final bool syncConnected;
+  final VoidCallback? onLogout;
 
   const AppNavbar({
     super.key,
     required this.currentRoute,
     required this.onSelect,
-    this.syncConnected = true,
+    this.onLogout,
   });
 
   @override
@@ -41,8 +41,6 @@ class AppNavbar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _Logo(),
-        _SyncStatus(connected: syncConnected),
-        const SizedBox(height: 8),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -55,6 +53,11 @@ class AppNavbar extends StatelessWidget {
                 .toList(),
           ),
         ),
+        if (onLogout != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: _LogoutTile(onTap: onLogout!),
+          ),
         const Divider(height: 1, color: AppColors.border),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
@@ -76,46 +79,8 @@ class _Logo extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
       child: Row(
         children: [
-            Image.asset('assets/images/logo.png', height: 32),
+          Image.asset('assets/images/logo.png', height: 32),
         ],
-      ),
-    );
-  }
-}
-
-class _SyncStatus extends StatelessWidget {
-  final bool connected;
-  const _SyncStatus({required this.connected});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = connected ? AppColors.success : AppColors.vermelhoErro;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundLight,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                connected ? 'BDGD Sincronizado' : 'BDGD Offline',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const Text('v4.2.1', style: TextStyle(fontSize: 11, color: Color(0xFF9A9DB3))),
-          ],
-        ),
       ),
     );
   }
@@ -160,6 +125,43 @@ class _NavTile extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoutTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _LogoutTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 20, color: AppColors.danger),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Sair da conta',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.danger,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

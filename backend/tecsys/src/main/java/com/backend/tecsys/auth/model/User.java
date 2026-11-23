@@ -16,6 +16,7 @@ public class User {
     private Long id;
     private String name;
     private String email;
+    private String avatarUrl;
 
     @ToString.Exclude
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)

@@ -28,6 +28,7 @@ public class PostgresUserRepository implements IUserRepository {
                 .id(rs.getLong("id"))
                 .name(rs.getString("nome"))
                 .email(rs.getString("email"))
+                .avatarUrl(rs.getString("avatar_url"))
                 .password(rs.getString("senha_hash"))
                 .role(rs.getString("papel") != null ? rs.getString("papel").toUpperCase() : "ENGENHEIRO")
                 .utilityId(rs.getObject("distribuidora_id") != null ? rs.getLong("distribuidora_id") : null)
@@ -44,7 +45,7 @@ public class PostgresUserRepository implements IUserRepository {
     public Optional<User> findByEmail(String email) {
         if (email == null) return Optional.empty();
         try {
-            String sql = "SELECT id, nome, email, senha_hash, papel, distribuidora_id, criado_em FROM app.usuario WHERE LOWER(email) = LOWER(?)";
+            String sql = "SELECT id, nome, email, avatar_url, senha_hash, papel, distribuidora_id, criado_em FROM app.usuario WHERE LOWER(email) = LOWER(?)";
             User user = jdbcTemplate.queryForObject(sql, userRowMapper, email.trim());
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {
@@ -56,7 +57,7 @@ public class PostgresUserRepository implements IUserRepository {
     public Optional<User> findById(Long id) {
         if (id == null) return Optional.empty();
         try {
-            String sql = "SELECT id, nome, email, senha_hash, papel, distribuidora_id, criado_em FROM app.usuario WHERE id = ?";
+            String sql = "SELECT id, nome, email, avatar_url, senha_hash, papel, distribuidora_id, criado_em FROM app.usuario WHERE id = ?";
             User user = jdbcTemplate.queryForObject(sql, userRowMapper, id);
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {
@@ -66,7 +67,7 @@ public class PostgresUserRepository implements IUserRepository {
 
     @Override
     public List<User> findAll() {
-        String sql = "SELECT id, nome, email, senha_hash, papel, distribuidora_id, criado_em FROM app.usuario ORDER BY id ASC";
+        String sql = "SELECT id, nome, email, avatar_url, senha_hash, papel, distribuidora_id, criado_em FROM app.usuario ORDER BY id ASC";
         return jdbcTemplate.query(sql, userRowMapper);
     }
 
@@ -91,8 +92,8 @@ public class PostgresUserRepository implements IUserRepository {
     @Override
     public User update(User user) {
         String papel = user.getRole() != null ? user.getRole().toLowerCase() : "engenheiro";
-        String sql = "UPDATE app.usuario SET nome = ?, email = ?, senha_hash = ?, papel = ? WHERE id = ?";
-        jdbcTemplate.update(sql, user.getName(), user.getEmail(), user.getPassword(), papel, user.getId());
+        String sql = "UPDATE app.usuario SET nome = ?, email = ?, avatar_url = ?, senha_hash = ?, papel = ? WHERE id = ?";
+        jdbcTemplate.update(sql, user.getName(), user.getEmail(), user.getAvatarUrl(), user.getPassword(), papel, user.getId());
         user.setUpdatedAt(LocalDateTime.now());
         return user;
     }

@@ -5,6 +5,7 @@ import com.backend.tecsys.scenario.dto.*;
 import com.backend.tecsys.scenario.dto.SimulationRequest;
 import com.backend.tecsys.scenario.model.PropagationModelType;
 import com.backend.tecsys.scenario.model.Scenario;
+import com.backend.tecsys.scenario.model.ScenarioAssetLocation;
 import com.backend.tecsys.scenario.model.ScenarioIndicator;
 import com.backend.tecsys.scenario.model.ScenarioSelectedGateway;
 import com.backend.tecsys.scenario.service.ScenarioService;
@@ -92,20 +93,7 @@ public class ScenarioController {
 
         List<ScenarioSummaryDto> dtos = new ArrayList<>();
         for (Scenario s : scenarios) {
-            ScenarioIndicator ind = s.getIndicator();
-            dtos.add(ScenarioSummaryDto.builder()
-                    .id(s.getId())
-                    .name(s.getName())
-                    .regionName(s.getRegionName())
-                    .coverageTargetPct(s.getCoverageTargetPct())
-                    .maxGateways(s.getMaxGateways())
-                    .propagationModel(s.getPropagationModel())
-                    .status(s.getStatus())
-                    .totalCoveragePct(ind != null ? ind.getTotalCoveragePct() : null)
-                    .usedGatewayCount(ind != null ? ind.getUsedGatewayCount() : null)
-                    .totalEstimatedCost(ind != null ? ind.getTotalEstimatedCost() : null)
-                    .processedAt(s.getProcessedAt())
-                    .build());
+            dtos.add(toSummaryDto(s));
         }
         return ResponseEntity.ok(dtos);
     }
@@ -123,6 +111,23 @@ public class ScenarioController {
         }
 
         ScenarioDetailDto dto = toDetailDto(scenario);
+        List<ScenarioAssetLocation> locations = scenarioService.getAssetLocations(id);
+        dto.setAssets(locations.stream()
+                .map(l -> ScenarioDetailDto.AssetDto.builder()
+                        .assetKey(l.assetKey())
+                        .type(l.type())
+                        .latitude(l.latitude())
+                        .longitude(l.longitude())
+                        .covered(l.covered())
+                        .build())
+                .toList());
+        if (dto.getSelectedGateways() != null) {
+            for (ScenarioDetailDto.SelectedGatewayDto gateway : dto.getSelectedGateways()) {
+                gateway.setLinkedAssets((int) locations.stream()
+                        .filter(l -> l.covered() && java.util.Objects.equals(l.gatewayCandidateId(), gateway.getCandidateId()))
+                        .count());
+            }
+        }
         return ResponseEntity.ok(dto);
     }
 
@@ -136,16 +141,22 @@ public class ScenarioController {
         User user = authenticatedUser(authentication);
         String newName = body != null ? body.get("name") : null;
         Scenario duplicated = scenarioService.duplicateScenario(id, user, newName);
-        ScenarioSummaryDto dto = ScenarioSummaryDto.builder()
-                .id(duplicated.getId())
-                .name(duplicated.getName())
-                .regionName(duplicated.getRegionName())
-                .coverageTargetPct(duplicated.getCoverageTargetPct())
-                .maxGateways(duplicated.getMaxGateways())
-                .propagationModel(duplicated.getPropagationModel())
-                .status(duplicated.getStatus())
-                .build();
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(toSummaryDto(duplicated));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Atualizar cenário salvo", description = "Atualiza o nome e a região de um cenário salvo.", security = @SecurityRequirement(name = "Bearer Authentication"))
+    public ResponseEntity<ScenarioSummaryDto> updateScenario(
+            Authentication authentication,
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateScenarioRequest request) {
+
+        authenticatedUser(authentication);
+        Scenario updated = scenarioService.updateScenarioMetadata(id, request.getName(), request.getRegionName());
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(toSummaryDto(updated));
     }
 
     @DeleteMapping("/{id}")
@@ -174,19 +185,7 @@ public class ScenarioController {
             if (s == null) {
                 return ResponseEntity.badRequest().body(null);
             }
-            ScenarioIndicator ind = s.getIndicator();
-            summaries.add(ScenarioSummaryDto.builder()
-                    .id(s.getId())
-                    .name(s.getName())
-                    .regionName(s.getRegionName())
-                    .coverageTargetPct(s.getCoverageTargetPct())
-                    .maxGateways(s.getMaxGateways())
-                    .propagationModel(s.getPropagationModel())
-                    .status(s.getStatus())
-                    .totalCoveragePct(ind != null ? ind.getTotalCoveragePct() : null)
-                    .usedGatewayCount(ind != null ? ind.getUsedGatewayCount() : null)
-                    .totalEstimatedCost(ind != null ? ind.getTotalEstimatedCost() : null)
-                    .build());
+            summaries.add(toSummaryDto(s));
         }
 
         comparison.put("count", summaries.size());
@@ -195,6 +194,23 @@ public class ScenarioController {
                 .comparisonIndicators(comparison)
                 .build();
         return ResponseEntity.ok(response);
+    }
+
+    private ScenarioSummaryDto toSummaryDto(Scenario s) {
+        ScenarioIndicator ind = s.getIndicator();
+        return ScenarioSummaryDto.builder()
+                .id(s.getId())
+                .name(s.getName())
+                .regionName(s.getRegionName())
+                .coverageTargetPct(s.getCoverageTargetPct())
+                .maxGateways(s.getMaxGateways())
+                .propagationModel(s.getPropagationModel())
+                .status(s.getStatus())
+                .totalCoveragePct(ind != null ? ind.getTotalCoveragePct() : null)
+                .usedGatewayCount(ind != null ? ind.getUsedGatewayCount() : null)
+                .totalEstimatedCost(ind != null ? ind.getTotalEstimatedCost() : null)
+                .processedAt(s.getProcessedAt())
+                .build();
     }
 
     private ScenarioDetailDto toDetailDto(Scenario scenario) {
@@ -208,6 +224,12 @@ public class ScenarioController {
                         .longitude(g.getCoordinate() != null ? g.getCoordinate().longitude() : null)
                         .coverageRadiusMeters(g.getCoverageRadiusMeters())
                         .manuallyAdjusted(g.isManuallyAdjusted())
+                        .assetKey(g.getAssetKey())
+                        .coverageGeometryGeoJson(g.getCoverageGeometryGeoJson())
+                        .coveredAssetCount(g.getCoveredAssetCount())
+                        .averageRssiDbm(g.getAverageRssiDbm())
+                        .averageLinkMarginDb(g.getAverageLinkMarginDb())
+                        .shadowedAssetKeys(g.getShadowedAssetKeys())
                         .build());
             }
         }
@@ -238,6 +260,7 @@ public class ScenarioController {
                 .processedAt(scenario.getProcessedAt())
                 .selectedGateways(gateways)
                 .indicator(indicatorDto)
+                .averageRssiDbm(scenario.getAverageRssiDbm())
                 .build();
     }
 }

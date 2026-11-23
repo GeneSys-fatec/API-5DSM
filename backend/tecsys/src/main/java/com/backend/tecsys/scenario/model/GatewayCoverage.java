@@ -42,4 +42,12 @@ public class GatewayCoverage {
     public int shadowedCount() {
         return shadowedAssetKeys.size();
     }
+
+    /** Potência média recebida (dBm) nos ativos cobertos por este gateway; null se não cobre nenhum. */
+    public Double averageReceivedPowerDbm() {
+        return receivedPowerDbmByAssetKey.values().stream()
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .stream().boxed().findFirst().orElse(null);
+    }
 }

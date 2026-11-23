@@ -39,6 +39,11 @@ public class GlobalExceptionHandler {
                                 "timestamp", LocalDateTime.now().toString()));
         }
 
+        @ExceptionHandler(IllegalArgumentException.class)
+        public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+
         @ExceptionHandler(AuthService.AuthenticationException.class)
         public ResponseEntity<Map<String, Object>> handleAuthenticationException(AuthService.AuthenticationException ex) {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED);
@@ -62,6 +67,11 @@ public class GlobalExceptionHandler {
         @ExceptionHandler(com.backend.tecsys.auth.exception.ForbiddenOperationException.class)
         public ResponseEntity<Map<String, Object>> handleForbiddenOperationException(com.backend.tecsys.auth.exception.ForbiddenOperationException ex) {
                 return buildErrorResponse(ex.getMessage(), HttpStatus.FORBIDDEN, "FORBIDDEN");
+        }
+
+        @ExceptionHandler(com.backend.tecsys.auth.service.PasswordResetService.InvalidTokenException.class)
+        public ResponseEntity<Map<String, Object>> handleInvalidTokenException(com.backend.tecsys.auth.service.PasswordResetService.InvalidTokenException ex) {
+                return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_RESET_TOKEN");
         }
 
         @ExceptionHandler(InvalidBdgdUploadException.class)

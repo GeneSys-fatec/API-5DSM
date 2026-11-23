@@ -1,6 +1,7 @@
 ETL/*.gdb
 ETL/.etl_state.json
 .kiro
+.kiro/settings/mcp.json
 .vscode
 
 __pycache__/

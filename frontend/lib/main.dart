@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/auth/presentation/screens/forgot_password_screen.dart';
+import 'features/auth/presentation/screens/reset_password_screen.dart';
 import 'features/scenario_config/presentation/screens/area_delimitation_screen.dart';
 import 'features/scenario_config/presentation/screens/scenario_config_screen.dart';
 import 'features/bdgd_import/presentation/screens/bdgd_import_screen.dart';
@@ -30,12 +32,13 @@ class TecsysApp extends StatelessWidget {
         '/': (_) => LoginScreen(initialLoginMode: initialLoginMode),
         '/login': (_) => LoginScreen(initialLoginMode: initialLoginMode),
         '/register': (_) => const LoginScreen(initialLoginMode: false),
+        '/forgot-password': (_) => const ForgotPasswordScreen(),
         '/bdgd-import': (_) => const AuthGuard(child: BdgdImportScreen()),
         '/scenario': (_) => const AuthGuard(child: AreaDelimitationScreen()),
         '/scenario/rf': (_) => const AuthGuard(child: ScenarioConfigScreen()),
         '/history': (_) => const AuthGuard(child: HistoryScreen()),
         '/manual': (_) => const ManualScreen(),
-        // '/settings': (_) => const AuthGuard(child: SettingsScreen()),
+        '/settings': (_) => const AuthGuard(child: SettingsScreen()),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/manual') {
@@ -51,6 +54,17 @@ class TecsysApp extends StatelessWidget {
               : null;
           return MaterialPageRoute(
             builder: (_) => AuthGuard(child: ScenarioResultsScreen(scenario: scenario)),
+            settings: settings,
+          );
+        }
+        if (settings.name == '/reset-password') {
+          final token = settings.arguments is String
+              ? settings.arguments as String
+              : (settings.name!.contains('?token=')
+                  ? Uri.parse(settings.name!).queryParameters['token'] ?? ''
+                  : '');
+          return MaterialPageRoute(
+            builder: (_) => ResetPasswordScreen(token: token),
             settings: settings,
           );
         }
