@@ -140,9 +140,7 @@ class ScenarioComparisonDialog extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    scenario.name.isEmpty
-                                        ? 'Cenário ${scenario.id}'
-                                        : scenario.name,
+                                    scenario.displayName,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(

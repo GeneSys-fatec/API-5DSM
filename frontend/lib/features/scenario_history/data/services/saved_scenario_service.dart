@@ -8,6 +8,9 @@ import '../models/scenario_models.dart';
 
 class SavedScenarioService {
   static const Duration _timeout = Duration(seconds: 15);
+  final http.Client? httpClient;
+
+  SavedScenarioService({this.httpClient});
 
   Future<List<ScenarioSummary>> listScenarios({String? regionName}) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenarios').replace(
@@ -16,7 +19,9 @@ class SavedScenarioService {
       },
     );
 
-    final response = await _send((token) => http.get(uri, headers: _headers(token)));
+    final response = await _send(
+      (token) => (httpClient ?? http.Client()).get(uri, headers: _headers(token)),
+    );
     final body = jsonDecode(response.body) as List<dynamic>;
     return body
         .map((e) => ScenarioSummary.fromJson(e as Map<String, dynamic>))
@@ -25,14 +30,40 @@ class SavedScenarioService {
 
   Future<ScenarioDetail> getScenario(int id) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenarios/$id');
-    final response = await _send((token) => http.get(uri, headers: _headers(token)));
+    final response = await _send(
+      (token) => (httpClient ?? http.Client()).get(uri, headers: _headers(token)),
+    );
     return ScenarioDetail.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<ScenarioSummary> updateScenario(
+    int id, {
+    required String name,
+    String? regionName,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/scenarios/$id');
+    final trimmedName = name.trim();
+    final trimmedRegion = regionName?.trim();
+    final response = await _send(
+      (token) => (httpClient ?? http.Client()).patch(
+        uri,
+        headers: _headers(token),
+        body: jsonEncode({
+          'name': trimmedName,
+          if (trimmedRegion != null && trimmedRegion.isNotEmpty)
+            'regionName': trimmedRegion,
+        }),
+      ),
+    );
+    return ScenarioSummary.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<ScenarioSummary> duplicateScenario(int id, {String? name}) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenarios/$id/duplicate');
     final response = await _send(
-      (token) => http.post(
+      (token) => (httpClient ?? http.Client()).post(
         uri,
         headers: _headers(token),
         body: jsonEncode({if (name != null && name.isNotEmpty) 'name': name}),
@@ -43,13 +74,15 @@ class SavedScenarioService {
 
   Future<void> deleteScenario(int id) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenarios/$id');
-    await _send((token) => http.delete(uri, headers: _headers(token)));
+    await _send(
+      (token) => (httpClient ?? http.Client()).delete(uri, headers: _headers(token)),
+    );
   }
 
   Future<ScenarioComparisonResponse> compareScenarios(List<int> ids) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/scenarios/compare');
     final response = await _send(
-      (token) => http.post(
+      (token) => (httpClient ?? http.Client()).post(
         uri,
         headers: _headers(token),
         body: jsonEncode({'scenarioIds': ids}),

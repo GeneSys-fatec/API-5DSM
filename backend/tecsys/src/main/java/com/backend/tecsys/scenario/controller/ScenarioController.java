@@ -93,20 +93,7 @@ public class ScenarioController {
 
         List<ScenarioSummaryDto> dtos = new ArrayList<>();
         for (Scenario s : scenarios) {
-            ScenarioIndicator ind = s.getIndicator();
-            dtos.add(ScenarioSummaryDto.builder()
-                    .id(s.getId())
-                    .name(s.getName())
-                    .regionName(s.getRegionName())
-                    .coverageTargetPct(s.getCoverageTargetPct())
-                    .maxGateways(s.getMaxGateways())
-                    .propagationModel(s.getPropagationModel())
-                    .status(s.getStatus())
-                    .totalCoveragePct(ind != null ? ind.getTotalCoveragePct() : null)
-                    .usedGatewayCount(ind != null ? ind.getUsedGatewayCount() : null)
-                    .totalEstimatedCost(ind != null ? ind.getTotalEstimatedCost() : null)
-                    .processedAt(s.getProcessedAt())
-                    .build());
+            dtos.add(toSummaryDto(s));
         }
         return ResponseEntity.ok(dtos);
     }
@@ -154,16 +141,22 @@ public class ScenarioController {
         User user = authenticatedUser(authentication);
         String newName = body != null ? body.get("name") : null;
         Scenario duplicated = scenarioService.duplicateScenario(id, user, newName);
-        ScenarioSummaryDto dto = ScenarioSummaryDto.builder()
-                .id(duplicated.getId())
-                .name(duplicated.getName())
-                .regionName(duplicated.getRegionName())
-                .coverageTargetPct(duplicated.getCoverageTargetPct())
-                .maxGateways(duplicated.getMaxGateways())
-                .propagationModel(duplicated.getPropagationModel())
-                .status(duplicated.getStatus())
-                .build();
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(toSummaryDto(duplicated));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Atualizar cenário salvo", description = "Atualiza o nome e a região de um cenário salvo.", security = @SecurityRequirement(name = "Bearer Authentication"))
+    public ResponseEntity<ScenarioSummaryDto> updateScenario(
+            Authentication authentication,
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateScenarioRequest request) {
+
+        authenticatedUser(authentication);
+        Scenario updated = scenarioService.updateScenarioMetadata(id, request.getName(), request.getRegionName());
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(toSummaryDto(updated));
     }
 
     @DeleteMapping("/{id}")
@@ -192,19 +185,7 @@ public class ScenarioController {
             if (s == null) {
                 return ResponseEntity.badRequest().body(null);
             }
-            ScenarioIndicator ind = s.getIndicator();
-            summaries.add(ScenarioSummaryDto.builder()
-                    .id(s.getId())
-                    .name(s.getName())
-                    .regionName(s.getRegionName())
-                    .coverageTargetPct(s.getCoverageTargetPct())
-                    .maxGateways(s.getMaxGateways())
-                    .propagationModel(s.getPropagationModel())
-                    .status(s.getStatus())
-                    .totalCoveragePct(ind != null ? ind.getTotalCoveragePct() : null)
-                    .usedGatewayCount(ind != null ? ind.getUsedGatewayCount() : null)
-                    .totalEstimatedCost(ind != null ? ind.getTotalEstimatedCost() : null)
-                    .build());
+            summaries.add(toSummaryDto(s));
         }
 
         comparison.put("count", summaries.size());
@@ -213,6 +194,23 @@ public class ScenarioController {
                 .comparisonIndicators(comparison)
                 .build();
         return ResponseEntity.ok(response);
+    }
+
+    private ScenarioSummaryDto toSummaryDto(Scenario s) {
+        ScenarioIndicator ind = s.getIndicator();
+        return ScenarioSummaryDto.builder()
+                .id(s.getId())
+                .name(s.getName())
+                .regionName(s.getRegionName())
+                .coverageTargetPct(s.getCoverageTargetPct())
+                .maxGateways(s.getMaxGateways())
+                .propagationModel(s.getPropagationModel())
+                .status(s.getStatus())
+                .totalCoveragePct(ind != null ? ind.getTotalCoveragePct() : null)
+                .usedGatewayCount(ind != null ? ind.getUsedGatewayCount() : null)
+                .totalEstimatedCost(ind != null ? ind.getTotalEstimatedCost() : null)
+                .processedAt(s.getProcessedAt())
+                .build();
     }
 
     private ScenarioDetailDto toDetailDto(Scenario scenario) {

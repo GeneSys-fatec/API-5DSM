@@ -1,6 +1,7 @@
 package com.backend.tecsys.scenario.service;
 
 import com.backend.tecsys.auth.model.User;
+import com.backend.tecsys.scenario.exception.InvalidSimulationParameterException;
 import com.backend.tecsys.scenario.model.*;
 import com.backend.tecsys.scenario.repository.IScenarioRepository;
 import org.springframework.stereotype.Service;
@@ -35,13 +36,27 @@ public class ScenarioService {
         scenarioRepository.deleteById(id);
     }
 
+    public Scenario updateScenarioMetadata(Long id, String name, String regionName) {
+        String trimmedName = name != null ? name.trim() : null;
+        if (trimmedName == null || trimmedName.isEmpty()) {
+            throw new InvalidSimulationParameterException("O nome do cenário é obrigatório.");
+        }
+        return scenarioRepository.updateMetadata(id, trimmedName, regionName);
+    }
+
     public Scenario duplicateScenario(Long scenarioId, User user, String newName) {
         Scenario original = scenarioRepository.findById(scenarioId);
         if (original == null) {
             throw new IllegalArgumentException("Cenário não encontrado.");
         }
+        String fallbackBase = (original.getName() != null && !original.getName().isBlank())
+                ? original.getName().trim()
+                : "Cenário " + original.getId();
+        String copyName = (newName != null && !newName.isBlank())
+                ? newName.trim()
+                : fallbackBase + " (cópia)";
         Scenario copy = Scenario.builder()
-                .name(newName != null ? newName : original.getName() + " (cópia)")
+                .name(copyName)
                 .userId(user.getId())
                 .utilityId(original.getUtilityId())
                 .regionName(original.getRegionName())

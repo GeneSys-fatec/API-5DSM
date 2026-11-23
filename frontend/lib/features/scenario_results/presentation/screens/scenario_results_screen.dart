@@ -6,25 +6,39 @@ import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_scaffold.dart';
 import '../../models/scenario_results_models.dart';
 import '../../../scenario_config/data/services/scenario_storage_service.dart';
+import '../../../scenario_history/data/services/saved_scenario_service.dart';
 import '../widgets/scenario_kpi_row.dart';
 import '../widgets/scenario_map.dart';
 import '../../data/services/scenario_report_service.dart';
 
 class ScenarioResultsScreen extends StatefulWidget {
   final SimulationScenario? scenario;
+  final SavedScenarioService? savedScenarioService;
+  final ScenarioStorageService? storageService;
+  final bool enableMapTiles;
 
-  const ScenarioResultsScreen({super.key, this.scenario});
+  const ScenarioResultsScreen({
+    super.key,
+    this.scenario,
+    this.savedScenarioService,
+    this.storageService,
+    this.enableMapTiles = true,
+  });
 
   @override
   State<ScenarioResultsScreen> createState() => _ScenarioResultsScreenState();
 }
 
 class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
-  final ScenarioStorageService _storageService = ScenarioStorageService();
+  late final ScenarioStorageService _storageService =
+      widget.storageService ?? ScenarioStorageService();
+  late final SavedScenarioService _savedScenarioService =
+      widget.savedScenarioService ?? SavedScenarioService();
   final ScenarioReportService _reportService = ScenarioReportService();
   final GlobalKey _mapCaptureKey = GlobalKey();
   SimulationScenario? _scenario;
   bool _isLoading = false;
+  bool _isSaving = false;
   bool _isExportingReport = false;
 
   @override
@@ -108,15 +122,21 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
     }
   }
 
+  String _resolveDisplayName(SimulationScenario scenario) {
+    final name = scenario.name?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    final feeder = scenario.parameters.feederName.trim();
+    if (feeder.isNotEmpty) return feeder;
+    return scenario.id.trim().isNotEmpty
+        ? 'Cenário ${scenario.id}'
+        : 'Cenário ${scenario.region}';
+  }
+
   Future<void> _handleSaveScenario() async {
     final scenario = _scenario;
-    if (scenario == null) return;
+    if (scenario == null || _isSaving) return;
 
-    final initialName = scenario.name?.isNotEmpty == true
-        ? scenario.name!
-        : (scenario.parameters.feederName.isNotEmpty
-            ? scenario.parameters.feederName
-            : 'Cenário ${scenario.region}');
+    final initialName = _resolveDisplayName(scenario);
     final initialRegion = scenario.region;
 
     final result = await showDialog<Map<String, String>>(
@@ -129,51 +149,79 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
 
     if (result == null || !mounted) return;
 
-    final updatedName = result['name'] ?? initialName;
-    final updatedRegion = result['region'] ?? initialRegion;
+    final updatedName = (result['name'] ?? initialName).trim();
+    final updatedRegion = (result['region'] ?? initialRegion).trim();
 
-    final updatedScenario = scenario.copyWith(
-      name: updatedName,
-      region: updatedRegion,
-    );
+    setState(() => _isSaving = true);
+    try {
+      final scenarioId = int.tryParse(scenario.id.trim());
+      if (scenarioId != null && scenarioId > 0) {
+        await _savedScenarioService.updateScenario(
+          scenarioId,
+          name: updatedName,
+          regionName: updatedRegion,
+        );
+      }
 
-    await _storageService.saveLastSimulationScenario(updatedScenario);
+      final updatedScenario = scenario.copyWith(
+        name: updatedName,
+        region: updatedRegion,
+      );
 
-    if (!mounted) return;
-    setState(() {
-      _scenario = updatedScenario;
-    });
+      await _storageService.saveLastSimulationScenario(updatedScenario);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-        // Com "action", o Flutter mantém o SnackBar na tela até o usuário dispensar (persist = true
-        // por padrão). Sem isto a barra verde nunca sumia sozinha.
-        persist: false,
-        duration: const Duration(seconds: 5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Cenário "$updatedName" salvo na região "$updatedRegion"!',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+      if (!mounted) return;
+      setState(() {
+        _scenario = updatedScenario;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          // Com "action", o Flutter mantém o SnackBar na tela até o usuário dispensar (persist = true
+          // por padrão). Sem isto a barra verde nunca sumia sozinha.
+          persist: false,
+          duration: const Duration(seconds: 5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Cenário "$updatedName" salvo na região "$updatedRegion"!',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          action: SnackBarAction(
+            label: 'Ver Histórico',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.of(context).pushReplacementNamed('/history');
+            },
+          ),
         ),
-        action: SnackBarAction(
-          label: 'Ver Histórico',
-          textColor: Colors.white,
-          onPressed: () {
-            Navigator.of(context).pushReplacementNamed('/history');
-          },
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is SavedScenarioException
+          ? error.message
+          : 'Não foi possível salvar o cenário no servidor.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.vermelhoErro,
+          behavior: SnackBarBehavior.floating,
+          content: Text(message),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   static const double _actionHeight = 44;
@@ -306,9 +354,7 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          scenario.name?.isNotEmpty == true
-                              ? scenario.name!
-                              : scenario.parameters.feederName,
+                          _resolveDisplayName(scenario),
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
@@ -324,10 +370,19 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
                     );
 
                     final saveButton = OutlinedButton.icon(
-                      onPressed: _handleSaveScenario,
+                      onPressed: _isSaving ? null : _handleSaveScenario,
                       style: _outlinedActionStyle(),
-                      icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-                      label: const Text('Salvar Cenário'),
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryPurple,
+                              ),
+                            )
+                          : const Icon(Icons.bookmark_add_outlined, size: 18),
+                      label: Text(_isSaving ? 'Salvando...' : 'Salvar Cenário'),
                     );
 
                     final exportButton = OutlinedButton.icon(
@@ -407,6 +462,7 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
               height: isMobile ? 320 : 520,
               child: ScenarioMap(
                 scenario: scenario,
+                enableTiles: widget.enableMapTiles,
                 captureKey: _mapCaptureKey,
               ),
             ),

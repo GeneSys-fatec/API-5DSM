@@ -277,7 +277,7 @@ class _Header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          detail.name.isEmpty ? 'Cenário ${detail.id}' : detail.name,
+          detail.displayName,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(

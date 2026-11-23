@@ -136,6 +136,12 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             DELETE FROM app.cenario WHERE id = ?
             """;
 
+    private static final String UPDATE_SCENARIO_METADATA = """
+            UPDATE app.cenario
+            SET nome = ?, regiao_nome = COALESCE(?, regiao_nome)
+            WHERE id = ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -283,6 +289,22 @@ public class PostgresScenarioRepository implements IScenarioRepository {
             jdbcTemplate.update(DELETE_SCENARIO_BY_ID, id);
         } catch (Exception e) {
             throw new ScenarioPersistenceException("Falha ao excluir cenário: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Scenario updateMetadata(Long id, String name, String regionName) {
+        try {
+            String normalizedRegion = (regionName != null && !regionName.isBlank()) ? regionName.trim() : null;
+            int updated = jdbcTemplate.update(UPDATE_SCENARIO_METADATA, name.trim(), normalizedRegion, id);
+            if (updated == 0) {
+                return null;
+            }
+            return findById(id);
+        } catch (ScenarioPersistenceException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ScenarioPersistenceException("Falha ao atualizar cenário: " + e.getMessage(), e);
         }
     }
 

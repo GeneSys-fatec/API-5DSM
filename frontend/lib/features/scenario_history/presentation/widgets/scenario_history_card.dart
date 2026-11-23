@@ -137,7 +137,7 @@ class _ScenarioDetails extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                scenario.name.isEmpty ? 'Cenário ${scenario.id}' : scenario.name,
+                scenario.displayName,
                 maxLines: compact ? 2 : 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

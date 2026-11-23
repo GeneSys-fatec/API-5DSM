@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../controllers/login_controller.dart';
 import '../screens/register_screen.dart';
+import '../screens/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool initialLoginMode;
@@ -436,12 +437,9 @@ class _LoginScreenState extends State<LoginScreen> {
             _buildLabelWithAsterisk('Senha'),
             InkWell(
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Recuperação de senha em desenvolvimento.'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const ForgotPasswordScreen(),
+                ));
               },
               hoverColor: Colors.transparent,
               child: const Text(
