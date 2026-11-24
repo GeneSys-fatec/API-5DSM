@@ -2,7 +2,7 @@
 
 Projeto do curso de **Desenvolvimento de Software Multiplataforma da Fatec São José dos Campos**, em parceria com a **Tecsys**, desenvolvido com Scrum e o ciclo CDIO - Conceber, Desenvolver, Implementar e Operar.
 
-> **Status do projeto:** Em desenvolvimento
+> **Status do projeto:** Concluído
 
 <span id="sumario">
 
@@ -113,7 +113,7 @@ Uma tarefa é considerada **pronta** quando:
 |---|---|---|---|---|
 | 1 | 07/09/2026 - 27/09/2026 | ✅ Concluída | [Ver Relatório](https://github.com/GeneSys-fatec/API-5DSM/blob/docs-sprint-1/README.md) | [Ver Vídeo](https://youtu.be/1CPARC5iv88) |
 | 2 | 05/10/2026 - 25/10/2026 | ✅ Concluída | [Ver Relatório](https://github.com/GeneSys-fatec/API-5DSM/blob/docs-sprint-2/README.md) | [Ver Vídeo](https://youtu.be/7XUs_1N08q8) |
-| 3 | 02/11/2026 - 22/11/2026 | Em breve | Ver Relatório | Ver Vídeo |
+| 3 | 02/11/2026 - 22/11/2026 | ✅ Concluída | [Ver Relatório](https://github.com/GeneSys-fatec/API-5DSM/blob/docs-sprint-3/README.md) | [Ver Vídeo](https://youtu.be/sIfAu_EA39w) |
 
 <br>
 
@@ -146,9 +146,11 @@ As seguintes ferramentas, linguagens, bibliotecas e tecnologias foram usadas na 
 Este guia oferece instruções detalhadas sobre como baixar, configurar e executar este projeto em sua máquina local.
 
 ### Pré-requisitos
+- **Git**: Necessário para clonar o repositório. [Baixe o Git](https://git-scm.com/downloads)
 - **VSCode**: Editor de código para visualização e edição do projeto. [Baixe o VSCode](https://code.visualstudio.com/download)
-- **Docker Desktop**: Executa o banco PostgreSQL, o backend e o Adminer. [Baixe o Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- **Docker Desktop**: Executa o banco PostgreSQL/PostGIS, o backend e o Adminer. [Baixe o Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - **Flutter**: Necessário para executar o frontend. [Baixe o Flutter](https://docs.flutter.dev/get-started/install)
+- **Android Studio**: Opcional para executar o aplicativo em um emulador Android. [Baixe o Android Studio](https://developer.android.com/studio)
 
 ### Instalação no Windows
 
@@ -167,25 +169,49 @@ Confira o estado dos containers:
 docker compose -f docker-compose.dev.yml ps
 ```
 
-Para executar o frontend Flutter em uma janela separada do PowerShell:
+Todos os containers principais devem estar em execução. A API estará disponível
+em `http://localhost:8080` e o Adminer em `http://localhost:8082`.
+
+### Executar o frontend
+
+Em uma nova janela do PowerShell, execute:
 
 ```powershell
 cd frontend
 flutter doctor
 flutter pub get
+```
+
+**Chrome:**
+
+```powershell
 flutter run -d chrome
 ```
 
-Para executar em um emulador Android, deixe um dispositivo iniciado no Android
-Studio e use:
+**Aplicativo Windows:**
+
+```powershell
+flutter run -d windows
+```
+
+**Emulador Android:**
+
+Inicie um dispositivo no Android Studio e confira a plataforma disponível:
 
 ```powershell
 flutter devices
 flutter run
 ```
 
-No emulador Android, o frontend usa `10.0.2.2:8080` para acessar o backend local.
-Em Chrome, Windows, macOS ou Linux, usa `localhost:8080`.
+O frontend detecta automaticamente o destino. No Android, ele usa
+`10.0.2.2:8080` para acessar o backend executado no Docker. Em Chrome e nas
+demais plataformas de desktop, usa `localhost:8080`.
+
+Para informar manualmente outro endereço da API:
+
+```powershell
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8080
+```
 
 ### Importar uma BDGD
 
